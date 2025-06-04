@@ -41,7 +41,7 @@ const availableRankingMetrics: { value: RankingMetricKey, label: string }[] = [
 
 
 export default function DashboardPage() {
-  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('cumulative');
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('periodOverPeriod'); // Default to 当周表现
   const [dateRange, setDateRange] = useState(getDefaultDateRange());
   const [selectedPeriodKey, setSelectedPeriodKey] = useState<string>(defaultDateRangeOptions[0].value);
 

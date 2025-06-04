@@ -1,6 +1,6 @@
 import type { ProcessedDataForPeriod, AnalysisMode } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
-import { TableCells, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TableCellsSplit, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/data-utils';
 import { cn } from '@/lib/utils';
@@ -43,14 +43,14 @@ const LossRatioChangeIndicator = ({ value }: { value: number | undefined }) => {
 export function DataTableSection({ data, analysisMode }: DataTableSectionProps) {
   if (!data || data.length === 0) {
     return (
-      <SectionWrapper title="数据表显示" icon={TableCells}>
+      <SectionWrapper title="数据表显示" icon={TableCellsSplit}>
         <p className="text-muted-foreground">暂无数据可显示。</p>
       </SectionWrapper>
     );
   }
 
   return (
-    <SectionWrapper title="数据表显示" icon={TableCells}>
+    <SectionWrapper title="数据表显示" icon={TableCellsSplit}>
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
