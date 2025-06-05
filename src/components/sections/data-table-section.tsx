@@ -1,3 +1,4 @@
+
 import type { ProcessedDataForPeriod, AnalysisMode } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
 import { TableCellsSplit, TrendingUp, TrendingDown, Minus } from 'lucide-react';
@@ -56,14 +57,16 @@ export function DataTableSection({ data, analysisMode }: DataTableSectionProps) 
           <TableHeader>
             <TableRow>
               <TableHead>业务线</TableHead>
-              <TableHead className="text-right">保费</TableHead>
-              {analysisMode === 'periodOverPeriod' && <TableHead className="text-right">保费环比</TableHead>}
-              <TableHead className="text-right">赔付额</TableHead>
-              {analysisMode === 'periodOverPeriod' && <TableHead className="text-right">赔付额环比</TableHead>}
-              <TableHead className="text-right">保单数</TableHead>
-              {analysisMode === 'periodOverPeriod' && <TableHead className="text-right">保单数环比</TableHead>}
-              <TableHead className="text-right">赔付率</TableHead>
-              {analysisMode === 'periodOverPeriod' && <TableHead className="text-right">赔付率环比</TableHead>}
+              <TableHead className="text-right">跟单保费</TableHead>
+              {analysisMode === 'periodOverPeriod' && <TableHead className="text-right">跟单保费环比</TableHead>}
+              <TableHead className="text-right">总赔款</TableHead>
+              {analysisMode === 'periodOverPeriod' && <TableHead className="text-right">总赔款环比</TableHead>}
+              <TableHead className="text-right">保单数量</TableHead>
+              {analysisMode === 'periodOverPeriod' && <TableHead className="text-right">保单数量环比</TableHead>}
+              <TableHead className="text-right">满期赔付率</TableHead>
+              {analysisMode === 'periodOverPeriod' && <TableHead className="text-right">满期赔付率环比</TableHead>}
+               <TableHead className="text-right">费用率</TableHead>
+              {analysisMode === 'periodOverPeriod' && <TableHead className="text-right">费用率环比</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -73,21 +76,26 @@ export function DataTableSection({ data, analysisMode }: DataTableSectionProps) 
                   {item.icon && <item.icon className="h-4 w-4 mr-2 text-primary" />}
                   {item.businessLineName}
                 </TableCell>
-                <TableCell className="text-right">{formatCurrency(item.premium)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(item.premium_written)}</TableCell>
                 {analysisMode === 'periodOverPeriod' && (
-                  <TableCell className="text-right"><ChangeIndicator value={item.premiumChange} /></TableCell>
+                  <TableCell className="text-right"><ChangeIndicator value={item.premium_writtenChange} /></TableCell>
                 )}
-                <TableCell className="text-right">{formatCurrency(item.claims)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(item.total_loss_amount)}</TableCell>
                 {analysisMode === 'periodOverPeriod' && (
-                  <TableCell className="text-right"><ChangeIndicator value={item.claimsChange} /></TableCell>
+                  <TableCell className="text-right"><ChangeIndicator value={item.total_loss_amountChange} /></TableCell>
                 )}
-                <TableCell className="text-right">{formatNumber(item.policies)}</TableCell>
+                <TableCell className="text-right">{formatNumber(item.policy_count)}</TableCell>
                 {analysisMode === 'periodOverPeriod' && (
-                  <TableCell className="text-right"><ChangeIndicator value={item.policiesChange} /></TableCell>
+                  <TableCell className="text-right"><ChangeIndicator value={item.policy_countChange} /></TableCell>
                 )}
-                <TableCell className="text-right">{formatPercentage(item.lossRatio)}</TableCell>
+                <TableCell className="text-right">{formatPercentage(item.loss_ratio)}</TableCell>
                 {analysisMode === 'periodOverPeriod' && (
-                  <TableCell className="text-right"><LossRatioChangeIndicator value={item.lossRatioChange} /></TableCell>
+                  <TableCell className="text-right"><LossRatioChangeIndicator value={item.loss_ratioChange} /></TableCell>
+                )}
+                 <TableCell className="text-right">{formatPercentage(item.expense_ratio)}</TableCell>
+                {analysisMode === 'periodOverPeriod' && (
+                  // Assuming higher expense ratio is bad for change indicator
+                  <TableCell className="text-right"><LossRatioChangeIndicator value={item.expense_ratioChange} /></TableCell>
                 )}
               </TableRow>
             ))}
@@ -97,3 +105,4 @@ export function DataTableSection({ data, analysisMode }: DataTableSectionProps) 
     </SectionWrapper>
   );
 }
+

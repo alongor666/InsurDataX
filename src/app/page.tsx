@@ -1,7 +1,9 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import type { AnalysisMode, BusinessLine, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod, AiSummaryInput } from '@/data/types';
+import type { AnalysisMode, BusinessLine, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod } from '@/data/types';
+import type { AiSummaryInput } from '@/data/types'; // Explicit import for AiSummaryInput
 import { mockBusinessLines, getDefaultDateRange, defaultDateRangeOptions } from '@/data/mock-data';
 import { AppLayout } from '@/components/layout/app-layout';
 import { AppHeader } from '@/components/layout/header';
@@ -22,38 +24,40 @@ import {
   getDateRangeByValue,
 } from '@/lib/data-utils';
 
-type RankingMetricKey = keyof Pick<ProcessedDataForPeriod, 'premium' | 'claims' | 'policies' | 'lossRatio'>;
-type TrendMetricKey = keyof BusinessLine['data'];
+// V4.0 field names for ranking and trend metrics
+type RankingMetricKey = keyof Pick<ProcessedDataForPeriod, 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio'>;
+type TrendMetricKey = 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio'; // Simplified for now, maps to what prepareTrendData expects
+
 
 const availableTrendMetrics: { value: TrendMetricKey, label: string }[] = [
-  { value: 'premium', label: '保费' },
-  { value: 'claims', label: '赔付额' },
-  { value: 'policies', label: '保单数' },
-  { value: 'lossRatio', label: '赔付率' },
+  { value: 'premium_written', label: '跟单保费' },
+  { value: 'total_loss_amount', label: '总赔款' },
+  { value: 'policy_count', label: '保单数量' },
+  { value: 'loss_ratio', label: '满期赔付率' },
 ];
 
 const availableRankingMetrics: { value: RankingMetricKey, label: string }[] = [
-  { value: 'premium', label: '保费' },
-  { value: 'claims', label: '赔付额' },
-  { value: 'policies', label: '保单数' },
-  { value: 'lossRatio', label: '赔付率' },
+  { value: 'premium_written', label: '跟单保费' },
+  { value: 'total_loss_amount', label: '总赔款' },
+  { value: 'policy_count', label: '保单数量' },
+  { value: 'loss_ratio', label: '满期赔付率' },
 ];
 
 
 export default function DashboardPage() {
-  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('periodOverPeriod'); // Default to 当周表现
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('periodOverPeriod');
   const [dateRange, setDateRange] = useState(getDefaultDateRange());
   const [selectedPeriodKey, setSelectedPeriodKey] = useState<string>(defaultDateRangeOptions[0].value);
 
   const [processedData, setProcessedData] = useState<ProcessedDataForPeriod[]>([]);
   const [kpis, setKpis] = useState<Kpi[]>([]);
   
-  const [selectedTrendMetric, setSelectedTrendMetric] = useState<TrendMetricKey>('premium');
+  const [selectedTrendMetric, setSelectedTrendMetric] = useState<TrendMetricKey>('premium_written');
   const [trendChartData, setTrendChartData] = useState<ChartDataItem[]>([]);
   
   const [bubbleChartData, setBubbleChartData] = useState<BubbleChartDataItem[]>([]);
   
-  const [selectedRankingMetric, setSelectedRankingMetric] = useState<RankingMetricKey>('premium');
+  const [selectedRankingMetric, setSelectedRankingMetric] = useState<RankingMetricKey>('premium_written');
   const [barRankData, setBarRankData] = useState<ChartDataItem[]>([]);
 
   const [aiSummary, setAiSummary] = useState<string | null>(null);
@@ -85,15 +89,17 @@ export default function DashboardPage() {
     setIsAiSummaryLoading(true);
     setAiSummary(null);
     try {
-      // Prepare data for AI. Using KPIs and top 3 business lines by premium as an example.
       const aiInputData = {
-        keyPerformanceIndicators: kpis,
-        topBusinessLines: processedData.sort((a,b) => b.premium - a.premium).slice(0,3).map(d => ({
-          name: d.businessLineName,
-          premium: d.premium,
-          lossRatio: d.lossRatio,
-          changeInPremium: analysisMode === 'periodOverPeriod' ? d.premiumChange : 'N/A'
-        })),
+        keyPerformanceIndicators: kpis.map(kpi => ({ title: kpi.title, value: kpi.value, change: kpi.change, isRisk: kpi.isRisk })),
+        topBusinessLinesByPremiumWritten: processedData
+          .sort((a,b) => b.premium_written - a.premium_written)
+          .slice(0,3)
+          .map(d => ({
+            name: d.businessLineName,
+            premiumWritten: d.premium_written,
+            lossRatio: d.loss_ratio,
+            changeInPremiumWritten: analysisMode === 'periodOverPeriod' ? d.premium_writtenChange : 'N/A'
+          })),
       };
       const filters = {
         analysisMode,
