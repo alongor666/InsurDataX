@@ -1,6 +1,6 @@
 import type { BusinessLine, MonthlyData, AnalysisMode, ProcessedDataForPeriod, Kpi, ChartDataItem, BubbleChartDataItem } from '@/data/types';
 import { format, subMonths, startOfYear, endOfMonth, differenceInMonths, startOfMonth } from 'date-fns';
-import { DollarSign, FileText, TrendingUp, TrendingDown, Percent, AlertTriangle, Activity, Users, BarChart } from 'lucide-react';
+import { DollarSign, FileText, TrendingUp, TrendingDown, Percent, AlertTriangle, Activity, Users, BarChart, ShieldCheck, Briefcase, Zap } from 'lucide-react';
 
 export const formatCurrency = (value: number | undefined): string => {
   if (value === undefined) return 'N/A';
@@ -73,7 +73,12 @@ export const processDataForRange = (
 
       const currentLossRatio = premium !== 0 ? (claims / premium) * 100 : 0;
       const prevLossRatio = prevMonthPremium !== 0 ? (prevMonthClaims / prevMonthPremium) * 100 : 0;
-      if (prevLossRatio !== 0) lossRatioChange = ((currentLossRatio - prevLossRatio) / prevLossRatio) * 100;
+      if (prevLossRatio !== 0 && currentLossRatio !== 0) { // Ensure prevLossRatio is not zero before division
+        lossRatioChange = ((currentLossRatio - prevLossRatio) / Math.abs(prevLossRatio)) * 100;
+      } else if (currentLossRatio !==0 && prevLossRatio === 0) {
+        lossRatioChange = 100; // Or some indicator of significant change from zero
+      }
+
     }
     
     const lossRatio = premium !== 0 ? (claims / premium) * 100 : 0;
@@ -103,43 +108,94 @@ export const calculateKpis = (processedData: ProcessedDataForPeriod[], analysisM
   let totalPremiumChange: number | undefined = undefined;
   let overallLossRatioChange: number | undefined = undefined;
 
-  if (analysisMode === 'periodOverPeriod' && processedData.length > 0) {
-    const weightedPremiumChangeSum = processedData.reduce((sum, d) => sum + (d.premiumChange ?? 0) * d.premium, 0);
-    if (totalPremium !== 0) totalPremiumChange = weightedPremiumChangeSum / totalPremium;
-    
-    const weightedLossRatioChangeSum = processedData.reduce((sum, d) => sum + (d.lossRatioChange ?? 0) * d.premium, 0); // Weight by premium
-    if (totalPremium !== 0) overallLossRatioChange = weightedLossRatioChangeSum / totalPremium;
+  if (analysisMode === 'periodOverPeriod' && processedData.length > 0 && totalPremium !== 0) {
+    const prevTotalPremium = processedData.reduce((sum, d) => sum + (d.premium / (1 + (d.premiumChange ?? 0)/100)),0);
+    if(prevTotalPremium !== 0) totalPremiumChange = ((totalPremium - prevTotalPremium) / prevTotalPremium) * 100;
+
+    const prevTotalClaims = processedData.reduce((sum, d) => sum + (d.claims / (1 + (d.claimsChange ?? 0)/100)),0);
+    const prevOverallLossRatio = prevTotalPremium !== 0 ? (prevTotalClaims / prevTotalPremium) * 100 : 0;
+
+    if (prevOverallLossRatio !== 0 && overallLossRatio !== 0) {
+       overallLossRatioChange = ((overallLossRatio - prevOverallLossRatio) / Math.abs(prevOverallLossRatio)) * 100;
+    } else if (overallLossRatio !== 0 && prevOverallLossRatio === 0) {
+       overallLossRatioChange = 100; // Or some large number to indicate change from zero
+    }
   }
+  
+  // Placeholder YoY data - will be properly calculated with V4.0 data model
+  const placeholderYoyChange = "+3.5%";
+  const placeholderYoyChangeType = 'positive';
+  const placeholderNegativeYoyChange = "-2.1%";
+  const placeholderNegativeYoyChangeType = 'negative';
+
 
   return [
     {
       id: 'totalPremium',
       title: '总保费',
       value: formatCurrency(totalPremium),
+      rawValue: totalPremium,
       change: totalPremiumChange !== undefined ? formatPercentage(totalPremiumChange) : undefined,
       changeType: totalPremiumChange === undefined ? 'neutral' : totalPremiumChange > 0 ? 'positive' : 'negative',
+      yoyChange: placeholderYoyChange, 
+      yoyChangeType: placeholderYoyChangeType,
       icon: DollarSign,
     },
     {
       id: 'totalClaims',
       title: '总赔付额',
       value: formatCurrency(totalClaims),
-      icon: Activity, // Using Activity for claims
+      rawValue: totalClaims,
+      // Assuming claims change calculation would be similar to premium if needed
+      yoyChange: placeholderNegativeYoyChange,
+      yoyChangeType: placeholderNegativeYoyChangeType,
+      icon: Activity,
     },
     {
       id: 'totalPolicies',
       title: '总保单数',
       value: formatNumber(totalPolicies),
+      rawValue: totalPolicies,
+      yoyChange: placeholderYoyChange,
+      yoyChangeType: placeholderYoyChangeType,
       icon: FileText,
     },
     {
       id: 'overallLossRatio',
-      title: '综合赔付率',
+      title: '综合赔付率', // This will be treated as '满期赔付率' for highlighting
       value: formatPercentage(overallLossRatio),
+      rawValue: overallLossRatio,
       change: overallLossRatioChange !== undefined ? formatPercentage(overallLossRatioChange) : undefined,
-      changeType: overallLossRatioChange === undefined ? 'neutral' : overallLossRatioChange > 0 ? 'negative' : 'positive', // Higher loss ratio is negative
+      changeType: overallLossRatioChange === undefined ? 'neutral' : overallLossRatioChange > 0 ? 'negative' : 'positive',
+      yoyChange: placeholderNegativeYoyChange,
+      yoyChangeType: 'negative', // Higher YoY loss ratio is negative
       icon: Percent,
-      isRisk: overallLossRatio > 70, // Example risk threshold
+      isRisk: overallLossRatio > 70,
+    },
+    // Placeholder KPIs for testing new highlighting rules
+    {
+      id: 'expenseRatio',
+      title: '费用率',
+      value: formatPercentage(15.0), // To trigger > 14.5%
+      rawValue: 15.0,
+      change: "+0.5%",
+      changeType: 'negative', // Higher expense ratio is negative
+      yoyChange: "+1.0%",
+      yoyChangeType: 'negative',
+      icon: Briefcase,
+      isRisk: 15.0 > 14.5,
+    },
+    {
+      id: 'variableCostRatio',
+      title: '变动成本率',
+      value: formatPercentage(92.0), // To trigger > 90%
+      rawValue: 92.0,
+      change: "-1.2%",
+      changeType: 'positive', // Lower variable cost ratio is positive
+      yoyChange: "+0.8%",
+      yoyChangeType: 'negative',
+      icon: Zap,
+      isRisk: 92.0 > 90,
     },
   ];
 };

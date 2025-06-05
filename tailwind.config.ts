@@ -72,6 +72,9 @@ export default {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
+        orange: { // Added orange for 费用率 highlighting
+          '500': '#F59E0B', // Tailwind's default orange-500
+        }
       },
       borderRadius: {
         lg: 'var(--radius)',

@@ -24,12 +24,15 @@ export interface BusinessLine {
 export interface Kpi {
   id: string;
   title: string;
-  value: string;
-  change?: string; // e.g., "+5.2%" or "-1.0%"
+  value: string; // Formatted value for display
+  rawValue?: number; // Raw numeric value for comparisons
+  change?: string; // e.g., "+5.2%" or "-1.0%" (period-over-period)
   changeType?: 'positive' | 'negative' | 'neutral';
+  yoyChange?: string; // Year-over-year change
+  yoyChangeType?: 'positive' | 'negative' | 'neutral';
   description?: string;
   icon?: LucideIcon;
-  isRisk?: boolean; // For highlighting risk
+  isRisk?: boolean; // General risk flag, can be used for borders or specific highlighting
 }
 
 // For charts
