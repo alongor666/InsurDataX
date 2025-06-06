@@ -58,7 +58,7 @@ export function KpiDashboardSection({ kpis }: KpiDashboardSectionProps) {
           return <KpiCard key={kpi.id} kpi={kpi} />;
         }
         // Render a placeholder or log an error if a configured KPI is not found
-        return <div key={configItem.id} className="p-4 border rounded-lg shadow-sm bg-card text-card-foreground">KPI: {configItem.title} (数据待处理)</div>;
+        return <div key={configItem.id} className="p-4 border rounded-lg shadow-sm bg-card text-card-foreground min-h-[180px]">KPI: {configItem.title} (数据待处理)</div>;
       });
   };
 
