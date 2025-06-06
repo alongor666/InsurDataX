@@ -41,7 +41,7 @@ const ChangeDisplay = ({
 export function KpiCard({ kpi }: { kpi: Kpi }) {
   
   let valueClassName = "text-3xl font-bold font-headline text-primary";
-  let cardClassName = "shadow-lg transition-all hover:shadow-xl";
+  let cardClassName = "shadow-lg transition-all hover:shadow-xl min-h-[180px]"; // Added min-h for consistency
 
   // Specific value styling
   if (kpi.isRisk && !kpi.isOrangeRisk && !kpi.isBorderRisk) { // e.g. loss_ratio > 70%
