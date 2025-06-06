@@ -1,6 +1,5 @@
 
 import type { ProcessedDataForPeriod, Kpi, V4PeriodData, V4BusinessDataEntry, V4PeriodTotals, AggregatedBusinessMetrics, AnalysisMode } from '@/data/types';
-import { ShieldAlert, DollarSign, FileText, Percent, Briefcase, Zap, Activity, ShieldCheck, Landmark, Users, Ratio, Search } from 'lucide-react'; // Keep imports for icon mapping in kpi-card
 
 export const formatCurrency = (value: number | undefined | null, displayUnit: '万元' | '元' = '万元'): string => {
   if (value === undefined || isNaN(value) || value === null) return 'N/A';
@@ -19,6 +18,13 @@ export const formatNumber = (value: number | undefined | null): string => {
 export const formatPercentage = (value: number | undefined | null, decimals: number = 2): string => {
   if (value === undefined || isNaN(value) || value === null) return 'N/A';
   return `${value.toFixed(decimals)}%`;
+};
+
+export const getDynamicColorByVCR = (vcr: number | undefined | null): string => {
+  if (vcr === undefined || vcr === null || isNaN(vcr)) return 'hsl(var(--muted))'; // Default color if VCR is not available
+  if (vcr >= 92) return 'hsl(var(--chart-destructive-red))';
+  if (vcr >= 88 && vcr < 92) return 'hsl(var(--chart-warning-blue))';
+  return 'hsl(var(--chart-success-green))';
 };
 
 
@@ -94,7 +100,6 @@ export const aggregateAndCalculateMetrics = (
       const actual_claim_count = (currentYtdEntry.claim_count || 0) - (prevYtdEntry?.claim_count || 0);
       const actual_policy_count_earned = (currentYtdEntry.policy_count_earned || 0) - (prevYtdEntry?.policy_count_earned || 0);
 
-      // For PoP policy_count derivation, we need the *current period's YTD* avg_premium_per_policy from the original JSON entry.
       const originalCurrentYtdEntry = originalYtdEntriesForPeriod.find(e => e.business_type === currentYtdEntry.business_type);
 
       return {
@@ -122,42 +127,41 @@ export const aggregateAndCalculateMetrics = (
 
   if (periodBusinessDataEntries.length === 1) {
     const singleCalculatedMetrics = individualMetricsArray[0];
-    // For single business type in 'cumulative' mode, prioritize JSON pre-calculated values for rates and averages.
     if (analysisMode === 'cumulative') {
       const originalJsonEntry = originalYtdEntriesForPeriod.find(e => e.business_type === periodBusinessDataEntries[0].business_type) || periodBusinessDataEntries[0];
       
-      const result: AggregatedBusinessMetrics = {
-        ...singleCalculatedMetrics, // Start with base calculations
-        // Override with JSON YTD direct values for base amounts
+      let result: AggregatedBusinessMetrics = {
+        ...singleCalculatedMetrics, 
         premium_written: originalJsonEntry.premium_written || 0,
         premium_earned: originalJsonEntry.premium_earned || 0,
         total_loss_amount: originalJsonEntry.total_loss_amount || 0,
         expense_amount_raw: originalJsonEntry.expense_amount_raw || 0,
         claim_count: Math.round(originalJsonEntry.claim_count || 0),
         policy_count_earned: Math.round(originalJsonEntry.policy_count_earned || 0),
-        avg_commercial_index: originalJsonEntry.avg_commercial_index, // Always from JSON for single YTD
-        policy_count: Math.round(singleCalculatedMetrics.policy_count), // policy_count is always derived
+        avg_commercial_index: originalJsonEntry.avg_commercial_index, 
+        policy_count: Math.round(singleCalculatedMetrics.policy_count), 
         
-        // Override with JSON YTD pre-calculated rates/averages if they exist and are numbers
         loss_ratio: typeof originalJsonEntry.loss_ratio === 'number' ? originalJsonEntry.loss_ratio : singleCalculatedMetrics.loss_ratio,
         expense_ratio: typeof originalJsonEntry.expense_ratio === 'number' ? originalJsonEntry.expense_ratio : singleCalculatedMetrics.expense_ratio,
         premium_earned_ratio: typeof originalJsonEntry.premium_earned_ratio === 'number' ? originalJsonEntry.premium_earned_ratio : singleCalculatedMetrics.premium_earned_ratio,
         claim_frequency: typeof originalJsonEntry.claim_frequency === 'number' ? originalJsonEntry.claim_frequency : singleCalculatedMetrics.claim_frequency,
         avg_loss_per_case: typeof originalJsonEntry.avg_loss_per_case === 'number' ? originalJsonEntry.avg_loss_per_case : singleCalculatedMetrics.avg_loss_per_case,
         avg_premium_per_policy: typeof originalJsonEntry.avg_premium_per_policy === 'number' ? originalJsonEntry.avg_premium_per_policy : singleCalculatedMetrics.avg_premium_per_policy,
+        // Placeholder, will be recalculated
+        expense_amount: 0,
+        variable_cost_ratio: 0,
+        marginal_contribution_ratio: 0,
+        marginal_contribution_amount: 0,
       };
-      // Recalculate dependent metrics based on potentially overridden values
       result.expense_amount = result.premium_written * (result.expense_ratio / 100);
       result.variable_cost_ratio = result.loss_ratio + result.expense_ratio; 
       result.marginal_contribution_ratio = 100 - result.variable_cost_ratio;
       result.marginal_contribution_amount = result.premium_earned * (result.marginal_contribution_ratio / 100);
       return result;
     }
-    // For PoP single line, all metrics are re-calculated based on PoP base values
     return singleCalculatedMetrics; 
   }
 
-  // Aggregation for multiple business types or "合计"
   const aggregated = individualMetricsArray.reduce((acc, metrics) => {
     acc.premium_written += metrics.premium_written;
     acc.premium_earned += metrics.premium_earned;
@@ -172,7 +176,6 @@ export const aggregateAndCalculateMetrics = (
     policy_count: 0, claim_count: 0, policy_count_earned: 0,
   });
 
-  // Re-calculate all rates and averages based on aggregated base values
   const agg_loss_ratio = aggregated.premium_earned !== 0 ? (aggregated.total_loss_amount / aggregated.premium_earned) * 100 : 0;
   const agg_expense_ratio = aggregated.premium_written !== 0 ? (aggregated.expense_amount_raw / aggregated.premium_written) * 100 : 0;
   const agg_premium_earned_ratio = aggregated.premium_written !== 0 ? (aggregated.premium_earned / aggregated.premium_written) * 100 : 0;
@@ -193,7 +196,7 @@ export const aggregateAndCalculateMetrics = (
     policy_count: Math.round(aggregated.policy_count),
     claim_count: Math.round(aggregated.claim_count),
     policy_count_earned: Math.round(aggregated.policy_count_earned),
-    avg_commercial_index: undefined, // Not aggregated
+    avg_commercial_index: undefined, 
 
     loss_ratio: agg_loss_ratio,
     expense_ratio: agg_expense_ratio,
@@ -217,7 +220,7 @@ const filterRawBusinessData = (
     bd => bd.business_type && bd.business_type.toLowerCase() !== '合计' && bd.business_type.toLowerCase() !== 'total'
   );
   if (selectedTypes.length === 0) { 
-    return individualLines; // Return all individual lines if no specific types are selected (for "合计" view)
+    return individualLines; 
   }
   return individualLines.filter(bd => selectedTypes.includes(bd.business_type));
 };
@@ -232,26 +235,19 @@ export const processDataForSelectedPeriod = (
   const currentPeriodData = allV4Data.find(p => p.period_id === selectedPeriodId);
   if (!currentPeriodData) return [];
 
-  // Get YTD data for the comparison (MoM) period, IF it exists
   const momPeriodId = currentPeriodData.comparison_period_id_mom;
   const momOriginalPeriodData = momPeriodId ? allV4Data.find(p => p.period_id === momPeriodId) : undefined;
   
-  // Get YTD data for the YoY comparison period, IF it exists
   const yoyPeriodId = currentPeriodData.comparison_period_id_yoy;
   const yoyOriginalPeriodData = yoyPeriodId ? allV4Data.find(p => p.period_id === yoyPeriodId) : undefined;
   
-  // Filter YTD entries for the *current selected period* based on selected business types
   const currentPeriodFilteredYtdEntries = filterRawBusinessData(currentPeriodData, selectedBusinessTypes);
-  // Get all original YTD entries for the current period (unfiltered by selection), needed by aggregateAndCalculateMetrics
   const originalYtdEntriesForCurrentPeriod = (currentPeriodData.business_data || []).filter(
     bd => bd.business_type && bd.business_type.toLowerCase() !== '合计' && bd.business_type.toLowerCase() !== 'total'
   );
   
-  // For 'periodOverPeriod' mode, we need the *previous period's YTD entries* (filtered by selection) to calculate PoP base values
   const momPeriodFilteredYtdEntriesForPoPBase = momOriginalPeriodData ? filterRawBusinessData(momOriginalPeriodData, selectedBusinessTypes) : undefined;
 
-  // Calculate metrics for the *current selection* and *current period*
-  // This will correctly handle 'cumulative' vs 'periodOverPeriod' logic internally
   const currentAggregatedMetrics = aggregateAndCalculateMetrics(
     currentPeriodFilteredYtdEntries,
     analysisMode,
@@ -259,22 +255,20 @@ export const processDataForSelectedPeriod = (
     analysisMode === 'periodOverPeriod' ? momPeriodFilteredYtdEntriesForPoPBase : undefined 
   );
   
-  // For MoM comparison in KPI cards, we always compare against the MoM period's *cumulative (YTD)* metrics
   const momPeriodFilteredYtdEntriesForComparison = momOriginalPeriodData ? filterRawBusinessData(momOriginalPeriodData, selectedBusinessTypes) : undefined;
   const momAggregatedMetrics = momPeriodFilteredYtdEntriesForComparison && momOriginalPeriodData
     ? aggregateAndCalculateMetrics(
         momPeriodFilteredYtdEntriesForComparison, 
-        'cumulative', // IMPORTANT: MoM comparison is always against YTD of prev period
+        'cumulative', 
         (momOriginalPeriodData.business_data || []).filter( bd => bd.business_type && bd.business_type.toLowerCase() !== '合计' && bd.business_type.toLowerCase() !== 'total') 
       ) 
     : null;
 
-  // For YoY comparison, similar logic: compare against YoY period's *cumulative (YTD)* metrics
   const yoyPeriodFilteredYtdEntriesForComparison = yoyOriginalPeriodData ? filterRawBusinessData(yoyOriginalPeriodData, selectedBusinessTypes) : undefined;
   const yoyAggregatedMetrics = yoyPeriodFilteredYtdEntriesForComparison && yoyOriginalPeriodData
     ? aggregateAndCalculateMetrics(
         yoyPeriodFilteredYtdEntriesForComparison, 
-        'cumulative', // IMPORTANT: YoY comparison is always against YTD of prev year's period
+        'cumulative', 
         (yoyOriginalPeriodData.business_data || []).filter( bd => bd.business_type && bd.business_type.toLowerCase() !== '合计' && bd.business_type.toLowerCase() !== 'total')
       )
     : null;
@@ -285,11 +279,11 @@ export const processDataForSelectedPeriod = (
   if (selectedBusinessTypes.length === 1) {
     derivedBusinessLineName = selectedBusinessTypes[0];
   } else if (selectedBusinessTypes.length > 0 && selectedBusinessTypes.length < allBusinessTypesInCurrentPeriod.length) {
-    derivedBusinessLineName = "自定义合计"; // More than one, but not all
+    derivedBusinessLineName = "自定义合计"; 
   } else { 
-    derivedBusinessLineName = "合计"; // All (selectedBusinessTypes is empty or includes all)
+    derivedBusinessLineName = "合计"; 
   }
-  const businessLineId = derivedBusinessLineName; // Use name as ID for simplicity here
+  const businessLineId = derivedBusinessLineName; 
 
   const premium_share = (currentPeriodData.totals_for_period?.total_premium_written_overall && currentPeriodData.totals_for_period.total_premium_written_overall !== 0 && currentAggregatedMetrics.premium_written !== undefined)
     ? (currentAggregatedMetrics.premium_written / currentPeriodData.totals_for_period.total_premium_written_overall) * 100
@@ -298,13 +292,13 @@ export const processDataForSelectedPeriod = (
   const processedEntry: ProcessedDataForPeriod = {
     businessLineId,
     businessLineName: derivedBusinessLineName,
-    icon: derivedBusinessLineName === "合计" || derivedBusinessLineName === "自定义合计" ? 'Users' : 'ShieldCheck', // Placeholder
+    icon: derivedBusinessLineName === "合计" || derivedBusinessLineName === "自定义合计" ? 'Users' : 'ShieldCheck', 
     currentMetrics: currentAggregatedMetrics,
-    momMetrics: momAggregatedMetrics, // These are YTD values of MoM period
-    yoyMetrics: yoyAggregatedMetrics, // These are YTD values of YoY period
+    momMetrics: momAggregatedMetrics, 
+    yoyMetrics: yoyAggregatedMetrics, 
     premium_share: premium_share,
+    vcr_color: getDynamicColorByVCR(currentAggregatedMetrics.variable_cost_ratio),
 
-    // Direct display values from currentAggregatedMetrics (which are already PoP or YTD based on analysisMode)
     premium_written: currentAggregatedMetrics.premium_written,
     total_loss_amount: currentAggregatedMetrics.total_loss_amount,
     policy_count: currentAggregatedMetrics.policy_count,
@@ -312,7 +306,6 @@ export const processDataForSelectedPeriod = (
     expense_ratio: currentAggregatedMetrics.expense_ratio,
     variable_cost_ratio: currentAggregatedMetrics.variable_cost_ratio,
 
-    // Change percentages for DataTable, comparing current value (PoP or YTD) with MoM YTD value
     premium_writtenChange: momAggregatedMetrics && momAggregatedMetrics.premium_written !== 0 && currentAggregatedMetrics.premium_written !== undefined ? (currentAggregatedMetrics.premium_written - momAggregatedMetrics.premium_written) / Math.abs(momAggregatedMetrics.premium_written) * 100 : (currentAggregatedMetrics.premium_written !== 0 && currentAggregatedMetrics.premium_written !== undefined ? Infinity : 0),
     total_loss_amountChange: momAggregatedMetrics && momAggregatedMetrics.total_loss_amount !== 0 && currentAggregatedMetrics.total_loss_amount !== undefined ? (currentAggregatedMetrics.total_loss_amount - momAggregatedMetrics.total_loss_amount) / Math.abs(momAggregatedMetrics.total_loss_amount) * 100 : (currentAggregatedMetrics.total_loss_amount !== 0 && currentAggregatedMetrics.total_loss_amount !== undefined ? Infinity : 0),
     policy_countChange: momAggregatedMetrics && momAggregatedMetrics.policy_count !== 0 && currentAggregatedMetrics.policy_count !== undefined ? (currentAggregatedMetrics.policy_count - momAggregatedMetrics.policy_count) / Math.abs(momAggregatedMetrics.policy_count) * 100 : (currentAggregatedMetrics.policy_count !== 0 && currentAggregatedMetrics.policy_count !== undefined ? Infinity : 0),
@@ -339,7 +332,6 @@ const calculateChangeAndType = (current?: number | null, previous?: number | nul
   }
 
   let type: Kpi['changeType'] = 'neutral';
-  // Use a small epsilon for floating point comparisons to determine change direction
   const epsilon = 0.00001; 
   if (absolute > epsilon) type = higherIsBetter ? 'positive' : 'negative'; 
   if (absolute < -epsilon) type = higherIsBetter ? 'negative' : 'positive';
@@ -350,17 +342,21 @@ const calculateChangeAndType = (current?: number | null, previous?: number | nul
 
 export const calculateKpis = (
   processedData: ProcessedDataForPeriod[], 
-  overallTotalsForPeriod?: V4PeriodTotals | null,
-  analysisMode?: AnalysisMode, 
-  selectedBusinessTypes?: string[],
-  activePeriodId?: string // Renamed for clarity and made optional for now, will be required
+  overallTotalsForPeriod: V4PeriodTotals | undefined | null,
+  analysisMode: AnalysisMode, 
+  selectedBusinessTypes: string[],
+  activePeriodId: string 
 ): Kpi[] => {
   if (!processedData || processedData.length === 0) return [];
+  if (!activePeriodId) {
+    console.error("calculateKpis: activePeriodId is required but was not provided.");
+    return [];
+  }
   
   const data = processedData[0]; 
-  const current = data.currentMetrics; // These are already PoP or YTD based on analysisMode
-  const momYtd = data.momMetrics; // These are YTD values of the MoM period
-  const yoyYtd = data.yoyMetrics; // These are YTD values of the YoY period
+  const current = data.currentMetrics; 
+  const momYtd = data.momMetrics; 
+  const yoyYtd = data.yoyMetrics; 
 
   if (!current) return [];
 
@@ -398,7 +394,6 @@ export const calculateKpis = (
     return { change: changePercentStr, changeAbsolute: changeAbsStr, changeType: effectiveChangeType };
   };
   
-  // Comparisons are always Current (PoP or YTD) vs MoM YTD and Current vs YoY YTD
   const premWrittenMomChg = calculateChangeAndType(current.premium_written, momYtd?.premium_written, true);
   const premEarnedMomChg = calculateChangeAndType(current.premium_earned, momYtd?.premium_earned, true);
   const lossAmtMomChg = calculateChangeAndType(current.total_loss_amount, momYtd?.total_loss_amount, false);
@@ -438,31 +433,14 @@ export const calculateKpis = (
   const isSingleSelectedType = selectedBusinessTypes && selectedBusinessTypes.length === 1;
 
   if (isSingleSelectedType) {
-    if (analysisMode === 'cumulative') {
-      // For single line, cumulative mode, avg_commercial_index comes from currentMetrics which should have used JSON YTD
-      if (current.avg_commercial_index !== undefined && current.avg_commercial_index !== null) {
-        displayAvgCommercialIndex = current.avg_commercial_index.toFixed(4);
-        rawAvgCommercialIndex = current.avg_commercial_index;
+      const currentV4PeriodDataGlobal = (globalThis as any).allV4DataForKpiWorkaround?.find((p: V4PeriodData) => p.period_id === activePeriodId);
+      if (currentV4PeriodDataGlobal && selectedBusinessTypes && selectedBusinessTypes.length === 1) {
+          const singleLineJsonEntry = currentV4PeriodDataGlobal.business_data.find((bd: V4BusinessDataEntry) => bd.business_type === selectedBusinessTypes[0]);
+          if (singleLineJsonEntry?.avg_commercial_index !== undefined && singleLineJsonEntry.avg_commercial_index !== null) {
+              displayAvgCommercialIndex = singleLineJsonEntry.avg_commercial_index.toFixed(4);
+              rawAvgCommercialIndex = singleLineJsonEntry.avg_commercial_index;
+          }
       }
-    } else { // periodOverPeriod for single line
-      // As per V4 doc: "单选业务类型时显示JSON提供值" (for YTD). 
-      // For PoP, it's less clear, but the most consistent approach for PoP is to show "N/A" or the PoP calculated one if we were to define one.
-      // Given current.avg_commercial_index is derived from PoP base values and likely not meaningful for avg_commercial_index,
-      // let's use the YTD value from the *current period's JSON* for PoP single line if available, otherwise N/A.
-      // This requires the global workaround.
-      if (!activePeriodId) {
-        console.error("calculateKpis: activePeriodId is required for avg_commercial_index in PoP single line mode, but was not provided.");
-      } else {
-        const currentV4PeriodDataGlobal = (globalThis as any).allV4DataForKpiWorkaround?.find((p: V4PeriodData) => p.period_id === activePeriodId);
-        if (currentV4PeriodDataGlobal && selectedBusinessTypes && selectedBusinessTypes.length === 1) {
-            const singleLineJsonEntry = currentV4PeriodDataGlobal.business_data.find((bd: V4BusinessDataEntry) => bd.business_type === selectedBusinessTypes[0]);
-            if (singleLineJsonEntry?.avg_commercial_index !== undefined && singleLineJsonEntry.avg_commercial_index !== null) {
-                displayAvgCommercialIndex = singleLineJsonEntry.avg_commercial_index.toFixed(4);
-                rawAvgCommercialIndex = singleLineJsonEntry.avg_commercial_index;
-            }
-        }
-      }
-    }
   }
 
 
@@ -571,8 +549,6 @@ export const calculateKpis = (
 };
 
 
-// This is a global workaround to pass allV4Data to calculateKpis for avg_commercial_index in PoP single line.
-// It's not ideal. This should be addressed by refactoring how data is passed.
 export function setGlobalV4DataForKpiWorkaround(allV4Data: V4PeriodData[]) {
   (globalThis as any).allV4DataForKpiWorkaround = allV4Data;
 }
@@ -622,7 +598,7 @@ export function exportToCSV(data: ProcessedDataForPeriod[], analysisMode: Analys
         ];
 
         if (analysisMode === 'periodOverPeriod' && item.momMetrics) {
-            const momMetrics = item.momMetrics; // These are YTD of previous period
+            const momMetrics = item.momMetrics; 
             
             const momPremWrittenChange = momMetrics.premium_written !== 0 && current.premium_written !== undefined ? (current.premium_written - momMetrics.premium_written) / Math.abs(momMetrics.premium_written) * 100 : (current.premium_written !== 0 && current.premium_written !== undefined ? Infinity : 0);
             const momPremWrittenAbs = current.premium_written !== undefined ? current.premium_written - momMetrics.premium_written : undefined;
@@ -646,7 +622,7 @@ export function exportToCSV(data: ProcessedDataForPeriod[], analysisMode: Analys
                 momLossRatioPP?.toFixed(2) ?? "N/A",
                 momExpenseRatioPP?.toFixed(2) ?? "N/A"
             );
-        } else if (analysisMode === 'periodOverPeriod') { // If PoP mode but no MoM data, push N/A for change columns
+        } else if (analysisMode === 'periodOverPeriod') { 
             rowData.push("N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A");
         }
         return rowData.join(",");

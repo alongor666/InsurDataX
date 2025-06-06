@@ -72,11 +72,11 @@ export interface AggregatedBusinessMetrics {
 export interface ProcessedDataForPeriod {
   businessLineId: string;
   businessLineName: string;
-  icon?: string; // Changed from LucideIcon to string identifier
+  icon?: string; 
 
   currentMetrics: AggregatedBusinessMetrics;
-  momMetrics?: AggregatedBusinessMetrics | null; // Metrics for Month-over-Month comparison period (always YTD based)
-  yoyMetrics?: AggregatedBusinessMetrics | null; // Metrics for Year-over-Year comparison period (always YTD based)
+  momMetrics?: AggregatedBusinessMetrics | null; 
+  yoyMetrics?: AggregatedBusinessMetrics | null; 
   
   premium_written: number;
   total_loss_amount: number;
@@ -84,6 +84,7 @@ export interface ProcessedDataForPeriod {
   loss_ratio: number;
   expense_ratio: number;
   variable_cost_ratio: number; 
+  vcr_color?: string; // Color based on variable_cost_ratio
 
   premium_writtenChange?: number;
   total_loss_amountChange?: number;
@@ -107,7 +108,7 @@ export interface Kpi {
   yoyChangeAbsolute?: string; 
   yoyChangeType?: 'positive' | 'negative' | 'neutral';
   description?: string;
-  icon?: string; // Changed from LucideIcon to string identifier
+  icon?: string; 
   isRisk?: boolean; 
   isBorderRisk?: boolean; 
   isOrangeRisk?: boolean; 
@@ -116,15 +117,18 @@ export interface Kpi {
 // For charts
 export interface ChartDataItem {
   name: string; 
-  [key: string]: number | string; 
+  color?: string; // For dynamic coloring
+  [key: string]: number | string | undefined; 
 }
 
 export interface BubbleChartDataItem {
   id: string;
+  name: string;
   x: number;
   y: number;
   z: number;
-  name: string;
+  color?: string; // For dynamic coloring
+  vcr?: number; // To pass variable_cost_ratio for tooltip or other uses
 }
 
 // AI Summary related types
@@ -143,11 +147,13 @@ export interface PeriodOption {
 
 
 // V4.0 field names for ranking and trend metrics used in page.tsx
-export type RankingMetricKey = keyof Pick<AggregatedBusinessMetrics, 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio' | 'expense_ratio' | 'variable_cost_ratio'>;
-export type TrendMetricKey = keyof Pick<AggregatedBusinessMetrics, 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio' | 'expense_ratio' | 'variable_cost_ratio' | 'premium_earned' | 'expense_amount' | 'claim_count' | 'policy_count_earned'>; // expense_amount_raw changed to expense_amount
+export type RankingMetricKey = Exclude<keyof AggregatedBusinessMetrics, 'avg_commercial_index' | 'expense_amount_raw'>;
+export type TrendMetricKey = Exclude<keyof AggregatedBusinessMetrics, 'avg_commercial_index' | 'expense_amount_raw'>;
+export type BubbleMetricKey = Exclude<keyof AggregatedBusinessMetrics, 'avg_commercial_index' | 'expense_amount_raw' | 'marginal_contribution_amount' | 'marginal_contribution_ratio'>;
+
 
 export interface BusinessLineBasic { 
   id: string;
   name: string;
-  icon?: ActualLucideIcon; // Kept as ActualLucideIcon for mock-data direct use
+  icon?: ActualLucideIcon; 
 }

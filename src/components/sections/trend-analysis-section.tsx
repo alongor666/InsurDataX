@@ -5,7 +5,7 @@ import type { ChartDataItem } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
 import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { LineChart as LucideLineChart, Palette } from 'lucide-react';
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { CartesianGrid, Line, LineChart as RechartsLineChart, XAxis, YAxis, TooltipProps } from "recharts";
 import type {NameType, ValueType} from 'recharts/types/component/DefaultTooltipContent';
 import { useMemo } from 'react'; 
@@ -21,8 +21,6 @@ interface TrendAnalysisSectionProps {
   isAiSummaryLoading: boolean;
   onGenerateAiSummary: () => Promise<void>;
 }
-
-const chartColorKeys = ['chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5'];
 
 const CustomTooltip = ({ active, payload, label }: TooltipProps<ValueType, NameType>) => {
   if (active && payload && payload.length) {
@@ -62,7 +60,7 @@ export function TrendAnalysisSection({
     const keys = new Set<string>();
     data.forEach(item => {
       Object.keys(item).forEach(key => {
-        if (key !== 'name' && key !== 'date' && typeof item[key] === 'number') { 
+        if (key !== 'name' && key !== 'date' && key !== 'color' && typeof item[key] === 'number') { 
           keys.add(key);
         }
       });
@@ -72,13 +70,15 @@ export function TrendAnalysisSection({
   
   const chartConfig = useMemo(() => {
     return businessLineNames.reduce((acc, name, index) => {
+      // Color will be driven by data.color, but provide a fallback for legend if needed
+      const dataPointForLine = data.find(d => d[name] !== undefined);
       acc[name] = {
-        label: name, // In a multi-line trend, 'name' would be the business line.
-        color: `hsl(var(--${chartColorKeys[index % chartColorKeys.length]}))`,
+        label: name, 
+        color: dataPointForLine?.color || `hsl(var(--chart-${(index % 5) + 1}))`,
       };
       return acc;
     }, {} as any);
-  }, [businessLineNames]);
+  }, [businessLineNames, data]);
 
 
   const yAxisFormatter = (value: number) => {
@@ -131,7 +131,7 @@ export function TrendAnalysisSection({
                   key={lineName}
                   dataKey={lineName}
                   type="monotone"
-                  stroke={chartConfig[lineName]?.color || `hsl(var(--${chartColorKeys[index % chartColorKeys.length]}))`}
+                  stroke={data.find(d => d[lineName] !== undefined)?.color || chartConfig[lineName]?.color}
                   strokeWidth={2}
                   dot={false}
                 />

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import type { AnalysisMode, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod, V4PeriodData, PeriodOption, DashboardView, TrendMetricKey, RankingMetricKey, AiSummaryInput } from '@/data/types'; 
+import type { AnalysisMode, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod, V4PeriodData, PeriodOption, DashboardView, TrendMetricKey, RankingMetricKey, BubbleMetricKey, AggregatedBusinessMetrics } from '@/data/types'; 
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { AppHeader } from '@/components/layout/header';
@@ -13,7 +13,7 @@ import { BarChartRankingSection } from '@/components/sections/bar-chart-ranking-
 import { DataTableSection } from '@/components/sections/data-table-section';
 import { AiSummarySection } from '@/components/sections/ai-summary-section';
 
-import { generateBusinessSummary } from '@/ai/flows/generate-business-summary';
+import { generateBusinessSummary, type GenerateBusinessSummaryInput } from '@/ai/flows/generate-business-summary';
 import { generateTrendAnalysis, type GenerateTrendAnalysisInput } from '@/ai/flows/generate-trend-analysis-flow';
 import { generateBubbleChartAnalysis, type GenerateBubbleChartAnalysisInput } from '@/ai/flows/generate-bubble-chart-analysis-flow';
 import { generateBarRankingAnalysis, type GenerateBarRankingAnalysisInput } from '@/ai/flows/generate-bar-ranking-analysis-flow';
@@ -23,7 +23,8 @@ import {
   processDataForSelectedPeriod,
   calculateKpis,
   setGlobalV4DataForKpiWorkaround,
-  exportToCSV
+  exportToCSV,
+  getDynamicColorByVCR
 } from '@/lib/data-utils';
 
 
@@ -36,8 +37,8 @@ const availableTrendMetrics: { value: TrendMetricKey, label: string }[] = [
   { value: 'variable_cost_ratio', label: '变动成本率'},
   { value: 'premium_earned', label: '满期保费'},
   { value: 'expense_amount', label: '费用额'},
-  { value: 'claim_count', label: '赔案数量'}, // JSON: claim_count
-  { value: 'policy_count_earned', label: '满期保单'} // JSON: policy_count_earned
+  { value: 'claim_count', label: '赔案数量'}, 
+  { value: 'policy_count_earned', label: '满期保单'} 
 ];
 
 const availableRankingMetrics: { value: RankingMetricKey, label: string }[] = [
@@ -46,7 +47,30 @@ const availableRankingMetrics: { value: RankingMetricKey, label: string }[] = [
   { value: 'policy_count', label: '保单数量' },
   { value: 'loss_ratio', label: '满期赔付率' },
   { value: 'expense_ratio', label: '费用率' },
-  { value: 'variable_cost_ratio', label: '变动成本率'}
+  { value: 'variable_cost_ratio', label: '变动成本率'},
+  { value: 'avg_premium_per_policy', label: '单均保费'},
+  { value: 'avg_loss_per_case', label: '案均赔款'},
+  { value: 'premium_earned_ratio', label: '保费满期率'},
+  { value: 'claim_frequency', label: '满期出险率'},
+  { value: 'marginal_contribution_amount', label: '边贡额'},
+  { value: 'marginal_contribution_ratio', label: '边际贡献率'},
+];
+
+const availableBubbleMetrics: { value: BubbleMetricKey, label: string }[] = [
+  { value: 'premium_written', label: '跟单保费 (万元)' },
+  { value: 'premium_earned', label: '满期保费 (万元)'},
+  { value: 'total_loss_amount', label: '总赔款 (万元)' },
+  { value: 'expense_amount', label: '费用额 (万元)'},
+  { value: 'policy_count', label: '保单数量 (件)' },
+  { value: 'claim_count', label: '赔案数量 (件)'},
+  { value: 'policy_count_earned', label: '满期保单 (件)'},
+  { value: 'loss_ratio', label: '满期赔付率 (%)' },
+  { value: 'expense_ratio', label: '费用率 (%)' },
+  { value: 'variable_cost_ratio', label: '变动成本率 (%)'},
+  { value: 'premium_earned_ratio', label: '保费满期率 (%)'},
+  { value: 'claim_frequency', label: '满期出险率 (%)'},
+  { value: 'avg_premium_per_policy', label: '单均保费 (元)'},
+  { value: 'avg_loss_per_case', label: '案均赔款 (元)'},
 ];
 
 
@@ -67,6 +91,10 @@ export default function DashboardPage() {
   const [selectedTrendMetric, setSelectedTrendMetric] = useState<TrendMetricKey>('premium_written');
   const [trendChartData, setTrendChartData] = useState<ChartDataItem[]>([]);
 
+  // Bubble chart metric selection
+  const [selectedBubbleXAxisMetric, setSelectedBubbleXAxisMetric] = useState<BubbleMetricKey>('premium_written');
+  const [selectedBubbleYAxisMetric, setSelectedBubbleYAxisMetric] = useState<BubbleMetricKey>('loss_ratio');
+  const [selectedBubbleSizeMetric, setSelectedBubbleSizeMetric] = useState<BubbleMetricKey>('policy_count');
   const [bubbleChartData, setBubbleChartData] = useState<BubbleChartDataItem[]>([]);
 
   const [selectedRankingMetric, setSelectedRankingMetric] = useState<RankingMetricKey>('premium_written');
@@ -108,8 +136,6 @@ export default function DashboardPage() {
           setSelectedPeriodKey(options[0].value); 
         }
         
-        // Extract all unique business types from the first period's data as a starting point
-        // Exclude "合计" or "total" as they are not selectable business lines
         if (data.length > 0 && data[0].business_data) {
           const uniqueTypes = Array.from(new Set(data.flatMap(p => p.business_data.map(bd => bd.business_type))
             .filter(bt => bt && bt.toLowerCase() !== '合计' && bt.toLowerCase() !== 'total')))
@@ -143,7 +169,7 @@ export default function DashboardPage() {
       analysisMode,
       selectedBusinessTypes 
     );
-    setProcessedData(dataForCalculations); // This will be an array with one item for the aggregated/selected view
+    setProcessedData(dataForCalculations); 
     
     if (dataForCalculations.length > 0) {
       const calculatedKpis = calculateKpis(
@@ -151,14 +177,14 @@ export default function DashboardPage() {
         currentPeriod?.totals_for_period, 
         analysisMode, 
         selectedBusinessTypes,
-        selectedPeriodKey // Pass selectedPeriodKey as activePeriodId
+        selectedPeriodKey 
       );
       setKpis(calculatedKpis);
 
       const trendData = prepareTrendData_V4(allV4Data, selectedTrendMetric, selectedPeriodKey, analysisMode, selectedBusinessTypes);
       setTrendChartData(trendData);
 
-      const bubbleData = prepareBubbleChartData_V4(allV4Data, selectedPeriodKey, analysisMode, selectedBusinessTypes);
+      const bubbleData = prepareBubbleChartData_V4(allV4Data, selectedPeriodKey, analysisMode, selectedBusinessTypes, selectedBubbleXAxisMetric, selectedBubbleYAxisMetric, selectedBubbleSizeMetric);
       setBubbleChartData(bubbleData);
 
       const rankData = prepareBarRankData_V4(allV4Data, selectedRankingMetric, selectedPeriodKey, analysisMode, selectedBusinessTypes);
@@ -170,7 +196,7 @@ export default function DashboardPage() {
       setBarRankData([]);
     }
 
-  }, [analysisMode, selectedPeriodKey, allV4Data, selectedBusinessTypes, selectedTrendMetric, selectedRankingMetric]);
+  }, [analysisMode, selectedPeriodKey, allV4Data, selectedBusinessTypes, selectedTrendMetric, selectedRankingMetric, selectedBubbleXAxisMetric, selectedBubbleYAxisMetric, selectedBubbleSizeMetric]);
 
 
   const prepareTrendData_V4 = (
@@ -192,7 +218,6 @@ export default function DashboardPage() {
     const periodsForTrend = sortedPeriods.slice(startIndex, currentPeriodIndex + 1);
 
     periodsForTrend.forEach(period => {
-      // For each period in the trend, process data based on current selections
       const processedForThisPeriodTrendPoint = processDataForSelectedPeriod(
         allData,
         period.period_id,
@@ -202,14 +227,14 @@ export default function DashboardPage() {
 
       if (processedForThisPeriodTrendPoint.length > 0 && processedForThisPeriodTrendPoint[0].currentMetrics) {
         const metrics = processedForThisPeriodTrendPoint[0].currentMetrics;
+        const vcr = metrics.variable_cost_ratio;
         let value: number | undefined | null = metrics[metricKey as keyof typeof metrics] as number | undefined | null;
         
         if (typeof value !== 'number' || isNaN(value)) {
             value = 0; 
         }
 
-        const chartItem: ChartDataItem = { name: period.period_label };
-        // The lineName is determined by processDataForSelectedPeriod based on selBusinessTypes
+        const chartItem: ChartDataItem = { name: period.period_label, color: getDynamicColorByVCR(vcr) };
         const lineName = processedForThisPeriodTrendPoint[0].businessLineName || "合计"; 
         chartItem[lineName] = value;
         trendOutput.push(chartItem);
@@ -223,40 +248,43 @@ export default function DashboardPage() {
     allRawData: V4PeriodData[],
     currentPeriodId: string,
     mode: AnalysisMode,
-    selBusinessTypes: string[] // Use selectedBusinessTypes from page state
+    selBusinessTypes: string[],
+    xMetric: BubbleMetricKey,
+    yMetric: BubbleMetricKey,
+    zMetric: BubbleMetricKey
   ): BubbleChartDataItem[] => {
     let dataForBubbleChart: ProcessedDataForPeriod[] = [];
-
     const currentRawPeriod = allRawData.find(p => p.period_id === currentPeriodId);
     if (!currentRawPeriod) return [];
 
-    // Get all individual business types present in the current period's raw data
     const allIndividualTypesInPeriod = Array.from(new Set(
         (currentRawPeriod.business_data || [])
         .map(bd => bd.business_type)
         .filter(bt => bt && bt.toLowerCase() !== '合计' && bt.toLowerCase() !== 'total')
     ));
     
-    // Determine which types to process for the bubble chart:
-    // If specific types are selected by the user, use those.
-    // Otherwise (no specific selection, meaning "合计" view for KPIs), use ALL individual types for the bubble chart.
     const typesToProcessForBubbles = selBusinessTypes.length > 0 ? selBusinessTypes : allIndividualTypesInPeriod;
 
     if (typesToProcessForBubbles.length > 0) {
         dataForBubbleChart = typesToProcessForBubbles.map(bt => {
-            // Process each business type individually for the bubble chart
             const singleTypeProcessed = processDataForSelectedPeriod(allRawData, currentPeriodId, mode, [bt]);
             return singleTypeProcessed[0]; 
         }).filter(d => d && d.currentMetrics && d.businessLineId !== '合计' && d.businessLineId !== '自定义合计'); 
     }
     
-    return dataForBubbleChart.map(d => ({
-        id: d.businessLineId,
-        name: d.businessLineName,
-        x: d.currentMetrics!.premium_written || 0,
-        y: d.currentMetrics!.loss_ratio || 0,
-        z: d.currentMetrics!.policy_count || 0,
-    })).filter(item => item.x > 0 || item.y > 0 || item.z > 0); 
+    return dataForBubbleChart.map(d => {
+        const metrics = d.currentMetrics as AggregatedBusinessMetrics;
+        const vcr = metrics.variable_cost_ratio;
+        return {
+            id: d.businessLineId,
+            name: d.businessLineName,
+            x: (metrics[xMetric] as number) || 0,
+            y: (metrics[yMetric] as number) || 0,
+            z: (metrics[zMetric] as number) || 0,
+            color: getDynamicColorByVCR(vcr),
+            vcr: vcr
+        };
+    }).filter(item => typeof item.x === 'number' && typeof item.y === 'number' && typeof item.z === 'number');
   }
 
   const prepareBarRankData_V4 = (
@@ -264,7 +292,7 @@ export default function DashboardPage() {
     metricKey: RankingMetricKey,
     currentPeriodId: string,
     mode: AnalysisMode,
-    selBusinessTypes: string[] // Use selectedBusinessTypes from page state
+    selBusinessTypes: string[] 
     ): ChartDataItem[] => {
     let dataForRanking: ProcessedDataForPeriod[] = [];
     const currentRawPeriod = allRawData.find(p => p.period_id === currentPeriodId);
@@ -288,29 +316,32 @@ export default function DashboardPage() {
     return [...dataForRanking]
         .filter(d => d.currentMetrics && d.currentMetrics[metricKey] !== undefined && d.currentMetrics[metricKey] !== null)
         .sort((a, b) => (b.currentMetrics![metricKey] as number || 0) - (a.currentMetrics![metricKey] as number || 0))
-        .map(d => ({
-        name: d.businessLineName,
-        [metricKey]: d.currentMetrics![metricKey] as number || 0,
-        }));
+        .map(d => {
+          const metrics = d.currentMetrics as AggregatedBusinessMetrics;
+          const vcr = metrics.variable_cost_ratio;
+          return {
+            name: d.businessLineName,
+            [metricKey]: metrics[metricKey] as number || 0,
+            color: getDynamicColorByVCR(vcr)
+          };
+        });
   }
 
   const getCommonAiFilters = () => ({
     analysisMode,
     period: currentPeriodLabel,
     selectedBusinessTypes: selectedBusinessTypes.length > 0 ? selectedBusinessTypes.join(', ') : '全部独立业务类型合计',
+    vcrColorRules: "颜色基于变动成本率(VCR): VCR >= 92% (红色), 88% <= VCR < 92% (蓝色), VCR < 88% (绿色)"
   });
 
  const handleOverallAiSummary = async () => {
     setIsOverallAiSummaryLoading(true);
     setOverallAiSummary(null);
     try {
-      // processedData[0] contains the data for the current selection (single, multi-select aggregate, or all-aggregate)
       const currentContextData = processedData[0]; 
       let topBusinessLinesData: any[] = [];
 
       if (currentContextData && currentContextData.currentMetrics) {
-          // If the current context is an aggregate (either "合计" or "自定义合计")
-          // or if no specific business types are selected (implying "合计" of all individual lines)
           if (currentContextData.businessLineId === '合计' || currentContextData.businessLineId === '自定义合计' || selectedBusinessTypes.length === 0) {
               const individualLinesData = allBusinessTypes.map(bt => {
                 return processDataForSelectedPeriod(allV4Data, selectedPeriodKey, analysisMode, [bt])[0];
@@ -329,13 +360,12 @@ export default function DashboardPage() {
                     name: d.businessLineName,
                     premiumWritten: `${d.currentMetrics.premium_written?.toFixed(2) || 'N/A'} 万元`,
                     lossRatio: `${d.currentMetrics.loss_ratio?.toFixed(2) || 'N/A'}%`,
+                    variableCostRatio: `${d.currentMetrics.variable_cost_ratio?.toFixed(2) || 'N/A'}%`,
+                    color: getDynamicColorByVCR(d.currentMetrics.variable_cost_ratio),
                     changeInPremiumWritten: changeInPremium, 
                   };
                 });
-          } else { // Single business line selected, or multiple specific lines selected (which forms "自定义合计")
-            // For a single selected line, currentContextData IS that line.
-            // For multiple selected lines ("自定义合计"), currentContextData IS that aggregate.
-            // In both these cases, we show details for currentContextData.
+          } else { 
              let changeInPremium = 'N/A';
              if (currentContextData.currentMetrics?.premium_written !== undefined && currentContextData.momMetrics?.premium_written !== undefined) {
                 const momChangeAbs = currentContextData.currentMetrics.premium_written - currentContextData.momMetrics.premium_written;
@@ -345,11 +375,12 @@ export default function DashboardPage() {
                 name: currentContextData.businessLineName,
                 premiumWritten: `${currentContextData.currentMetrics.premium_written?.toFixed(2) || 'N/A'} 万元`,
                 lossRatio: `${currentContextData.currentMetrics.loss_ratio?.toFixed(2) || 'N/A'}%`,
+                variableCostRatio: `${currentContextData.currentMetrics.variable_cost_ratio?.toFixed(2) || 'N/A'}%`,
+                color: getDynamicColorByVCR(currentContextData.currentMetrics.variable_cost_ratio),
                 changeInPremiumWritten: changeInPremium
             }];
           }
       }
-
 
        const aiInputData = {
         keyPerformanceIndicators: kpis.map(kpi => ({
@@ -363,15 +394,12 @@ export default function DashboardPage() {
             isRisk: kpi.isRisk || kpi.isBorderRisk || kpi.isOrangeRisk,
             description: kpi.description
         })),
-        // Only include topBusinessLines if it has meaningful data
         ...(topBusinessLinesData.length > 0 && { topBusinessLinesByPremiumWritten: topBusinessLinesData }),
       };
       
-      const input: AiSummaryInput = {
+      const input: GenerateBusinessSummaryInput = {
         data: JSON.stringify(aiInputData, null, 2),
         filters: JSON.stringify(getCommonAiFilters(), null, 2),
-        analysisMode,
-        currentPeriodLabel,
       };
 
       const result = await generateBusinessSummary(input);
@@ -423,9 +451,9 @@ export default function DashboardPage() {
     try {
       const input: GenerateBubbleChartAnalysisInput = {
         chartDataJson: JSON.stringify(bubbleChartData),
-        xAxisMetric: "跟单保费", 
-        yAxisMetric: "满期赔付率",
-        bubbleSizeMetric: "保单数量",
+        xAxisMetric: availableBubbleMetrics.find(m => m.value === selectedBubbleXAxisMetric)?.label || selectedBubbleXAxisMetric,
+        yAxisMetric: availableBubbleMetrics.find(m => m.value === selectedBubbleYAxisMetric)?.label || selectedBubbleYAxisMetric,
+        bubbleSizeMetric: availableBubbleMetrics.find(m => m.value === selectedBubbleSizeMetric)?.label || selectedBubbleSizeMetric,
         analysisMode,
         currentPeriodLabel,
         filtersJson: JSON.stringify(getCommonAiFilters())
@@ -513,16 +541,23 @@ export default function DashboardPage() {
             aiSummary={trendAiSummary}
             isAiSummaryLoading={isTrendAiSummaryLoading}
             onGenerateAiSummary={handleGenerateTrendAiSummary}
-            key={selectedBusinessTypes.join('-') + '-' + analysisMode} // Add key to force re-render on filter change
+            key={selectedBusinessTypes.join('-') + '-' + analysisMode + '-' + selectedTrendMetric} 
           />
         )}
         {activeView === 'bubble' && 
           <BubbleChartSection 
-            data={bubbleChartData} 
+            data={bubbleChartData}
+            availableMetrics={availableBubbleMetrics}
+            selectedXAxisMetric={selectedBubbleXAxisMetric}
+            onXAxisMetricChange={setSelectedBubbleXAxisMetric}
+            selectedYAxisMetric={selectedBubbleYAxisMetric}
+            onYAxisMetricChange={setSelectedBubbleYAxisMetric}
+            selectedSizeMetric={selectedBubbleSizeMetric}
+            onSizeMetricChange={setSelectedBubbleSizeMetric}
             aiSummary={bubbleAiSummary}
             isAiSummaryLoading={isBubbleAiSummaryLoading}
             onGenerateAiSummary={handleGenerateBubbleAiSummary}
-            key={selectedBusinessTypes.join('-') + '-' + analysisMode + '-' + selectedPeriodKey}
+            key={selectedBusinessTypes.join('-') + '-' + analysisMode + '-' + selectedPeriodKey + '-' + selectedBubbleXAxisMetric + '-' + selectedBubbleYAxisMetric + '-' + selectedBubbleSizeMetric}
           />
         }
 

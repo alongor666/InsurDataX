@@ -6,7 +6,7 @@ import type { ProcessedDataForPeriod, RankingMetricKey } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
 import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { BarChartHorizontal, Palette } from 'lucide-react';
-import { ChartContainer, ChartTooltip, ChartLegend, ChartLegendContent } from "@/components/ui/chart"; // ChartLegend & Content not used for Bar
+import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 import { Bar, BarChart as RechartsBarChart, CartesianGrid, XAxis, YAxis, TooltipProps, ResponsiveContainer, LabelList } from "recharts";
 import type {NameType, ValueType} from 'recharts/types/component/DefaultTooltipContent';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,35 +21,25 @@ interface BarChartRankingSectionProps {
   onGenerateAiSummary: () => Promise<void>;
 }
 
-const CustomTooltip = ({ active, payload, label }: TooltipProps<ValueType, NameType>) => {
-  if (active && payload && payload.length) {
-    const metricConfig = availableMetricsForTooltip.find(m => m.value === payload[0].dataKey);
-    const unit = metricConfig?.value.includes('ratio') ? '%' : (metricConfig?.value === 'policy_count' ? '件' : '万元');
+const CustomTooltip = ({ active, payload, label, selectedMetricKey, availableMetricsList }: TooltipProps<ValueType, NameType> & { selectedMetricKey?: RankingMetricKey, availableMetricsList?: { value: RankingMetricKey, label: string }[] }) => {
+  if (active && payload && payload.length && selectedMetricKey && availableMetricsList) {
+    const metricConfig = availableMetricsList.find(m => m.value === selectedMetricKey);
+    const unit = metricConfig?.label.includes('%') ? '%' : (metricConfig?.value === 'policy_count' || metricConfig?.value === 'claim_count' || metricConfig?.value === 'policy_count_earned' ? '件' : (metricConfig?.label.includes('(元)') ? '元' : '万元'));
     const value = typeof payload[0].value === 'number' 
-        ? (unit === '%' ? payload[0].value.toFixed(1) : payload[0].value.toLocaleString(undefined, {maximumFractionDigits: unit === '万元' ? 2:0})) 
+        ? (unit === '%' ? payload[0].value.toFixed(1) : payload[0].value.toLocaleString(undefined, {maximumFractionDigits: (unit === '万元' || unit === '元') ? 2:0})) 
         : payload[0].value;
 
     return (
       <div className="rounded-lg border bg-background p-2 shadow-sm">
         <p className="text-sm font-medium text-foreground mb-1">{label}</p>
         <p className="text-xs text-muted-foreground">
-          {payload[0].name}: {value}{unit}
+          {metricConfig?.label || payload[0].name}: {value}{unit !== '万元' && unit !== '元' ? unit : ''}
         </p>
       </div>
     );
   }
   return null;
 };
-
-// Temporary store for available metrics for tooltip, should ideally come from props or context
-const availableMetricsForTooltip: { value: RankingMetricKey, label: string }[] = [
-  { value: 'premium_written', label: '跟单保费' },
-  { value: 'total_loss_amount', label: '总赔款' },
-  { value: 'policy_count', label: '保单数量' },
-  { value: 'loss_ratio', label: '满期赔付率' },
-  { value: 'expense_ratio', label: '费用率' },
-  { value: 'variable_cost_ratio', label: '变动成本率'}
-];
 
 
 export function BarChartRankingSection({ 
@@ -64,21 +54,26 @@ export function BarChartRankingSection({
   
   const selectedMetricConfig = availableMetrics.find(m => m.value === selectedMetric);
 
-  const chartConfig = {
+  const chartConfig = { // This config is mostly for labels now, color is data-driven
     [selectedMetric]: {
       label: selectedMetricConfig?.label || selectedMetric,
-      color: "hsl(var(--chart-1))",
+      // color is now in data item: item.color
     },
   };
 
   const valueFormatter = (value: number) => {
     if (!selectedMetricConfig) return value.toString();
-    if (selectedMetricConfig.value.includes('ratio')) return `${value.toFixed(1)}%`;
-    if (selectedMetricConfig.value === 'policy_count') return value.toLocaleString();
+    const label = selectedMetricConfig.label;
+    if (label.includes('%')) return `${value.toFixed(1)}%`;
+    if (label.includes('(件)')) return value.toLocaleString();
+    if (label.includes('(元)')) {
+      if (value >= 1000000) return `${(value/1000000).toFixed(1)}百万`;
+      return value.toLocaleString(undefined, {maximumFractionDigits:0});
+    }
     // Default to 万元 for other monetary values
     if (value >= 10000) return `${(value / 10000).toFixed(1)}亿`;
     if (value >= 1000) return `${(value / 1000).toFixed(0)}千万`;
-    return value.toFixed(2); // For 万元
+    return value.toFixed(2); 
   };
 
   const metricSelector = (
@@ -108,11 +103,25 @@ export function BarChartRankingSection({
           <ChartContainer config={chartConfig} className="h-full w-full">
             <RechartsBarChart data={data} layout="vertical" margin={{ top: 5, right: 50, left: 30, bottom: 5 }} barCategoryGap="20%">
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" tickFormatter={valueFormatter} axisLine={false} tickLine={false} domain={[0, 'dataMax + 10']}/>
+              <XAxis type="number" tickFormatter={valueFormatter} axisLine={false} tickLine={false} domain={[0, 'dataMax + dataMax * 0.1']}/>
               <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} stroke="hsl(var(--foreground))" width={110} tick={{fontSize: 12}}/>
-              <ChartTooltip content={<CustomTooltip />} cursor={{fill: 'hsl(var(--muted))'}}/>
-              <Bar dataKey={selectedMetric} fill="var(--color-selectedMetric)" radius={[0, 4, 4, 0]}>
-                   <LabelList dataKey={selectedMetric} position="right" formatter={valueFormatter} className="fill-foreground text-xs" />
+              <ChartTooltip 
+                content={<CustomTooltip selectedMetricKey={selectedMetric} availableMetricsList={availableMetrics}/>} 
+                cursor={{fill: 'hsl(var(--muted))'}}
+              />
+              <Bar dataKey={selectedMetric} radius={[0, 4, 4, 0]}>
+                {data.map((entry, index) => (
+                    <LabelList 
+                      key={`label-${index}`}
+                      dataKey={selectedMetric} 
+                      position="right" 
+                      formatter={valueFormatter} 
+                      className="fill-foreground text-xs" 
+                    />
+                ))}
+                 {data.map((entry, index) => (
+                    <Bar key={`cell-${index}`} dataKey={selectedMetric} fill={entry.color || 'hsl(var(--chart-1))'} />
+                ))}
               </Bar>
             </RechartsBarChart>
           </ChartContainer>
