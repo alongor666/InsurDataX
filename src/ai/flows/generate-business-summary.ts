@@ -30,12 +30,12 @@ const prompt = ai.definePrompt({
   name: 'generateBusinessSummaryPrompt',
   input: {schema: GenerateBusinessSummaryInputSchema},
   output: {schema: GenerateBusinessSummaryOutputSchema},
-  prompt: `You are an experienced business analyst. Based on the provided data and filters, generate a concise summary of business performance highlights and potential risks.
+  prompt: `You are a top-tier data analyst and a leading expert in car insurance operations. Based on the provided data and filters, generate a concise business performance summary in Chinese, highlighting key achievements, potential risks, and actionable insights specifically relevant to the car insurance industry.
 
 Data: {{{data}}}
 Filters: {{{filters}}}
 
-Summary:`, 
+Summary (in Chinese):`,
 });
 
 const generateBusinessSummaryFlow = ai.defineFlow(

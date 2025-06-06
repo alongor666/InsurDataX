@@ -1,23 +1,25 @@
 
 "use client";
 
-import type { ChartDataItem } from '@/data/types'; // Removed BusinessLine import as it's not directly used here for metrics type
+import type { ChartDataItem } from '@/data/types'; 
 import { SectionWrapper } from '@/components/shared/section-wrapper';
+import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { LineChart as LucideLineChart, Palette } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { CartesianGrid, Line, LineChart as RechartsLineChart, XAxis, YAxis, TooltipProps } from "recharts";
 import type {NameType, ValueType} from 'recharts/types/component/DefaultTooltipContent';
-import { useMemo } from 'react'; // Changed from useState to useMemo for derived values
+import { useMemo } from 'react'; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-// Removed: import { mockBusinessLines } from '@/data/mock-data'; 
-import { cn } from '@/lib/utils';
-import type { ProcessedDataForPeriod, TrendMetricKey as V4TrendMetricKey } from '@/data/types'; // Using V4 type for metric keys
+import type { TrendMetricKey as V4TrendMetricKey } from '@/data/types'; 
 
 interface TrendAnalysisSectionProps {
   data: ChartDataItem[];
-  availableMetrics: { value: V4TrendMetricKey, label: string }[]; // Use V4TrendMetricKey
-  onMetricChange: (metric: V4TrendMetricKey) => void; // Use V4TrendMetricKey
-  selectedMetric: V4TrendMetricKey; // Use V4TrendMetricKey
+  availableMetrics: { value: V4TrendMetricKey, label: string }[]; 
+  onMetricChange: (metric: V4TrendMetricKey) => void; 
+  selectedMetric: V4TrendMetricKey; 
+  aiSummary: string | null;
+  isAiSummaryLoading: boolean;
+  onGenerateAiSummary: () => Promise<void>;
 }
 
 const chartColorKeys = ['chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5'];
@@ -45,14 +47,22 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<ValueType, NameT
 };
 
 
-export function TrendAnalysisSection({ data, availableMetrics, onMetricChange, selectedMetric }: TrendAnalysisSectionProps) {
+export function TrendAnalysisSection({ 
+  data, 
+  availableMetrics, 
+  onMetricChange, 
+  selectedMetric,
+  aiSummary,
+  isAiSummaryLoading,
+  onGenerateAiSummary 
+}: TrendAnalysisSectionProps) {
   
   const businessLineNames = useMemo(() => {
     if (!data || data.length === 0) return [];
     const keys = new Set<string>();
     data.forEach(item => {
       Object.keys(item).forEach(key => {
-        if (key !== 'name' && key !== 'date' && typeof item[key] === 'number') { // Assuming 'name' or 'date' is the x-axis key
+        if (key !== 'name' && key !== 'date' && typeof item[key] === 'number') { 
           keys.add(key);
         }
       });
@@ -63,7 +73,7 @@ export function TrendAnalysisSection({ data, availableMetrics, onMetricChange, s
   const chartConfig = useMemo(() => {
     return businessLineNames.reduce((acc, name, index) => {
       acc[name] = {
-        label: name,
+        label: name, // In a multi-line trend, 'name' would be the business line.
         color: `hsl(var(--${chartColorKeys[index % chartColorKeys.length]}))`,
       };
       return acc;
@@ -72,11 +82,15 @@ export function TrendAnalysisSection({ data, availableMetrics, onMetricChange, s
 
 
   const yAxisFormatter = (value: number) => {
-    // TODO: Make this sensitive to selectedMetric (e.g. if it's a percentage)
-    // For now, keeping generic formatting
+    const selectedMetricConfig = availableMetrics.find(m => m.value === selectedMetric);
+    if (selectedMetricConfig && (
+        selectedMetricConfig.value.includes('ratio') || 
+        selectedMetricConfig.value.includes('frequency')
+        )) {
+        return `${value.toFixed(1)}%`;
+    }
     if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
     if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-    if (selectedMetric === 'loss_ratio' || selectedMetric === 'expense_ratio' || selectedMetric === 'variable_cost_ratio') return `${value.toFixed(1)}%`;
     return value.toString();
   };
 
@@ -97,38 +111,42 @@ export function TrendAnalysisSection({ data, availableMetrics, onMetricChange, s
   );
 
 
-  if (!data || data.length === 0 || businessLineNames.length === 0) {
-    return (
-      <SectionWrapper title="趋势分析" icon={LucideLineChart} actionButton={metricSelector}>
-        <p className="text-muted-foreground h-[300px] flex items-center justify-center">选择指标以查看趋势数据，或当前条件下无趋势数据。</p>
-      </SectionWrapper>
-    );
-  }
-  
+  const hasData = data && data.length > 0 && businessLineNames.length > 0;
+
   return (
     <SectionWrapper title="趋势分析" icon={LucideLineChart} actionButton={metricSelector}>
-      <div className="h-[350px] w-full">
-        <ChartContainer config={chartConfig} className="h-full w-full">
-          <RechartsLineChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => typeof value === 'string' ? value.slice(-5) : value} />
-            <YAxis tickFormatter={yAxisFormatter} tickLine={false} axisLine={false} tickMargin={8} />
-            <ChartTooltip content={<CustomTooltip />} />
-            <ChartLegend content={<ChartLegendContent />} />
-            {businessLineNames.map((lineName, index) => (
-              <Line
-                key={lineName}
-                dataKey={lineName}
-                type="monotone"
-                stroke={chartConfig[lineName]?.color || `hsl(var(--${chartColorKeys[index % chartColorKeys.length]}))`}
-                strokeWidth={2}
-                dot={false}
-              />
-            ))}
-          </RechartsLineChart>
-        </ChartContainer>
-      </div>
+      {!hasData ? (
+        <p className="text-muted-foreground h-[300px] flex items-center justify-center">选择指标以查看趋势数据，或当前条件下无趋势数据。</p>
+      ) : (
+        <div className="h-[350px] w-full">
+          <ChartContainer config={chartConfig} className="h-full w-full">
+            <RechartsLineChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => typeof value === 'string' ? value.slice(-5) : value} />
+              <YAxis tickFormatter={yAxisFormatter} tickLine={false} axisLine={false} tickMargin={8} />
+              <ChartTooltip content={<CustomTooltip />} />
+              <ChartLegend content={<ChartLegendContent />} />
+              {businessLineNames.map((lineName, index) => (
+                <Line
+                  key={lineName}
+                  dataKey={lineName}
+                  type="monotone"
+                  stroke={chartConfig[lineName]?.color || `hsl(var(--${chartColorKeys[index % chartColorKeys.length]}))`}
+                  strokeWidth={2}
+                  dot={false}
+                />
+              ))}
+            </RechartsLineChart>
+          </ChartContainer>
+        </div>
+      )}
+      <ChartAiSummary
+        summary={aiSummary}
+        isLoading={isAiSummaryLoading}
+        onGenerateSummary={onGenerateAiSummary}
+        hasData={hasData}
+        chartTypeLabel="趋势图"
+      />
     </SectionWrapper>
   );
 }
-
