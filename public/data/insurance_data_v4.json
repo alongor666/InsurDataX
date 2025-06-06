@@ -1,0 +1,225 @@
+
+[
+  {
+    "period_id": "2024-W22",
+    "period_label": "2024年第22周",
+    "comparison_period_id_yoy": "2023-W22",
+    "comparison_period_id_mom": "2024-W21",
+    "business_data": [
+      {
+        "business_type": "非营业客车新车",
+        "premium_written": 1500.00,
+        "premium_earned": 1400.00,
+        "total_loss_amount": 800.00,
+        "expense_amount_raw": 225.00,
+        "claim_count": 20,
+        "policy_count_earned": 180,
+        "avg_premium_per_policy": 9375.00, 
+        "avg_loss_per_case": 40000.00,
+        "avg_commercial_index": 1.03,
+        "loss_ratio": 57.14,
+        "expense_ratio": 15.00,
+        "variable_cost_ratio": 72.14,
+        "premium_earned_ratio": 93.33,
+        "claim_frequency": 11.11
+      },
+      {
+        "business_type": "私家车险",
+        "premium_written": 2500.00,
+        "premium_earned": 2300.00,
+        "total_loss_amount": 1300.00,
+        "expense_amount_raw": 300.00,
+        "claim_count": 100,
+        "policy_count_earned": 900,
+        "avg_premium_per_policy": 6250.00,
+        "avg_loss_per_case": 13000.00,
+        "avg_commercial_index": 0.98,
+        "loss_ratio": 56.52,
+        "expense_ratio": 12.00,
+        "variable_cost_ratio": 68.52,
+        "premium_earned_ratio": 92.00,
+        "claim_frequency": 11.11
+      },
+      {
+        "business_type": "营业货车",
+        "premium_written": 800.00,
+        "premium_earned": 750.00,
+        "total_loss_amount": 600.00,
+        "expense_amount_raw": 160.00,
+        "claim_count": 30,
+        "policy_count_earned": 90,
+        "avg_premium_per_policy": 13333.33,
+        "avg_loss_per_case": 20000.00,
+        "loss_ratio": 80.00,
+        "expense_ratio": 20.00,
+        "variable_cost_ratio": 100.00,
+        "premium_earned_ratio": 93.75,
+        "claim_frequency": 33.33
+      }
+    ],
+    "totals_for_period": {
+      "total_premium_written_overall": 4800.00
+    }
+  },
+  {
+    "period_id": "2024-W21",
+    "period_label": "2024年第21周",
+    "comparison_period_id_yoy": "2023-W21",
+    "comparison_period_id_mom": "2024-W20",
+    "business_data": [
+      {
+        "business_type": "非营业客车新车",
+        "premium_written": 1450.00,
+        "premium_earned": 1350.00,
+        "total_loss_amount": 780.00,
+        "expense_amount_raw": 210.00,
+        "claim_count": 18,
+        "policy_count_earned": 170,
+        "avg_premium_per_policy": 9062.50,
+        "avg_loss_per_case": 43333.33,
+        "avg_commercial_index": 1.04,
+        "loss_ratio": 57.78,
+        "expense_ratio": 14.48,
+        "variable_cost_ratio": 72.26,
+        "premium_earned_ratio": 93.10,
+        "claim_frequency": 10.59
+      },
+      {
+        "business_type": "私家车险",
+        "premium_written": 2400.00,
+        "premium_earned": 2200.00,
+        "total_loss_amount": 1250.00,
+        "expense_amount_raw": 288.00,
+        "claim_count": 95,
+        "policy_count_earned": 850,
+        "avg_premium_per_policy": 6000.00,
+        "avg_loss_per_case": 13157.89,
+        "avg_commercial_index": 0.99,
+        "loss_ratio": 56.82,
+        "expense_ratio": 12.00,
+        "variable_cost_ratio": 68.82,
+        "premium_earned_ratio": 91.67,
+        "claim_frequency": 11.18
+      },
+      {
+        "business_type": "营业货车",
+        "premium_written": 780.00,
+        "premium_earned": 720.00,
+        "total_loss_amount": 580.00,
+        "expense_amount_raw": 156.00,
+        "claim_count": 28,
+        "policy_count_earned": 85,
+        "avg_premium_per_policy": 13000.00,
+        "avg_loss_per_case": 20714.29,
+        "loss_ratio": 80.56,
+        "expense_ratio": 20.00,
+        "variable_cost_ratio": 100.56,
+        "premium_earned_ratio": 92.31,
+        "claim_frequency": 32.94
+      }
+    ],
+    "totals_for_period": {
+      "total_premium_written_overall": 4630.00
+    }
+  },
+  {
+    "period_id": "2024-W20",
+    "period_label": "2024年第20周",
+    "comparison_period_id_yoy": "2023-W20",
+    "comparison_period_id_mom": "2024-W19",
+    "business_data": [
+      {
+        "business_type": "非营业客车新车",
+        "premium_written": 1400.50,
+        "premium_earned": 1300.00,
+        "total_loss_amount": 750.00,
+        "expense_amount_raw": 200.00,
+        "claim_count": 15,
+        "policy_count_earned": 160,
+        "avg_premium_per_policy": 9336.67,
+        "avg_loss_per_case": 50000.00,
+        "avg_commercial_index": 1.05,
+        "loss_ratio": 57.69,
+        "expense_ratio": 14.28,
+        "variable_cost_ratio": 71.97,
+        "premium_earned_ratio": 92.82,
+        "claim_frequency": 9.38
+      },
+      {
+        "business_type": "私家车险",
+        "premium_written": 2350.00,
+        "premium_earned": 2150.00,
+        "total_loss_amount": 1200.00,
+        "expense_amount_raw": 282.00,
+        "claim_count": 90,
+        "policy_count_earned": 800,
+        "avg_premium_per_policy": 5875.00,
+        "avg_loss_per_case": 13333.33,
+        "avg_commercial_index": 1.00,
+        "loss_ratio": 55.81,
+        "expense_ratio": 12.00,
+        "variable_cost_ratio": 67.81,
+        "premium_earned_ratio": 91.49,
+        "claim_frequency": 11.25
+      },
+      {
+        "business_type": "营业货车",
+        "premium_written": 750.00,
+        "premium_earned": 700.00,
+        "total_loss_amount": 550.00,
+        "expense_amount_raw": 150.00,
+        "claim_count": 25,
+        "policy_count_earned": 80,
+        "avg_premium_per_policy": 12500.00,
+        "avg_loss_per_case": 22000.00,
+        "loss_ratio": 78.57,
+        "expense_ratio": 20.00,
+        "variable_cost_ratio": 98.57,
+        "premium_earned_ratio": 93.33,
+        "claim_frequency": 31.25
+      }
+    ],
+    "totals_for_period": {
+      "total_premium_written_overall": 4500.50
+    }
+  },
+  {
+    "period_id": "2023-W22", 
+    "period_label": "2023年第22周",
+    "business_data": [
+      {
+        "business_type": "非营业客车新车",
+        "premium_written": 1300.00, "premium_earned": 1200.00, "total_loss_amount": 700.00, "expense_amount_raw": 195.00, "claim_count": 18, "policy_count_earned": 160, "loss_ratio": 58.33, "expense_ratio": 15.00
+      },
+      {
+        "business_type": "私家车险",
+        "premium_written": 2200.00, "premium_earned": 2000.00, "total_loss_amount": 1100.00, "expense_amount_raw": 264.00, "claim_count": 85, "policy_count_earned": 750, "loss_ratio": 55.00, "expense_ratio": 12.00
+      },
+      {
+        "business_type": "营业货车",
+        "premium_written": 700.00, "premium_earned": 650.00, "total_loss_amount": 500.00, "expense_amount_raw": 140.00, "claim_count": 25, "policy_count_earned": 75, "loss_ratio": 76.92, "expense_ratio": 20.00
+      }
+    ],
+    "totals_for_period": { "total_premium_written_overall": 4200.00 }
+  },
+  {
+    "period_id": "2023-W21", 
+    "period_label": "2023年第21周",
+    "business_data": [
+       { "business_type": "非营业客车新车", "premium_written": 1250.00, "premium_earned": 1150.00, "total_loss_amount": 680.00, "expense_amount_raw": 180.00, "claim_count": 17, "policy_count_earned": 150 },
+       { "business_type": "私家车险", "premium_written": 2100.00, "premium_earned": 1900.00, "total_loss_amount": 1050.00, "expense_amount_raw": 252.00, "claim_count": 80, "policy_count_earned": 700 },
+       { "business_type": "营业货车", "premium_written": 680.00, "premium_earned": 620.00, "total_loss_amount": 480.00, "expense_amount_raw": 136.00, "claim_count": 22, "policy_count_earned": 70 }
+    ],
+    "totals_for_period": { "total_premium_written_overall": 4030.00 }
+  },
+  {
+    "period_id": "2023-W20", 
+    "period_label": "2023年第20周",
+    "business_data": [
+       { "business_type": "非营业客车新车", "premium_written": 1200.00, "premium_earned": 1100.00, "total_loss_amount": 650.00, "expense_amount_raw": 170.00, "claim_count": 16, "policy_count_earned": 140 },
+       { "business_type": "私家车险", "premium_written": 2000.00, "premium_earned": 1800.00, "total_loss_amount": 1000.00, "expense_amount_raw": 240.00, "claim_count": 75, "policy_count_earned": 650 },
+       { "business_type": "营业货车", "premium_written": 650.00, "premium_earned": 600.00, "total_loss_amount": 450.00, "expense_amount_raw": 130.00, "claim_count": 20, "policy_count_earned": 65 }
+    ],
+    "totals_for_period": { "total_premium_written_overall": 3850.00 }
+  }
+]

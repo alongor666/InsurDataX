@@ -1,7 +1,8 @@
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
-import type { AnalysisMode } from '@/data/types';
+import type { AnalysisMode, PeriodOption } from '@/data/types';
 import { Sparkles, Settings2 } from 'lucide-react';
 import {
   Select,
@@ -10,16 +11,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { defaultDateRangeOptions } from '@/data/mock-data';
+// import { defaultDateRangeOptions } from '@/data/mock-data'; // To be replaced by dynamic periodOptions
 
 
 interface AppHeaderProps {
   analysisMode: AnalysisMode;
   onAnalysisModeChange: (mode: AnalysisMode) => void;
   onAiSummaryClick: () => void;
-  selectedPeriod: string;
+  selectedPeriod: string; // Will be period_id
   onPeriodChange: (period: string) => void;
   isAiSummaryLoading: boolean;
+  periodOptions: PeriodOption[]; // New prop for dynamic period options
 }
 
 export function AppHeader({ 
@@ -29,6 +31,7 @@ export function AppHeader({
   selectedPeriod,
   onPeriodChange,
   isAiSummaryLoading,
+  periodOptions,
 }: AppHeaderProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -40,12 +43,12 @@ export function AppHeader({
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
             <Settings2 className="h-5 w-5 text-muted-foreground" />
-            <Select value={selectedPeriod} onValueChange={onPeriodChange}>
+            <Select value={selectedPeriod} onValueChange={onPeriodChange} disabled={periodOptions.length === 0}>
               <SelectTrigger className="w-[180px] h-9">
-                <SelectValue placeholder="选择数据周期" />
+                <SelectValue placeholder={periodOptions.length > 0 ? "选择数据周期" : "加载周期中..."} />
               </SelectTrigger>
               <SelectContent>
-                {defaultDateRangeOptions.map(option => (
+                {periodOptions.map(option => (
                   <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -63,3 +66,4 @@ export function AppHeader({
     </header>
   );
 }
+
