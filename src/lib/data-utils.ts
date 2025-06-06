@@ -1,303 +1,461 @@
 
-import type { ProcessedDataForPeriod, Kpi, ChartDataItem, BubbleChartDataItem, V4PeriodData, V4BusinessDataEntry, V4PeriodTotals } from '@/data/types';
+import type { ProcessedDataForPeriod, Kpi, ChartDataItem, BubbleChartDataItem, V4PeriodData, V4BusinessDataEntry, V4PeriodTotals, AggregatedBusinessMetrics, AnalysisMode } from '@/data/types';
 import { DollarSign, FileText, Percent, Briefcase, Zap, Activity, TrendingUp, TrendingDown, Minus, ShieldCheck, Landmark, Users, Ratio, Search } from 'lucide-react';
 
 export const formatCurrency = (value: number | undefined, displayUnit: '万元' | '元' = '万元'): string => {
-  if (value === undefined || isNaN(value)) return 'N/A';
+  if (value === undefined || isNaN(value) || value === null) return 'N/A';
   if (displayUnit === '万元') {
-    // 假设 'value' 已经是万元单位
     return `${value.toFixed(2)} 万元`;
   } else { // displayUnit === '元'
-    // 假设 'value' 已经是元单位
     return `${new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)} 元`;
   }
 };
 
 export const formatNumber = (value: number | undefined): string => {
-  if (value === undefined || isNaN(value)) return 'N/A';
+  if (value === undefined || isNaN(value) || value === null) return 'N/A';
   return new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
 };
 
 export const formatPercentage = (value: number | undefined, decimals: number = 2): string => {
-  if (value === undefined || isNaN(value)) return 'N/A';
+  if (value === undefined || isNaN(value) || value === null) return 'N/A';
   return `${value.toFixed(decimals)}%`;
 };
 
-// This function is a placeholder and will be replaced by V4 data processing logic
-export const processDataForRange = (
-  businessLinesInput: any[], // This will be V4PeriodData in the future
-  analysisMode: any,
-  currentFrom: any,
-  currentTo: any
+
+// --- V4.0 Data Processing Logic ---
+
+/**
+ * Calculates derived metrics for a single business entry based on its YTD values.
+ * Does not handle "periodOverPeriod" calculations.
+ */
+const calculateMetricsForBusinessEntry = (entry: V4BusinessDataEntry): AggregatedBusinessMetrics => {
+  const premium_written = entry.premium_written || 0;
+  const premium_earned = entry.premium_earned || 0;
+  const total_loss_amount = entry.total_loss_amount || 0;
+  const expense_amount_raw = entry.expense_amount_raw || 0;
+  const claim_count = entry.claim_count || 0;
+  const policy_count_earned = entry.policy_count_earned || 0;
+  const avg_premium_per_policy_json = entry.avg_premium_per_policy; // in 元
+
+  // Derived policy_count (in 件)
+  const policy_count = (avg_premium_per_policy_json && avg_premium_per_policy_json !== 0)
+    ? (premium_written * 10000) / avg_premium_per_policy_json
+    : 0;
+
+  // Rates based on YTD values for a single business line
+  const loss_ratio = premium_earned !== 0 ? (total_loss_amount / premium_earned) * 100 : 0;
+  const expense_ratio = premium_written !== 0 ? (expense_amount_raw / premium_written) * 100 : 0;
+  const variable_cost_ratio = loss_ratio + expense_ratio;
+  const premium_earned_ratio = premium_written !== 0 ? (premium_earned / premium_written) * 100 : 0;
+  const claim_frequency = policy_count_earned !== 0 ? (claim_count / policy_count_earned) * 100 : 0;
+
+  // Averages based on YTD values
+  const avg_premium_per_policy = policy_count !== 0 ? (premium_written * 10000) / policy_count : 0; // in 元
+  const avg_loss_per_case = claim_count !== 0 ? (total_loss_amount * 10000) / claim_count : 0; // in 元
+  
+  const expense_amount = premium_written * (expense_ratio / 100); // in 万元
+
+  return {
+    premium_written,
+    premium_earned,
+    total_loss_amount,
+    expense_amount_raw,
+    policy_count,
+    claim_count,
+    policy_count_earned,
+    avg_commercial_index: entry.avg_commercial_index,
+
+    loss_ratio,
+    expense_ratio,
+    variable_cost_ratio,
+    premium_earned_ratio,
+    claim_frequency,
+    avg_premium_per_policy,
+    avg_loss_per_case,
+    expense_amount,
+  };
+};
+
+/**
+ * Aggregates business data for a period and calculates metrics.
+ * Handles 'cumulative' (YTD) and 'periodOverPeriod' (当周发生额) logic.
+ */
+const aggregateAndCalculateMetrics = (
+  periodBusinessData: V4BusinessDataEntry[],
+  analysisMode: AnalysisMode,
+  previousPeriodBusinessData?: V4BusinessDataEntry[] // For 'periodOverPeriod' calculation
+): AggregatedBusinessMetrics => {
+  let dataToProcess: V4BusinessDataEntry[] = periodBusinessData;
+
+  if (analysisMode === 'periodOverPeriod' && previousPeriodBusinessData) {
+    dataToProcess = periodBusinessData.map(currentEntry => {
+      const prevEntry = previousPeriodBusinessData.find(pe => pe.business_type === currentEntry.business_type);
+      if (!prevEntry) return currentEntry; // If no previous entry, "current period actual" is the YTD value
+
+      return {
+        ...currentEntry, // Keep pre-calculated rates/averages from current YTD for reference if needed
+        premium_written: (currentEntry.premium_written || 0) - (prevEntry.premium_written || 0),
+        premium_earned: (currentEntry.premium_earned || 0) - (prevEntry.premium_earned || 0),
+        total_loss_amount: (currentEntry.total_loss_amount || 0) - (prevEntry.total_loss_amount || 0),
+        expense_amount_raw: (currentEntry.expense_amount_raw || 0) - (prevEntry.expense_amount_raw || 0),
+        claim_count: (currentEntry.claim_count || 0) - (prevEntry.claim_count || 0),
+        policy_count_earned: (currentEntry.policy_count_earned || 0) - (prevEntry.policy_count_earned || 0),
+        // avg_premium_per_policy, avg_loss_per_case, avg_commercial_index are not directly differenced.
+        // They will be recalculated based on the differenced base amounts.
+      };
+    });
+  }
+
+  // If only one business type is effectively selected (after filtering, not implemented yet, or if original data has one line)
+  // AND it's cumulative mode, use pre-calculated values from JSON for rates/averages.
+  if (dataToProcess.length === 1 && analysisMode === 'cumulative') {
+    const singleEntry = dataToProcess[0];
+    // Use calculateMetricsForBusinessEntry to ensure all derived values are present,
+    // but it primarily relies on JSON pre-calculated for rates if they were perfect.
+    // However, for consistency, recalculate based on its own base values.
+    // JSON pre-calcs are more of a reference/validation.
+    const metrics = calculateMetricsForBusinessEntry(singleEntry);
+    return {
+        ...metrics,
+        // Override with JSON pre-calculated values if absolutely needed and trusted,
+        // but recalculating ensures consistency. For now, stick to recalculation.
+        loss_ratio: singleEntry.loss_ratio !== undefined ? singleEntry.loss_ratio : metrics.loss_ratio,
+        expense_ratio: singleEntry.expense_ratio !== undefined ? singleEntry.expense_ratio : metrics.expense_ratio,
+        variable_cost_ratio: singleEntry.variable_cost_ratio !== undefined ? singleEntry.variable_cost_ratio : metrics.variable_cost_ratio,
+        premium_earned_ratio: singleEntry.premium_earned_ratio !== undefined ? singleEntry.premium_earned_ratio : metrics.premium_earned_ratio,
+        claim_frequency: singleEntry.claim_frequency !== undefined ? singleEntry.claim_frequency : metrics.claim_frequency,
+        avg_premium_per_policy: singleEntry.avg_premium_per_policy !== undefined ? singleEntry.avg_premium_per_policy : metrics.avg_premium_per_policy,
+        avg_loss_per_case: singleEntry.avg_loss_per_case !== undefined ? singleEntry.avg_loss_per_case : metrics.avg_loss_per_case,
+        avg_commercial_index: singleEntry.avg_commercial_index, // This is always direct from JSON
+    };
+  }
+
+
+  // Aggregation for multiple business types or for "periodOverPeriod" mode
+  const aggregated = dataToProcess.reduce((acc, entry) => {
+    const entryMetrics = calculateMetricsForBusinessEntry(entry); // Calculate derived policy_count for each line
+    
+    acc.premium_written += entry.premium_written || 0; // Use already processed value (YTD or period-over-period)
+    acc.premium_earned += entry.premium_earned || 0;
+    acc.total_loss_amount += entry.total_loss_amount || 0;
+    acc.expense_amount_raw += entry.expense_amount_raw || 0;
+    acc.policy_count += entryMetrics.policy_count; // Sum up derived policy_counts
+    acc.claim_count += entry.claim_count || 0;
+    acc.policy_count_earned += entry.policy_count_earned || 0;
+    // avg_commercial_index is not aggregated
+    return acc;
+  }, {
+    premium_written: 0, premium_earned: 0, total_loss_amount: 0, expense_amount_raw: 0,
+    policy_count: 0, claim_count: 0, policy_count_earned: 0, avg_commercial_index: undefined,
+  } as AggregatedBusinessMetrics & { policy_count: number }); // policy_count needs to be part of acc
+
+
+  // Recalculate rates and averages based on aggregated sums
+  const loss_ratio = aggregated.premium_earned !== 0 ? (aggregated.total_loss_amount / aggregated.premium_earned) * 100 : 0;
+  const expense_ratio = aggregated.premium_written !== 0 ? (aggregated.expense_amount_raw / aggregated.premium_written) * 100 : 0;
+  const variable_cost_ratio = loss_ratio + expense_ratio;
+  const premium_earned_ratio = aggregated.premium_written !== 0 ? (aggregated.premium_earned / aggregated.premium_written) * 100 : 0;
+  const claim_frequency = aggregated.policy_count_earned !== 0 ? (aggregated.claim_count / aggregated.policy_count_earned) * 100 : 0;
+  const avg_premium_per_policy = aggregated.policy_count !== 0 ? (aggregated.premium_written * 10000) / aggregated.policy_count : 0;
+  const avg_loss_per_case = aggregated.claim_count !== 0 ? (aggregated.total_loss_amount * 10000) / aggregated.claim_count : 0;
+  const expense_amount = aggregated.premium_written * (expense_ratio / 100);
+
+  return {
+    premium_written: aggregated.premium_written,
+    premium_earned: aggregated.premium_earned,
+    total_loss_amount: aggregated.total_loss_amount,
+    expense_amount_raw: aggregated.expense_amount_raw,
+    policy_count: aggregated.policy_count,
+    claim_count: aggregated.claim_count,
+    policy_count_earned: aggregated.policy_count_earned,
+    avg_commercial_index: dataToProcess.length === 1 ? dataToProcess[0].avg_commercial_index : undefined, // Only if single effective line
+
+    loss_ratio,
+    expense_ratio,
+    variable_cost_ratio,
+    premium_earned_ratio,
+    claim_frequency,
+    avg_premium_per_policy,
+    avg_loss_per_case,
+    expense_amount,
+  };
+};
+
+/**
+ * Processes V4 data for a selected period, analysis mode, and business types.
+ * Returns an array of ProcessedDataForPeriod (typically one item for "合计" or selected types).
+ */
+export const processDataForSelectedPeriod = (
+  allV4Data: V4PeriodData[],
+  selectedPeriodId: string,
+  analysisMode: AnalysisMode,
+  selectedBusinessTypes: string[] // Empty array means all business types (合计)
 ): ProcessedDataForPeriod[] => {
-  // This function's old logic based on monthly mock data is no longer relevant
-  // It needs to be entirely rewritten to process V4PeriodData, calculate "当周发生额",
-  // and handle aggregation based on selected business types.
-  // For now, returning an empty array or minimal structure to avoid breaking page.tsx too much.
-  console.warn("processDataForRange in data-utils.ts is a placeholder and needs full V4 implementation.");
-  return [];
+  const currentPeriod = allV4Data.find(p => p.period_id === selectedPeriodId);
+  if (!currentPeriod) return [];
+
+  const momPeriodId = currentPeriod.comparison_period_id_mom;
+  const momPeriod = momPeriodId ? allV4Data.find(p => p.period_id === momPeriodId) : undefined;
+
+  const yoyPeriodId = currentPeriod.comparison_period_id_yoy;
+  const yoyPeriod = yoyPeriodId ? allV4Data.find(p => p.period_id === yoyPeriodId) : undefined;
+  
+  // Filter business data based on selectedBusinessTypes. If empty, use all.
+  // Exclude "合计" from individual processing if it exists in business_data
+  const filterData = (data?: V4BusinessDataEntry[]) => {
+    if (!data) return [];
+    const actualData = data.filter(bd => bd.business_type !== "合计"); // Exclude a raw "合计" line if present
+    if (selectedBusinessTypes.length === 0) return actualData;
+    return actualData.filter(bd => selectedBusinessTypes.includes(bd.business_type));
+  };
+
+  const currentBusinessData = filterData(currentPeriod.business_data);
+  const momBusinessData = filterData(momPeriod?.business_data);
+  const yoyBusinessData = filterData(yoyPeriod?.business_data);
+
+  // Calculate metrics for the current period (YTD or Period-over-Period)
+  const currentMetrics = aggregateAndCalculateMetrics(
+    currentBusinessData,
+    analysisMode,
+    analysisMode === 'periodOverPeriod' ? momBusinessData : undefined // Pass mom data only for PoP calculation
+  );
+
+  // Calculate YTD metrics for MoM comparison period (always YTD for comparison base)
+  const momMetrics = momPeriod ? aggregateAndCalculateMetrics(momBusinessData, 'cumulative') : undefined;
+  
+  // Calculate YTD metrics for YoY comparison period (always YTD for comparison base)
+  const yoyMetrics = yoyPeriod ? aggregateAndCalculateMetrics(yoyBusinessData, 'cumulative') : undefined;
+  
+  const businessLineName = selectedBusinessTypes.length === 0 || selectedBusinessTypes.length > 1 
+                           ? "合计" 
+                           : selectedBusinessTypes[0];
+                           
+  const businessLineId = businessLineName; // Or generate a unique ID if needed
+
+  return [{
+    businessLineId,
+    businessLineName,
+    // icon: undefined, // TODO: Map icons if needed
+
+    currentMetrics,
+    momMetrics,
+    yoyMetrics,
+
+    // Legacy fields (to be phased out or mapped from currentMetrics)
+    premium_written: currentMetrics.premium_written,
+    total_loss_amount: currentMetrics.total_loss_amount,
+    policy_count: currentMetrics.policy_count,
+    loss_ratio: currentMetrics.loss_ratio,
+    expense_ratio: currentMetrics.expense_ratio,
+    variable_cost_ratio: currentMetrics.variable_cost_ratio,
+
+    // Fields for data table, changes will be calculated in calculateKpis or directly in DataTableSection
+  }] as ProcessedDataForPeriod[]; 
 };
 
 
-const calculateChangeAndAbs = (current: number | undefined, previous: number | undefined): { change?: number, absolute?: number } => {
-  if (current === undefined || previous === undefined || isNaN(current) || isNaN(previous)) {
-    return {};
+const calculateChangeAndType = (current?: number, previous?: number, higherIsBetter: boolean = true): { percent?: number, absolute?: number, type: Kpi['changeType'] } => {
+  if (current === undefined || previous === undefined || current === null || previous === null || isNaN(current) || isNaN(previous)) {
+    return { type: 'neutral' };
   }
   const absolute = current - previous;
-  let change: number | undefined;
+  let percent: number | undefined;
   if (previous !== 0) {
-    change = (absolute / Math.abs(previous)) * 100;
+    percent = (absolute / Math.abs(previous)) * 100;
   } else if (current !== 0) {
-    change = current > 0 ? 100 : -100; // Or Infinity, or handle as a special case string
+    percent = current > 0 ? 100 : -100; // Or Infinity
   } else {
-    change = 0;
+    percent = 0;
   }
-  return { change, absolute };
+
+  let type: Kpi['changeType'] = 'neutral';
+  if (absolute > 0) type = higherIsBetter ? 'positive' : 'negative';
+  if (absolute < 0) type = higherIsBetter ? 'negative' : 'positive';
+  
+  return { percent, absolute, type };
 };
 
 
 export const calculateKpis = (
-  processedData: ProcessedDataForPeriod[],
-  analysisMode: string, // Keep 'string' for now, will be AnalysisMode
-  currentPeriodTotals?: V4PeriodTotals // For "保费占比"
+  processedData: ProcessedDataForPeriod[], // Expecting a single entry for "合计" or selected line
+  overallTotalsForPeriod?: V4PeriodTotals 
 ): Kpi[] => {
   if (!processedData || processedData.length === 0) return [];
-
-  // Aggregate values from processedData (which should already be aggregated or for a single line)
-  const aggData = processedData.reduce((acc, d) => {
-    // Base values for current period
-    acc.premium_written += (d.premium_written || 0);
-    acc.premium_earned += (d.premium_earned || 0);
-    acc.total_loss_amount += (d.total_loss_amount || 0);
-    acc.expense_amount_raw += (d.expense_amount_raw || 0);
-    acc.policy_count += (d.policy_count || 0);
-    acc.claim_count += (d.claim_count || 0);
-    acc.policy_count_earned += (d.policy_count_earned || 0);
-
-    // For changes, this part needs accurate previous period aggregated values.
-    // For now, using the change values from the first item as a placeholder if available.
-    // This will be corrected when V4 data processing is complete.
-    if (acc.premium_written_prev === undefined && d.premium_written_prev !== undefined) acc.premium_written_prev = (d.premium_written_prev || 0); else acc.premium_written_prev += (d.premium_written_prev || 0);
-    if (acc.premium_earned_prev === undefined && d.premium_earned_prev !== undefined) acc.premium_earned_prev = (d.premium_earned_prev || 0); else acc.premium_earned_prev += (d.premium_earned_prev || 0);
-    if (acc.total_loss_amount_prev === undefined && d.total_loss_amount_prev !== undefined) acc.total_loss_amount_prev = (d.total_loss_amount_prev || 0); else acc.total_loss_amount_prev += (d.total_loss_amount_prev || 0);
-    if (acc.expense_amount_raw_prev === undefined && d.expense_amount_raw_prev !== undefined) acc.expense_amount_raw_prev = (d.expense_amount_raw_prev || 0); else acc.expense_amount_raw_prev += (d.expense_amount_raw_prev || 0);
-    if (acc.policy_count_prev === undefined && d.policy_count_prev !== undefined) acc.policy_count_prev = (d.policy_count_prev || 0); else acc.policy_count_prev += (d.policy_count_prev || 0);
-    if (acc.claim_count_prev === undefined && d.claim_count_prev !== undefined) acc.claim_count_prev = (d.claim_count_prev || 0); else acc.claim_count_prev += (d.claim_count_prev || 0);
-    if (acc.policy_count_earned_prev === undefined && d.policy_count_earned_prev !== undefined) acc.policy_count_earned_prev = (d.policy_count_earned_prev || 0); else acc.policy_count_earned_prev += (d.policy_count_earned_prev || 0);
-    
-    // Sum up base values for ratio calculation
-    acc.sum_premium_written_for_ratio_calc += d.sum_premium_written_for_ratio_calc || 0;
-    acc.sum_premium_earned_for_ratio_calc += d.sum_premium_earned_for_ratio_calc || 0;
-    acc.sum_total_loss_amount_for_ratio_calc += d.sum_total_loss_amount_for_ratio_calc || 0;
-    acc.sum_expense_amount_raw_for_ratio_calc += d.sum_expense_amount_raw_for_ratio_calc || 0;
-    acc.sum_claim_count_for_ratio_calc += d.sum_claim_count_for_ratio_calc || 0;
-    acc.sum_policy_count_earned_for_ratio_calc += d.sum_policy_count_earned_for_ratio_calc || 0;
-
-
-    return acc;
-  }, {
-    premium_written: 0, premium_earned: 0, total_loss_amount: 0, expense_amount_raw: 0,
-    policy_count: 0, claim_count: 0, policy_count_earned: 0,
-    premium_written_prev: 0, premium_earned_prev: 0, total_loss_amount_prev: 0, expense_amount_raw_prev: 0,
-    policy_count_prev: 0, claim_count_prev: 0, policy_count_earned_prev: 0,
-    sum_premium_written_for_ratio_calc: 0, sum_premium_earned_for_ratio_calc: 0,
-    sum_total_loss_amount_for_ratio_calc: 0, sum_expense_amount_raw_for_ratio_calc: 0,
-    sum_claim_count_for_ratio_calc: 0, sum_policy_count_earned_for_ratio_calc: 0,
-  });
-
-  const {
-    premium_written, premium_earned, total_loss_amount, expense_amount_raw,
-    policy_count, claim_count = 0, policy_count_earned = 0
-  } = aggData;
   
-  const prev_premium_written = aggData.premium_written_prev;
-  const prev_premium_earned = aggData.premium_earned_prev;
-  const prev_total_loss_amount = aggData.total_loss_amount_prev;
-  const prev_expense_amount_raw = aggData.expense_amount_raw_prev;
-  const prev_policy_count = aggData.policy_count_prev;
-  const prev_claim_count = aggData.claim_count_prev;
-  const prev_policy_count_earned = aggData.policy_count_earned_prev;
+  const data = processedData[0]; // Assuming the first entry is the relevant aggregated data
+  const current = data.currentMetrics;
+  const mom = data.momMetrics;
+  const yoy = data.yoyMetrics;
 
-  // Current period aggregated metrics
-  const loss_ratio = aggData.sum_premium_earned_for_ratio_calc !== 0 ? (aggData.sum_total_loss_amount_for_ratio_calc / aggData.sum_premium_earned_for_ratio_calc) * 100 : 0;
-  const expense_ratio = aggData.sum_premium_written_for_ratio_calc !== 0 ? (aggData.sum_expense_amount_raw_for_ratio_calc / aggData.sum_premium_written_for_ratio_calc) * 100 : 0;
-  const variable_cost_ratio = loss_ratio + expense_ratio; // Based on calculated aggregated ratios
-  const expense_amount = premium_written * (expense_ratio / 100);
-  const premium_earned_ratio = aggData.sum_premium_written_for_ratio_calc !== 0 ? (aggData.sum_premium_earned_for_ratio_calc / aggData.sum_premium_written_for_ratio_calc) * 100 : 0;
-  const avg_premium_per_policy = policy_count !== 0 ? (premium_written * 10000 / policy_count) : 0;
-  const claim_frequency = aggData.sum_policy_count_earned_for_ratio_calc !== 0 ? (aggData.sum_claim_count_for_ratio_calc / aggData.sum_policy_count_earned_for_ratio_calc) * 100 : 0;
-  const avg_loss_per_case = aggData.sum_claim_count_for_ratio_calc !== 0 ? (aggData.sum_total_loss_amount_for_ratio_calc * 10000 / aggData.sum_claim_count_for_ratio_calc) : 0;
-  const marginal_contribution_amount = premium_earned - total_loss_amount - expense_amount;
-  const marginal_contribution_ratio = premium_earned !== 0 ? (marginal_contribution_amount / premium_earned) * 100 : 0;
-  const premium_share = (currentPeriodTotals?.total_premium_written_overall && currentPeriodTotals.total_premium_written_overall !== 0)
-    ? (premium_written / currentPeriodTotals.total_premium_written_overall) * 100
+  if (!current) return [];
+
+  // --- Helper to create KPI change strings ---
+  const formatChange = (change: { percent?: number, absolute?: number, type: Kpi['changeType'] }, unit: '万元' | '元' | '%' | '件' = '%') => {
+    let changePercentStr, changeAbsStr;
+    if (change.percent !== undefined) {
+        changePercentStr = formatPercentage(change.percent);
+    }
+    if (change.absolute !== undefined) {
+        if (unit === '万元' || unit === '元') changeAbsStr = formatCurrency(change.absolute, unit);
+        else if (unit === '%') changeAbsStr = formatPercentage(change.absolute); // For rate changes in pp
+        else if (unit === '件') changeAbsStr = formatNumber(change.absolute);
+        else changeAbsStr = formatNumber(change.absolute);
+    }
+    return { change: changePercentStr, changeAbsolute: changeAbsStr, changeType: change.type };
+  };
+
+  // --- Calculate changes ---
+  // MoM Changes
+  const premWrittenMomChg = calculateChangeAndType(current.premium_written, mom?.premium_written);
+  const premEarnedMomChg = calculateChangeAndType(current.premium_earned, mom?.premium_earned);
+  const lossAmtMomChg = calculateChangeAndType(current.total_loss_amount, mom?.total_loss_amount, false);
+  const expenseAmtMomChg = calculateChangeAndType(current.expense_amount, mom?.expense_amount, false);
+  const policyCntMomChg = calculateChangeAndType(current.policy_count, mom?.policy_count);
+  
+  const lossRatioMomChg = calculateChangeAndType(current.loss_ratio, mom?.loss_ratio, false);
+  const expenseRatioMomChg = calculateChangeAndType(current.expense_ratio, mom?.expense_ratio, false);
+  const varCostRatioMomChg = calculateChangeAndType(current.variable_cost_ratio, mom?.variable_cost_ratio, false);
+  const premEarnRatioMomChg = calculateChangeAndType(current.premium_earned_ratio, mom?.premium_earned_ratio);
+  const claimFreqMomChg = calculateChangeAndType(current.claim_frequency, mom?.claim_frequency, false);
+  const avgPremPolMomChg = calculateChangeAndType(current.avg_premium_per_policy, mom?.avg_premium_per_policy);
+  const avgLossCaseMomChg = calculateChangeAndType(current.avg_loss_per_case, mom?.avg_loss_per_case, false);
+  
+  const marginalContribAmt = current.premium_earned - current.total_loss_amount - (current.expense_amount || 0) ;
+  const momMarginalContribAmt = mom ? mom.premium_earned - mom.total_loss_amount - (mom.expense_amount || 0) : undefined;
+  const marginalContribAmtMomChg = calculateChangeAndType(marginalContribAmt, momMarginalContribAmt);
+
+  const marginalContribRatio = current.premium_earned !== 0 ? (marginalContribAmt / current.premium_earned) * 100 : 0;
+  const momMarginalContribRatio = (mom && mom.premium_earned !== 0) ? (momMarginalContribAmt! / mom.premium_earned) * 100 : undefined;
+  const marginalContribRatioMomChg = calculateChangeAndType(marginalContribRatio, momMarginalContribRatio);
+  
+  // YoY Changes (similar structure, using `yoy` data)
+  const premWrittenYoyChg = calculateChangeAndType(current.premium_written, yoy?.premium_written);
+  const premEarnedYoyChg = calculateChangeAndType(current.premium_earned, yoy?.premium_earned);
+  const lossAmtYoyChg = calculateChangeAndType(current.total_loss_amount, yoy?.total_loss_amount, false);
+  const expenseAmtYoyChg = calculateChangeAndType(current.expense_amount, yoy?.expense_amount, false);
+  const policyCntYoyChg = calculateChangeAndType(current.policy_count, yoy?.policy_count);
+
+  const lossRatioYoyChg = calculateChangeAndType(current.loss_ratio, yoy?.loss_ratio, false);
+  const expenseRatioYoyChg = calculateChangeAndType(current.expense_ratio, yoy?.expense_ratio, false);
+  const varCostRatioYoyChg = calculateChangeAndType(current.variable_cost_ratio, yoy?.variable_cost_ratio, false);
+  const premEarnRatioYoyChg = calculateChangeAndType(current.premium_earned_ratio, yoy?.premium_earned_ratio);
+  const claimFreqYoyChg = calculateChangeAndType(current.claim_frequency, yoy?.claim_frequency, false);
+  const avgPremPolYoyChg = calculateChangeAndType(current.avg_premium_per_policy, yoy?.avg_premium_per_policy);
+  const avgLossCaseYoyChg = calculateChangeAndType(current.avg_loss_per_case, yoy?.avg_loss_per_case, false);
+
+  const yoyMarginalContribAmt = yoy ? yoy.premium_earned - yoy.total_loss_amount - (yoy.expense_amount || 0) : undefined;
+  const marginalContribAmtYoyChg = calculateChangeAndType(marginalContribAmt, yoyMarginalContribAmt);
+  
+  const yoyMarginalContribRatio = (yoy && yoy.premium_earned !== 0) ? (yoyMarginalContribAmt! / yoy.premium_earned) * 100 : undefined;
+  const marginalContribRatioYoyChg = calculateChangeAndType(marginalContribRatio, yoyMarginalContribRatio);
+
+  const premium_share = (overallTotalsForPeriod?.total_premium_written_overall && overallTotalsForPeriod.total_premium_written_overall !== 0 && current.premium_written !== undefined)
+    ? (current.premium_written / overallTotalsForPeriod.total_premium_written_overall) * 100
     : 0;
-  const avg_commercial_index = processedData.length === 1 ? processedData[0].avg_commercial_index : undefined;
-
-
-  // Previous period aggregated metrics for change calculation
-  const prev_loss_ratio_calc = prev_premium_earned !== 0 ? (prev_total_loss_amount / prev_premium_earned) * 100 : 0;
-  const prev_expense_ratio_calc = prev_premium_written !== 0 ? (prev_expense_amount_raw / prev_premium_written) * 100 : 0;
-  const prev_variable_cost_ratio_calc = prev_loss_ratio_calc + prev_expense_ratio_calc;
-  const prev_expense_amount_calc = prev_premium_written * (prev_expense_ratio_calc / 100);
-  const prev_premium_earned_ratio_calc = prev_premium_written !== 0 ? (prev_premium_earned / prev_premium_written) * 100 : 0;
-  const prev_avg_premium_per_policy_calc = prev_policy_count !== 0 ? (prev_premium_written * 10000 / prev_policy_count) : 0;
-  const prev_claim_frequency_calc = prev_policy_count_earned !== 0 ? (prev_claim_count / prev_policy_count_earned) * 100 : 0;
-  const prev_avg_loss_per_case_calc = prev_claim_count !== 0 ? (prev_total_loss_amount * 10000 / prev_claim_count) : 0;
-  const prev_marginal_contribution_amount_calc = prev_premium_earned - prev_total_loss_amount - prev_expense_amount_calc;
-  const prev_marginal_contribution_ratio_calc = prev_premium_earned !== 0 ? (prev_marginal_contribution_amount_calc / prev_premium_earned) * 100 : 0;
-
-
-  // Calculate changes
-  const mcr_chg = calculateChangeAndAbs(marginal_contribution_ratio, prev_marginal_contribution_ratio_calc);
-  const vcr_chg = calculateChangeAndAbs(variable_cost_ratio, prev_variable_cost_ratio_calc);
-  const er_chg = calculateChangeAndAbs(expense_ratio, prev_expense_ratio_calc);
-  const lr_chg = calculateChangeAndAbs(loss_ratio, prev_loss_ratio_calc);
-  const mca_chg = calculateChangeAndAbs(marginal_contribution_amount, prev_marginal_contribution_amount_calc);
-  const pw_chg = calculateChangeAndAbs(premium_written, prev_premium_written);
-  const ea_chg = calculateChangeAndAbs(expense_amount, prev_expense_amount_calc);
-  const tla_chg = calculateChangeAndAbs(total_loss_amount, prev_total_loss_amount);
-  const pe_chg = calculateChangeAndAbs(premium_earned, prev_premium_earned);
-  const per_chg = calculateChangeAndAbs(premium_earned_ratio, prev_premium_earned_ratio_calc);
-  const app_chg = calculateChangeAndAbs(avg_premium_per_policy, prev_avg_premium_per_policy_calc);
-  const pc_chg = calculateChangeAndAbs(policy_count, prev_policy_count);
-  const cf_chg = calculateChangeAndAbs(claim_frequency, prev_claim_frequency_calc);
-  const alc_chg = calculateChangeAndAbs(avg_loss_per_case, prev_avg_loss_per_case_calc);
-
-  // Placeholder for YoY changes - To be implemented with proper YoY data retrieval
-  const placeholderYoyChange = undefined; // "+0.0%";
-  const placeholderYoyChangeAbs = undefined; // "0";
-  const placeholderYoyChangeType = 'neutral';
   
   const kpis: Kpi[] = [
     // Column 1
     {
-      id: 'marginal_contribution_ratio', title: '边际贡献率', value: formatPercentage(marginal_contribution_ratio), rawValue: marginal_contribution_ratio,
-      change: mcr_chg.change !== undefined ? formatPercentage(mcr_chg.change) : undefined,
-      changeAbsolute: mcr_chg.absolute !== undefined ? formatPercentage(mcr_chg.absolute) : undefined, // Rate change is in pp
-      changeType: mcr_chg.change === undefined ? 'neutral' : mcr_chg.change > 0 ? 'positive' : 'negative',
-      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      id: 'marginal_contribution_ratio', title: '边际贡献率', value: formatPercentage(marginalContribRatio), rawValue: marginalContribRatio,
+      ...formatChange(marginalContribRatioMomChg, '%'),
+      yoyChange: formatChange(marginalContribRatioYoyChg, '%').change, yoyChangeAbsolute: formatChange(marginalContribRatioYoyChg, '%').changeAbsolute, yoyChangeType: marginalContribRatioYoyChg.type,
       icon: Ratio,
     },
     {
-      id: 'variable_cost_ratio', title: '变动成本率', value: formatPercentage(variable_cost_ratio), rawValue: variable_cost_ratio,
-      change: vcr_chg.change !== undefined ? formatPercentage(vcr_chg.change) : undefined,
-      changeAbsolute: vcr_chg.absolute !== undefined ? formatPercentage(vcr_chg.absolute) : undefined,
-      changeType: vcr_chg.change === undefined ? 'neutral' : vcr_chg.change > 0 ? 'negative' : 'positive',
-      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
-      icon: Zap, isBorderRisk: variable_cost_ratio > 90,
+      id: 'variable_cost_ratio', title: '变动成本率', value: formatPercentage(current.variable_cost_ratio), rawValue: current.variable_cost_ratio,
+      ...formatChange(varCostRatioMomChg, '%'),
+      yoyChange: formatChange(varCostRatioYoyChg, '%').change, yoyChangeAbsolute: formatChange(varCostRatioYoyChg, '%').changeAbsolute, yoyChangeType: varCostRatioYoyChg.type,
+      icon: Zap, isBorderRisk: current.variable_cost_ratio !== undefined && current.variable_cost_ratio > 90,
     },
     {
-      id: 'expense_ratio', title: '费用率', value: formatPercentage(expense_ratio), rawValue: expense_ratio,
-      change: er_chg.change !== undefined ? formatPercentage(er_chg.change) : undefined,
-      changeAbsolute: er_chg.absolute !== undefined ? formatPercentage(er_chg.absolute) : undefined,
-      changeType: er_chg.change === undefined ? 'neutral' : er_chg.change > 0 ? 'negative' : 'positive',
-      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
-      icon: Briefcase, isOrangeRisk: expense_ratio > 14.5,
+      id: 'expense_ratio', title: '费用率', value: formatPercentage(current.expense_ratio), rawValue: current.expense_ratio,
+      ...formatChange(expenseRatioMomChg, '%'),
+      yoyChange: formatChange(expenseRatioYoyChg, '%').change, yoyChangeAbsolute: formatChange(expenseRatioYoyChg, '%').changeAbsolute, yoyChangeType: expenseRatioYoyChg.type,
+      icon: Briefcase, isOrangeRisk: current.expense_ratio !== undefined && current.expense_ratio > 14.5,
     },
     {
-      id: 'loss_ratio', title: '满期赔付率', value: formatPercentage(loss_ratio), rawValue: loss_ratio,
-      change: lr_chg.change !== undefined ? formatPercentage(lr_chg.change) : undefined,
-      changeAbsolute: lr_chg.absolute !== undefined ? formatPercentage(lr_chg.absolute) : undefined,
-      changeType: lr_chg.change === undefined ? 'neutral' : lr_chg.change > 0 ? 'negative' : 'positive',
-      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
-      icon: Percent, isRisk: loss_ratio > 70, description: "基于已报告赔款",
+      id: 'loss_ratio', title: '满期赔付率', value: formatPercentage(current.loss_ratio), rawValue: current.loss_ratio,
+      ...formatChange(lossRatioMomChg, '%'),
+      yoyChange: formatChange(lossRatioYoyChg, '%').change, yoyChangeAbsolute: formatChange(lossRatioYoyChg, '%').changeAbsolute, yoyChangeType: lossRatioYoyChg.type,
+      icon: Percent, isRisk: current.loss_ratio !== undefined && current.loss_ratio > 70, description: "基于已报告赔款",
     },
     // Column 2
     {
-      id: 'marginal_contribution_amount', title: '边贡额', value: formatCurrency(marginal_contribution_amount), rawValue: marginal_contribution_amount,
-      change: mca_chg.change !== undefined ? formatPercentage(mca_chg.change) : undefined,
-      changeAbsolute: mca_chg.absolute !== undefined ? formatCurrency(mca_chg.absolute) : undefined,
-      changeType: mca_chg.change === undefined ? 'neutral' : mca_chg.change > 0 ? 'positive' : 'negative',
-      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      id: 'marginal_contribution_amount', title: '边贡额', value: formatCurrency(marginalContribAmt), rawValue: marginalContribAmt,
+      ...formatChange(marginalContribAmtMomChg, '万元'),
+      yoyChange: formatChange(marginalContribAmtYoyChg, '万元').change, yoyChangeAbsolute: formatChange(marginalContribAmtYoyChg, '万元').changeAbsolute, yoyChangeType: marginalContribAmtYoyChg.type,
       icon: Landmark,
     },
     {
-      id: 'premium_written', title: '保费', value: formatCurrency(premium_written), rawValue: premium_written,
-      change: pw_chg.change !== undefined ? formatPercentage(pw_chg.change) : undefined,
-      changeAbsolute: pw_chg.absolute !== undefined ? formatCurrency(pw_chg.absolute) : undefined,
-      changeType: pw_chg.change === undefined ? 'neutral' : pw_chg.change > 0 ? 'positive' : 'negative',
-      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      id: 'premium_written', title: '保费', value: formatCurrency(current.premium_written), rawValue: current.premium_written,
+      ...formatChange(premWrittenMomChg, '万元'),
+      yoyChange: formatChange(premWrittenYoyChg, '万元').change, yoyChangeAbsolute: formatChange(premWrittenYoyChg, '万元').changeAbsolute, yoyChangeType: premWrittenYoyChg.type,
       icon: DollarSign,
     },
     {
-      id: 'expense_amount', title: '费用', value: formatCurrency(expense_amount), rawValue: expense_amount,
-      change: ea_chg.change !== undefined ? formatPercentage(ea_chg.change) : undefined,
-      changeAbsolute: ea_chg.absolute !== undefined ? formatCurrency(ea_chg.absolute) : undefined,
-      changeType: ea_chg.change === undefined ? 'neutral' : ea_chg.change > 0 ? 'negative' : 'positive', // Higher expense is negative
-      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      id: 'expense_amount', title: '费用', value: formatCurrency(current.expense_amount), rawValue: current.expense_amount,
+      ...formatChange(expenseAmtMomChg, '万元'),
+      yoyChange: formatChange(expenseAmtYoyChg, '万元').change, yoyChangeAbsolute: formatChange(expenseAmtYoyChg, '万元').changeAbsolute, yoyChangeType: expenseAmtYoyChg.type,
       icon: Briefcase,
     },
     {
-      id: 'total_loss_amount', title: '赔款', value: formatCurrency(total_loss_amount), rawValue: total_loss_amount,
-      change: tla_chg.change !== undefined ? formatPercentage(tla_chg.change) : undefined,
-      changeAbsolute: tla_chg.absolute !== undefined ? formatCurrency(tla_chg.absolute) : undefined,
-      changeType: tla_chg.change === undefined ? 'neutral' : tla_chg.change > 0 ? 'negative' : 'positive', // Higher loss is negative
-      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      id: 'total_loss_amount', title: '赔款', value: formatCurrency(current.total_loss_amount), rawValue: current.total_loss_amount,
+      ...formatChange(lossAmtMomChg, '万元'),
+      yoyChange: formatChange(lossAmtYoyChg, '万元').change, yoyChangeAbsolute: formatChange(lossAmtYoyChg, '万元').changeAbsolute, yoyChangeType: lossAmtYoyChg.type,
       icon: ShieldCheck,
     },
     // Column 3
     {
-      id: 'premium_earned', title: '满期保费', value: formatCurrency(premium_earned), rawValue: premium_earned,
-      change: pe_chg.change !== undefined ? formatPercentage(pe_chg.change) : undefined,
-      changeAbsolute: pe_chg.absolute !== undefined ? formatCurrency(pe_chg.absolute) : undefined,
-      changeType: pe_chg.change === undefined ? 'neutral' : pe_chg.change > 0 ? 'positive' : 'negative',
-      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      id: 'premium_earned', title: '满期保费', value: formatCurrency(current.premium_earned), rawValue: current.premium_earned,
+      ...formatChange(premEarnedMomChg, '万元'),
+      yoyChange: formatChange(premEarnedYoyChg, '万元').change, yoyChangeAbsolute: formatChange(premEarnedYoyChg, '万元').changeAbsolute, yoyChangeType: premEarnedYoyChg.type,
       icon: DollarSign,
     },
     {
-      id: 'premium_earned_ratio', title: '保费满期率', value: formatPercentage(premium_earned_ratio), rawValue: premium_earned_ratio,
-      change: per_chg.change !== undefined ? formatPercentage(per_chg.change) : undefined,
-      changeAbsolute: per_chg.absolute !== undefined ? formatPercentage(per_chg.absolute) : undefined,
-      changeType: per_chg.change === undefined ? 'neutral' : per_chg.change > 0 ? 'positive' : 'negative',
-      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      id: 'premium_earned_ratio', title: '保费满期率', value: formatPercentage(current.premium_earned_ratio), rawValue: current.premium_earned_ratio,
+       ...formatChange(premEarnRatioMomChg, '%'),
+      yoyChange: formatChange(premEarnRatioYoyChg, '%').change, yoyChangeAbsolute: formatChange(premEarnRatioYoyChg, '%').changeAbsolute, yoyChangeType: premEarnRatioYoyChg.type,
       icon: Ratio,
     },
     {
-      id: 'avg_premium_per_policy', title: '单均保费', value: formatCurrency(avg_premium_per_policy, '元'), rawValue: avg_premium_per_policy,
-      change: app_chg.change !== undefined ? formatPercentage(app_chg.change) : undefined,
-      changeAbsolute: app_chg.absolute !== undefined ? formatCurrency(app_chg.absolute, '元') : undefined,
-      changeType: app_chg.change === undefined ? 'neutral' : app_chg.change > 0 ? 'positive' : 'negative',
-      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      id: 'avg_premium_per_policy', title: '单均保费', value: formatCurrency(current.avg_premium_per_policy, '元'), rawValue: current.avg_premium_per_policy,
+       ...formatChange(avgPremPolMomChg, '元'),
+      yoyChange: formatChange(avgPremPolYoyChg, '元').change, yoyChangeAbsolute: formatChange(avgPremPolYoyChg, '元').changeAbsolute, yoyChangeType: avgPremPolYoyChg.type,
       icon: FileText,
     },
     {
-      id: 'policy_count', title: '保单件数', value: formatNumber(policy_count), rawValue: policy_count,
-      change: pc_chg.change !== undefined ? formatPercentage(pc_chg.change) : undefined,
-      changeAbsolute: pc_chg.absolute !== undefined ? formatNumber(pc_chg.absolute) : undefined,
-      changeType: pc_chg.change === undefined ? 'neutral' : pc_chg.change > 0 ? 'positive' : 'negative',
-      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      id: 'policy_count', title: '保单件数', value: formatNumber(current.policy_count), rawValue: current.policy_count,
+      ...formatChange(policyCntMomChg, '件'),
+      yoyChange: formatChange(policyCntYoyChg, '件').change, yoyChangeAbsolute: formatChange(policyCntYoyChg, '件').changeAbsolute, yoyChangeType: policyCntYoyChg.type,
       icon: FileText,
     },
     // Column 4
     {
       id: 'premium_share', title: '保费占比', value: formatPercentage(premium_share), rawValue: premium_share,
-      change: undefined, changeAbsolute: undefined, changeType: 'neutral', // Share change requires specific logic
-      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      // MoM and YoY for share would require previous period's overall total premium.
+      change: undefined, changeAbsolute: undefined, changeType: 'neutral', 
+      yoyChange: undefined, yoyChangeAbsolute: undefined, yoyChangeType: 'neutral',
       icon: Users,
     },
     {
       id: 'avg_commercial_index', title: '自主系数', 
-      value: avg_commercial_index !== undefined ? formatNumber(avg_commercial_index) : "N/A", // Needs to be formatted as number if available
-      rawValue: avg_commercial_index,
+      value: current.avg_commercial_index !== undefined && current.avg_commercial_index !== null ? formatNumber(current.avg_commercial_index) : "N/A",
+      rawValue: current.avg_commercial_index,
+      // Typically not compared period over period in this summary way
       change: undefined, changeAbsolute: undefined, changeType: 'neutral',
-      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      yoyChange: undefined, yoyChangeAbsolute: undefined, yoyChangeType: 'neutral',
       icon: Search,
     },
     {
-      id: 'claim_frequency', title: '满期出险率', value: formatPercentage(claim_frequency), rawValue: claim_frequency,
-      change: cf_chg.change !== undefined ? formatPercentage(cf_chg.change) : undefined,
-      changeAbsolute: cf_chg.absolute !== undefined ? formatPercentage(cf_chg.absolute) : undefined,
-      changeType: cf_chg.change === undefined ? 'neutral' : cf_chg.change > 0 ? 'negative' : 'positive',
-      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      id: 'claim_frequency', title: '满期出险率', value: formatPercentage(current.claim_frequency), rawValue: current.claim_frequency,
+      ...formatChange(claimFreqMomChg, '%'),
+      yoyChange: formatChange(claimFreqYoyChg, '%').change, yoyChangeAbsolute: formatChange(claimFreqYoyChg, '%').changeAbsolute, yoyChangeType: claimFreqYoyChg.type,
       icon: Activity,
     },
     {
-      id: 'avg_loss_per_case', title: '案均赔款', value: formatCurrency(avg_loss_per_case, '元'), rawValue: avg_loss_per_case,
-      change: alc_chg.change !== undefined ? formatPercentage(alc_chg.change) : undefined,
-      changeAbsolute: alc_chg.absolute !== undefined ? formatCurrency(alc_chg.absolute, '元') : undefined,
-      changeType: alc_chg.change === undefined ? 'neutral' : alc_chg.change > 0 ? 'negative' : 'positive',
-      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      id: 'avg_loss_per_case', title: '案均赔款', value: formatCurrency(current.avg_loss_per_case, '元'), rawValue: current.avg_loss_per_case,
+      ...formatChange(avgLossCaseMomChg, '元'),
+      yoyChange: formatChange(avgLossCaseYoyChg, '元').change, yoyChangeAbsolute: formatChange(avgLossCaseYoyChg, '元').changeAbsolute, yoyChangeType: avgLossCaseYoyChg.type,
       icon: ShieldCheck,
     },
   ];
@@ -306,56 +464,42 @@ export const calculateKpis = (
 };
 
 
+
+// Placeholder for trend data - to be implemented
 export const prepareTrendData = (
-  businessLines: any[], // This will be V4PeriodData[]
-  selectedMetricKey: any, // TrendMetricKey
-  from: Date, // Not used with V4 period_id system
-  to: Date // Not used with V4 period_id system
+  processedData: ProcessedDataForPeriod[],
+  selectedMetricKey: any
 ): ChartDataItem[] => {
-  // This function needs to be rewritten for V4 data.
-  // It should iterate through a series of V4PeriodData objects,
-  // process them (for "当周发生额" if needed), and extract the selectedMetricKey
-  // for each business line over the periods.
-  console.warn("prepareTrendData in data-utils.ts is a placeholder and needs full V4 implementation.");
+  console.warn("prepareTrendData in data-utils.ts needs V4 implementation using processedData.");
   return [];
 };
 
-
+// Placeholder for bubble chart data - to be implemented
 export const prepareBubbleChartData = (processedData: ProcessedDataForPeriod[]): BubbleChartDataItem[] => {
-   if (!processedData || processedData.length === 0) return [];
-  return processedData.map(d => ({
-    id: d.businessLineId,
-    name: d.businessLineName,
-    // Bubble chart expects x, y, z. We need to map specific fields from ProcessedDataForPeriod.
-    // For example, x: premium_written, y: loss_ratio, z: policy_count
-    // This mapping should ideally be configurable or based on user selection.
-    // For now, using placeholders:
-    x: d.premium_written || 0,
-    y: d.loss_ratio || 0,
-    z: d.policy_count || 0,
-  }));
+   if (!processedData || processedData.length === 0 || !processedData[0].currentMetrics) return [];
+   // This mapping is illustrative. The actual bubble chart will likely need specific metrics for x,y,z
+   // and should use currentMetrics from ProcessedDataForPeriod
+   return processedData.filter(d => d.businessLineId !== '合计').map(d => ({ // Filter out "合计" if processing multiple lines
+       id: d.businessLineId,
+       name: d.businessLineName,
+       x: d.currentMetrics.premium_written || 0,
+       y: d.currentMetrics.loss_ratio || 0,
+       z: d.currentMetrics.policy_count || 0, // Example, might be different
+   }));
 };
 
+// Placeholder for bar rank data - to be implemented
 export const prepareBarRankData = (
   processedData: ProcessedDataForPeriod[],
-  rankingMetric: keyof Pick<ProcessedDataForPeriod, 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio' | 'expense_ratio' | 'variable_cost_ratio'>
+  rankingMetric: keyof Pick<AggregatedBusinessMetrics, 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio' | 'expense_ratio' | 'variable_cost_ratio'>
 ): ChartDataItem[] => {
-  if (!processedData || processedData.length === 0) return [];
+  if (!processedData || processedData.length === 0 || !processedData[0].currentMetrics) return [];
+  
   return [...processedData]
-    .sort((a, b) => (b[rankingMetric] as number || 0) - (a[rankingMetric] as number || 0))
+    .filter(d => d.businessLineId !== '合计') // Ensure '合计' is not ranked if it's part of processedData
+    .sort((a, b) => (b.currentMetrics?.[rankingMetric] as number || 0) - (a.currentMetrics?.[rankingMetric] as number || 0))
     .map(d => ({
       name: d.businessLineName,
-      [rankingMetric]: d[rankingMetric] as number || 0,
+      [rankingMetric]: d.currentMetrics?.[rankingMetric] as number || 0,
     }));
 };
-
-// This function is part of the old date-based system and will be replaced or removed.
-export const getDateRangeByValue = (value: string): { from: Date, to: Date } => {
-  console.warn("getDateRangeByValue is deprecated and part of old date-based system.");
-  const to = new Date();
-  let from = new Date();
-  return { from, to };
-};
-
-
-    
