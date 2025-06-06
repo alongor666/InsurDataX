@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -39,20 +38,25 @@ const availableTrendMetrics: { value: TrendMetricKey, label: string }[] = [
   { value: 'premium_earned', label: '满期保费 (万元)'},
   { value: 'expense_amount', label: '费用额 (万元)'},
   { value: 'claim_count', label: '赔案数量 (件)'}, 
-  { value: 'policy_count_earned', label: '满期保单 (件)'} 
+  { value: 'policy_count_earned', label: '满期保单 (件)'},
+  { value: 'marginal_contribution_amount', label: '边贡额 (万元)'},
+  { value: 'marginal_contribution_ratio', label: '边际贡献率 (%)'},
 ];
 
 const availableRankingMetrics: { value: RankingMetricKey, label: string }[] = [
   { value: 'premium_written', label: '跟单保费 (万元)' },
+  { value: 'premium_earned', label: '满期保费 (万元)'},
   { value: 'total_loss_amount', label: '总赔款 (万元)' },
+  { value: 'expense_amount', label: '费用额 (万元)'},
   { value: 'policy_count', label: '保单数量 (件)' },
+  { value: 'claim_count', label: '赔案数量 (件)'},
   { value: 'loss_ratio', label: '满期赔付率 (%)' },
   { value: 'expense_ratio', label: '费用率 (%)' },
   { value: 'variable_cost_ratio', label: '变动成本率 (%)'},
-  { value: 'avg_premium_per_policy', label: '单均保费 (元)'},
-  { value: 'avg_loss_per_case', label: '案均赔款 (元)'},
   { value: 'premium_earned_ratio', label: '保费满期率 (%)'},
   { value: 'claim_frequency', label: '满期出险率 (%)'},
+  { value: 'avg_premium_per_policy', label: '单均保费 (元)'},
+  { value: 'avg_loss_per_case', label: '案均赔款 (元)'},
   { value: 'marginal_contribution_amount', label: '边贡额 (万元)'},
   { value: 'marginal_contribution_ratio', label: '边际贡献率 (%)'},
 ];
@@ -322,7 +326,7 @@ export default function DashboardPage() {
           return {
             name: d.businessLineName,
             [metricKey]: metrics[metricKey] as number || 0,
-            color: getDynamicColorByVCR(vcr)
+            color: getDynamicColorByVCR(vcr) // Ensure color is set based on VCR
           };
         });
   }
@@ -352,31 +356,35 @@ export default function DashboardPage() {
                 .slice(0, 3) 
                 .map(d => {
                   let changeInPremium = 'N/A';
-                  if (d.currentMetrics?.premium_written !== undefined && d.momMetrics?.premium_written !== undefined) {
+                  if (d.currentMetrics?.premium_written !== undefined && d.momMetrics?.premium_written !== undefined && d.momMetrics?.premium_written !== 0) {
                       const momChangeAbs = d.currentMetrics.premium_written - d.momMetrics.premium_written;
-                       changeInPremium = `${momChangeAbs >= 0 ? '+' : ''}${momChangeAbs.toFixed(2)} 万元 (环比YTD)`;
+                       changeInPremium = `${momChangeAbs >= 0 ? '+' : ''}${momChangeAbs.toFixed(2)} 万元 (环比)`;
+                  } else if (d.currentMetrics?.premium_written !== undefined && d.momMetrics?.premium_written === 0) {
+                       changeInPremium = `+${d.currentMetrics.premium_written.toFixed(2)} 万元 (环比)`;
                   }
                   return {
                     name: d.businessLineName,
                     premiumWritten: `${d.currentMetrics.premium_written?.toFixed(2) || 'N/A'} 万元`,
                     lossRatio: `${d.currentMetrics.loss_ratio?.toFixed(2) || 'N/A'}%`,
                     variableCostRatio: `${d.currentMetrics.variable_cost_ratio?.toFixed(2) || 'N/A'}%`,
-                    color: getDynamicColorByVCR(d.currentMetrics.variable_cost_ratio), // Color based on VCR
+                    color: getDynamicColorByVCR(d.currentMetrics.variable_cost_ratio), 
                     changeInPremiumWritten: changeInPremium, 
                   };
                 });
           } else { 
              let changeInPremium = 'N/A';
-             if (currentContextData.currentMetrics?.premium_written !== undefined && currentContextData.momMetrics?.premium_written !== undefined) {
+             if (currentContextData.currentMetrics?.premium_written !== undefined && currentContextData.momMetrics?.premium_written !== undefined && currentContextData.momMetrics?.premium_written !== 0) {
                 const momChangeAbs = currentContextData.currentMetrics.premium_written - currentContextData.momMetrics.premium_written;
-                changeInPremium = `${momChangeAbs >= 0 ? '+' : ''}${momChangeAbs.toFixed(2)} 万元 (环比YTD)`;
+                changeInPremium = `${momChangeAbs >= 0 ? '+' : ''}${momChangeAbs.toFixed(2)} 万元 (环比)`;
+             } else if (currentContextData.currentMetrics?.premium_written !== undefined && currentContextData.momMetrics?.premium_written === 0) {
+                changeInPremium = `+${currentContextData.currentMetrics.premium_written.toFixed(2)} 万元 (环比)`;
              }
             topBusinessLinesData = [{ 
                 name: currentContextData.businessLineName,
                 premiumWritten: `${currentContextData.currentMetrics.premium_written?.toFixed(2) || 'N/A'} 万元`,
                 lossRatio: `${currentContextData.currentMetrics.loss_ratio?.toFixed(2) || 'N/A'}%`,
                 variableCostRatio: `${currentContextData.currentMetrics.variable_cost_ratio?.toFixed(2) || 'N/A'}%`,
-                color: getDynamicColorByVCR(currentContextData.currentMetrics.variable_cost_ratio), // Color based on VCR
+                color: getDynamicColorByVCR(currentContextData.currentMetrics.variable_cost_ratio), 
                 changeInPremiumWritten: changeInPremium
             }];
           }

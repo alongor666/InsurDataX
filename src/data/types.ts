@@ -48,7 +48,7 @@ export interface AggregatedBusinessMetrics {
   premium_written: number;
   premium_earned: number;
   total_loss_amount: number;
-  expense_amount_raw: number;
+  expense_amount_raw: number; // Keep this raw value for ratio calculations if needed
   policy_count: number;
   claim_count: number;
   policy_count_earned: number;
@@ -61,7 +61,7 @@ export interface AggregatedBusinessMetrics {
   claim_frequency: number;
   avg_premium_per_policy: number;
   avg_loss_per_case: number;
-  expense_amount: number;
+  expense_amount: number; // This is calculated: premium_written * (expense_ratio/100)
 
   marginal_contribution_ratio: number; 
   marginal_contribution_amount: number; 
@@ -78,21 +78,22 @@ export interface ProcessedDataForPeriod {
   momMetrics?: AggregatedBusinessMetrics | null; 
   yoyMetrics?: AggregatedBusinessMetrics | null; 
   
-  premium_written: number;
-  total_loss_amount: number;
-  policy_count: number;
-  loss_ratio: number;
-  expense_ratio: number;
-  variable_cost_ratio: number; 
+  premium_written: number; // Direct access for table display
+  total_loss_amount: number; // Direct access for table display
+  policy_count: number; // Direct access for table display
+  loss_ratio: number; // Direct access for table display
+  expense_ratio: number; // Direct access for table display
+  variable_cost_ratio: number; // For VCR-based coloring and direct access
   vcr_color?: string; // Color based on variable_cost_ratio
 
+  // For periodOverPeriod mode in table
   premium_writtenChange?: number;
   total_loss_amountChange?: number;
   policy_countChange?: number;
-  loss_ratioChange?: number;
-  expense_ratioChange?: number;
+  loss_ratioChange?: number; // This is a direct difference in percentage points
+  expense_ratioChange?: number; // This is a direct difference in percentage points
 
-  premium_share?: number;
+  premium_share?: number; // Calculated for display
 }
 
 
@@ -117,7 +118,8 @@ export interface Kpi {
 // For charts
 export interface ChartDataItem {
   name: string; 
-  color?: string; // For dynamic coloring
+  color?: string; // For dynamic coloring based on VCR
+  vcr?: number; // Storing VCR for tooltip if needed
   [key: string]: number | string | undefined; 
 }
 
@@ -127,7 +129,7 @@ export interface BubbleChartDataItem {
   x: number;
   y: number;
   z: number;
-  color?: string; // For dynamic coloring
+  color?: string; // For dynamic coloring based on VCR
   vcr?: number; // To pass variable_cost_ratio for tooltip or other uses
 }
 
@@ -147,9 +149,14 @@ export interface PeriodOption {
 
 
 // V4.0 field names for ranking and trend metrics used in page.tsx
-export type RankingMetricKey = Exclude<keyof AggregatedBusinessMetrics, 'avg_commercial_index' | 'expense_amount_raw'>;
-export type TrendMetricKey = Exclude<keyof AggregatedBusinessMetrics, 'avg_commercial_index' | 'expense_amount_raw'>;
-export type BubbleMetricKey = Exclude<keyof AggregatedBusinessMetrics, 'avg_commercial_index' | 'expense_amount_raw' | 'marginal_contribution_amount' | 'marginal_contribution_ratio'>;
+export type CoreAggregatedMetricKey = keyof AggregatedBusinessMetrics;
+// Exclude metrics not suitable for direct ranking or trending by default
+// 'avg_commercial_index' is often not aggregated or ranked across multiple lines
+// 'expense_amount_raw' is an intermediate value
+export type RankingMetricKey = Exclude<CoreAggregatedMetricKey, 'avg_commercial_index' | 'expense_amount_raw' >;
+export type TrendMetricKey = Exclude<CoreAggregatedMetricKey, 'avg_commercial_index' | 'expense_amount_raw' >;
+// Bubble chart metrics are usually numeric and representable on axes or by size
+export type BubbleMetricKey = Exclude<CoreAggregatedMetricKey, 'avg_commercial_index' | 'expense_amount_raw'>;
 
 
 export interface BusinessLineBasic { 
