@@ -2,8 +2,8 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
-import type { AnalysisMode, PeriodOption } from '@/data/types';
-import { Sparkles, Settings2 } from 'lucide-react';
+import type { AnalysisMode, PeriodOption, DashboardView } from '@/data/types';
+import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine } from 'lucide-react'; // Added more icons
 import {
   Select,
   SelectContent,
@@ -11,17 +11,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-// import { defaultDateRangeOptions } from '@/data/mock-data'; // To be replaced by dynamic periodOptions
+import { Separator } from '@/components/ui/separator';
 
 
 interface AppHeaderProps {
   analysisMode: AnalysisMode;
   onAnalysisModeChange: (mode: AnalysisMode) => void;
   onAiSummaryClick: () => void;
-  selectedPeriod: string; // Will be period_id
+  selectedPeriod: string; 
   onPeriodChange: (period: string) => void;
   isAiSummaryLoading: boolean;
-  periodOptions: PeriodOption[]; // New prop for dynamic period options
+  periodOptions: PeriodOption[];
+  activeView: DashboardView;
+  onViewChange: (view: DashboardView) => void;
 }
 
 export function AppHeader({ 
@@ -32,11 +34,23 @@ export function AppHeader({
   onPeriodChange,
   isAiSummaryLoading,
   periodOptions,
+  activeView,
+  onViewChange,
 }: AppHeaderProps) {
+
+  const viewOptions: {label: string, value: DashboardView, icon: React.ElementType}[] = [
+    { label: "KPI看板", value: "kpi", icon: LayoutDashboard },
+    { label: "趋势图", value: "trend", icon: LineChart },
+    { label: "气泡图", value: "bubble", icon: ScanLine }, // Using ScanLine as a proxy for bubble
+    { label: "排名图", value: "bar_rank", icon: BarChartHorizontal },
+    { label: "数据表", value: "data_table", icon: Rows3 },
+  ];
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         <Link href="/" className="mr-6 flex items-center space-x-2">
+          {/* <Image src="/logo.svg" alt="车险分析" width={32} height={32} /> */}
           <span className="font-headline text-xl font-bold text-primary">车险经营分析周报</span>
         </Link>
         
@@ -63,7 +77,21 @@ export function AppHeader({
           </Button>
         </div>
       </div>
+      <Separator />
+      <div className="container flex h-12 items-center justify-center space-x-2">
+        {viewOptions.map(option => (
+          <Button
+            key={option.value}
+            variant={activeView === option.value ? "default" : "outline"}
+            size="sm"
+            onClick={() => onViewChange(option.value)}
+            className="h-8"
+          >
+            <option.icon className="mr-2 h-4 w-4" />
+            {option.label}
+          </Button>
+        ))}
+      </div>
     </header>
   );
 }
-

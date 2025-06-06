@@ -2,6 +2,7 @@
 import type { LucideIcon } from 'lucide-react';
 
 export type AnalysisMode = 'cumulative' | 'periodOverPeriod'; // 累计数据 | 当周发生额
+export type DashboardView = 'kpi' | 'trend' | 'bubble' | 'bar_rank' | 'data_table';
 
 // V4.0 JSON Structure Types
 export interface V4BusinessDataEntry {
@@ -55,54 +56,49 @@ export interface ProcessedDataForPeriod {
   premium_written: number;
   premium_earned: number;
   total_loss_amount: number; 
-  expense_amount: number; // Derived: premium_written * (expense_ratio / 100) based on current mode
+  // expense_amount: number; // This was derived. Let's ensure V4 uses expense_amount_raw primarily and derive expense_amount in calculateKpis or display logic.
   
-  policy_count: number; // Derived: (premium_written * 10000) / avg_premium_per_policy (if avg_premium_per_policy is for current mode's P_W)
-                       // OR SUM of derived policy_count from each business line.
-  claim_count?: number; // Aggregated if available in V4BusinessDataEntry
+  policy_count: number; 
+  claim_count?: number; 
+  policy_count_earned?: number; // Added for claim_frequency calculation base
 
-  avg_premium_per_policy?: number; // Aggregated
-  avg_loss_per_case?: number;      // Aggregated
+  avg_premium_per_policy?: number; 
+  avg_loss_per_case?: number;      
 
   loss_ratio: number;             
   expense_ratio: number;          
   variable_cost_ratio: number;    
-  premium_earned_ratio?: number;   // Aggregated
-  claim_frequency?: number;        // Aggregated
+  premium_earned_ratio?: number;   
+  claim_frequency?: number;        
   
-  premium_share?: number; // 占比类
+  premium_share?: number; 
 
   // --- Change values (环比/同比 in percentage points or relative % based on the metric) ---
-  // These need to be consistently named and calculated.
   premium_writtenChange?: number;
   premium_earnedChange?: number;
   total_loss_amountChange?: number;
-  expense_amountChange?: number;
+  // expense_amountChange?: number;
   policy_countChange?: number;
   claim_countChange?: number;
   avg_premium_per_policyChange?: number;
   avg_loss_per_caseChange?: number;
-  loss_ratioChange?: number; // Percentage points
-  expense_ratioChange?: number; // Percentage points
-  variable_cost_ratioChange?: number; // Percentage points
-  premium_earned_ratioChange?: number; // Percentage points
-  claim_frequencyChange?: number; // Percentage points
+  loss_ratioChange?: number; 
+  expense_ratioChange?: number; 
+  variable_cost_ratioChange?: number; 
+  premium_earned_ratioChange?: number; 
+  claim_frequencyChange?: number; 
 
   // Fields needed for direct aggregation of ratios (from V4BusinessDataEntry for selected lines for the *current period* or *current week's actuals*)
-  // These are summed up BEFORE calculating the final aggregated ratio for a set of selected business lines.
-  // Their values depend on the analysis mode (YTD or "当周发生额").
-  sum_premium_written_for_ratio_calc: number; // Used as denominator for expense_ratio, premium_earned_ratio (if needed)
-  sum_premium_earned_for_ratio_calc: number;  // Used as denominator for loss_ratio
-  sum_total_loss_amount_for_ratio_calc: number; // Used as numerator for loss_ratio
-  sum_expense_amount_raw_for_ratio_calc: number; // Used as numerator for expense_ratio
-  sum_claim_count_for_ratio_calc?: number;        // Used for avg_loss_per_case and claim_frequency numerators
-  sum_policy_count_earned_for_ratio_calc?: number; // Used for claim_frequency denominator
-  sum_derived_policy_count_for_avg_premium_calc: number; // Used for avg_premium_per_policy denominator. This sum is based on individual line policy_count derived from THEIR avg_premium_per_policy and premium_written.
+  sum_premium_written_for_ratio_calc: number; 
+  sum_premium_earned_for_ratio_calc: number;  
+  sum_total_loss_amount_for_ratio_calc: number; 
+  sum_expense_amount_raw_for_ratio_calc: number; 
+  sum_claim_count_for_ratio_calc?: number;        
+  sum_policy_count_earned_for_ratio_calc?: number; 
+  sum_derived_policy_count_for_avg_premium_calc?: number; // V4 might not need this if policy_count is directly from V4BusinessDataEntry or derived consistently
   
-  // Original YTD values from JSON that might be needed for "当周发生额" calculation if not already part of V4BusinessDataEntry
-  // These would be from the *current* period's YTD data.
-  // For V4, these base fields should be directly in V4BusinessDataEntry, so they are accessed from there,
-  // then '当周发生额' is calculated. The ProcessedDataForPeriod should hold the result of '当周发生额' or '累计'.
+  // Fields from V4BusinessDataEntry that are essential for calculations and might be passed through
+  expense_amount_raw: number; // Keep raw expense amount for consistent calculation
 }
 
 
@@ -151,18 +147,17 @@ export interface PeriodOption {
 
 // V4.0 field names for ranking and trend metrics used in page.tsx
 export type RankingMetricKey = keyof Pick<ProcessedDataForPeriod, 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio' | 'expense_ratio' | 'variable_cost_ratio'>;
-export type TrendMetricKey = keyof Pick<ProcessedDataForPeriod, 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio' | 'expense_ratio' | 'variable_cost_ratio' | 'premium_earned' | 'expense_amount'>;
+export type TrendMetricKey = keyof Pick<ProcessedDataForPeriod, 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio' | 'expense_ratio' | 'variable_cost_ratio' | 'premium_earned' | 'expense_amount_raw'>; // Changed expense_amount to expense_amount_raw
 
 // --- Old types to be phased out ---
 // These are from the previous mock data structure
-export interface MonthlyData {
-  date: string; // "YYYY-MM"
-  value: number;
-}
+// export interface MonthlyData { // No longer used with V4 data
+//   date: string; // "YYYY-MM"
+//   value: number;
+// }
 
-export interface BusinessLine { // This is effectively replaced by V4BusinessDataEntry for input and ProcessedDataForPeriod for output
-  id: string;
-  name: string;
-  icon?: LucideIcon;
-  // data: MetricData; // Old monthly data structure, to be removed
-}
+// export interface BusinessLine { // This is effectively replaced by V4BusinessDataEntry for input and ProcessedDataForPeriod for output
+//   id: string;
+//   name: string;
+//   icon?: LucideIcon;
+// }
