@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
 import type { AnalysisMode, PeriodOption, DashboardView } from '@/data/types';
-import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter } from 'lucide-react'; 
+import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download } from 'lucide-react'; 
 import {
   Select,
   SelectContent,
@@ -36,6 +36,7 @@ interface AppHeaderProps {
   allBusinessTypes: string[];
   selectedBusinessTypes: string[];
   onSelectedBusinessTypesChange: (types: string[]) => void;
+  onExportClick: () => void;
 }
 
 export function AppHeader({ 
@@ -51,6 +52,7 @@ export function AppHeader({
   allBusinessTypes,
   selectedBusinessTypes,
   onSelectedBusinessTypesChange,
+  onExportClick,
 }: AppHeaderProps) {
 
   const viewOptions: {label: string, value: DashboardView, icon: React.ElementType}[] = [
@@ -62,7 +64,7 @@ export function AppHeader({
   ];
 
   const handleSelectAllBusinessTypes = () => {
-    if (selectedBusinessTypes.length === allBusinessTypes.length) {
+    if (selectedBusinessTypes.length === allBusinessTypes.length && allBusinessTypes.length > 0) { // Check if all are selected
       onSelectedBusinessTypesChange([]); // Deselect all
     } else {
       onSelectedBusinessTypesChange([...allBusinessTypes]); // Select all
@@ -83,11 +85,11 @@ export function AppHeader({
           <span className="font-headline text-xl font-bold text-primary">车险经营分析周报</span>
         </Link>
         
-        <div className="flex items-center space-x-2 md:space-x-3">
+        <div className="flex items-center space-x-1 md:space-x-2">
           <div className="flex items-center space-x-1 md:space-x-2">
             <Settings2 className="h-5 w-5 text-muted-foreground hidden md:block" />
             <Select value={selectedPeriod} onValueChange={onPeriodChange} disabled={periodOptions.length === 0}>
-              <SelectTrigger className="w-[140px] md:w-[180px] h-9 text-xs md:text-sm">
+              <SelectTrigger className="w-[130px] md:w-[170px] h-9 text-xs md:text-sm">
                 <SelectValue placeholder={periodOptions.length > 0 ? "选择数据周期" : "加载周期中..."} />
               </SelectTrigger>
               <SelectContent>
@@ -103,17 +105,17 @@ export function AppHeader({
               <Button variant="outline" className="h-9 text-xs md:text-sm px-2 md:px-3">
                 <ListFilter className="mr-1 md:mr-2 h-4 w-4" />
                 {selectedBusinessTypes.length === 0 && "全部业务"}
-                {selectedBusinessTypes.length === 1 && (selectedBusinessTypes[0].length > 6 ? selectedBusinessTypes[0].substring(0,5) + "..." : selectedBusinessTypes[0])}
-                {selectedBusinessTypes.length > 1 && `${selectedBusinessTypes.length}项已选`}
+                {selectedBusinessTypes.length === 1 && (selectedBusinessTypes[0].length > 5 ? selectedBusinessTypes[0].substring(0,4) + "..." : selectedBusinessTypes[0])}
+                {selectedBusinessTypes.length > 1 && `${selectedBusinessTypes.length}项业务`}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-60 max-h-96 overflow-y-auto">
               <DropdownMenuLabel className="text-xs md:text-sm">选择业务类型</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={handleSelectAllBusinessTypes} className="text-xs md:text-sm">
-                {selectedBusinessTypes.length === allBusinessTypes.length ? "清除选择 (全不选)" : "全选"}
+              <DropdownMenuItem onSelect={handleSelectAllBusinessTypes} className="text-xs md:text-sm cursor-pointer">
+                {selectedBusinessTypes.length === allBusinessTypes.length && allBusinessTypes.length > 0 ? "清除选择" : "全选"}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={handleInvertBusinessTypesSelection} className="text-xs md:text-sm">
+              <DropdownMenuItem onSelect={handleInvertBusinessTypesSelection} className="text-xs md:text-sm cursor-pointer">
                 反选
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -122,11 +124,10 @@ export function AppHeader({
                   key={type}
                   checked={selectedBusinessTypes.includes(type)}
                   onCheckedChange={(checked) => {
-                    if (checked) {
-                      onSelectedBusinessTypesChange([...selectedBusinessTypes, type].sort((a,b) => a.localeCompare(b)));
-                    } else {
-                      onSelectedBusinessTypesChange(selectedBusinessTypes.filter(t => t !== type));
-                    }
+                    const newSelection = checked
+                      ? [...selectedBusinessTypes, type]
+                      : selectedBusinessTypes.filter(t => t !== type);
+                    onSelectedBusinessTypesChange(newSelection.sort((a,b) => a.localeCompare(b)));
                   }}
                   className="text-xs md:text-sm"
                 >
@@ -141,6 +142,10 @@ export function AppHeader({
           <Button onClick={onAiSummaryClick} variant="outline" size="sm" disabled={isAiSummaryLoading} className="h-9 text-xs md:text-sm">
             <Sparkles className={`mr-1 md:mr-2 h-4 w-4 ${isAiSummaryLoading ? 'animate-spin' : ''}`} />
             {isAiSummaryLoading ? '生成中...' : 'AI摘要'}
+          </Button>
+           <Button onClick={onExportClick} variant="outline" size="sm" className="h-9 text-xs md:text-sm">
+            <Download className="mr-1 md:mr-2 h-4 w-4" />
+            导出
           </Button>
         </div>
       </div>

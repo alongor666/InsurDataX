@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import type { AnalysisMode, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod, V4PeriodData, PeriodOption, DashboardView, TrendMetricKey, RankingMetricKey, AiSummaryInput } from '@/data/types'; // V4PeriodTotals removed as it's part of V4PeriodData
+import type { AnalysisMode, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod, V4PeriodData, PeriodOption, DashboardView, TrendMetricKey, RankingMetricKey, AiSummaryInput } from '@/data/types'; 
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { AppHeader } from '@/components/layout/header';
@@ -22,7 +22,8 @@ import { useToast } from "@/hooks/use-toast";
 import {
   processDataForSelectedPeriod,
   calculateKpis,
-  setGlobalV4DataForKpiWorkaround, // Import the workaround setter
+  setGlobalV4DataForKpiWorkaround,
+  exportToCSV
 } from '@/lib/data-utils';
 
 
@@ -35,8 +36,8 @@ const availableTrendMetrics: { value: TrendMetricKey, label: string }[] = [
   { value: 'variable_cost_ratio', label: '变动成本率'},
   { value: 'premium_earned', label: '满期保费'},
   { value: 'expense_amount', label: '费用额'},
-  { value: 'claim_count', label: '赔案数量'},
-  { value: 'policy_count_earned', label: '满期保单'}
+  { value: 'claim_count', label: '赔案数量'}, // JSON: claim_count
+  { value: 'policy_count_earned', label: '满期保单'} // JSON: policy_count_earned
 ];
 
 const availableRankingMetrics: { value: RankingMetricKey, label: string }[] = [
@@ -96,7 +97,7 @@ export default function DashboardPage() {
         }
         const data: V4PeriodData[] = await response.json();
         setAllV4Data(data);
-        setGlobalV4DataForKpiWorkaround(data); // Set global data for workaround
+        setGlobalV4DataForKpiWorkaround(data); 
 
         const options = data
           .map(p => ({ value: p.period_id, label: p.period_label }))
@@ -107,10 +108,11 @@ export default function DashboardPage() {
           setSelectedPeriodKey(options[0].value); 
         }
         
+        // Extract all unique business types from the first period's data as a starting point
+        // Exclude "合计" or "total" as they are not selectable business lines
         if (data.length > 0 && data[0].business_data) {
-          const uniqueTypes = Array.from(new Set(data[0].business_data
-            .map(bd => bd.business_type)
-            .filter(bt => bt && bt.toLowerCase() !== '合计' && bt.toLowerCase() !== 'total'))) 
+          const uniqueTypes = Array.from(new Set(data.flatMap(p => p.business_data.map(bd => bd.business_type))
+            .filter(bt => bt && bt.toLowerCase() !== '合计' && bt.toLowerCase() !== 'total')))
             .sort((a,b) => a.localeCompare(b));
           setAllBusinessTypes(uniqueTypes);
         }
@@ -134,10 +136,6 @@ export default function DashboardPage() {
     }
 
     const currentPeriod = allV4Data.find(p => p.period_id === selectedPeriodKey);
-    if (!currentPeriod) {
-      console.warn(`Selected period data not found for period_id: ${selectedPeriodKey}`);
-      return;
-    }
     
     const dataForCalculations = processDataForSelectedPeriod(
       allV4Data,
@@ -145,21 +143,34 @@ export default function DashboardPage() {
       analysisMode,
       selectedBusinessTypes 
     );
-    setProcessedData(dataForCalculations);
+    setProcessedData(dataForCalculations); // This will be an array with one item for the aggregated/selected view
     
-    const calculatedKpis = calculateKpis(dataForCalculations, currentPeriod?.totals_for_period, analysisMode, selectedBusinessTypes);
-    setKpis(calculatedKpis);
+    if (dataForCalculations.length > 0) {
+      const calculatedKpis = calculateKpis(
+        dataForCalculations, 
+        currentPeriod?.totals_for_period, 
+        analysisMode, 
+        selectedBusinessTypes,
+        selectedPeriodKey // Pass selectedPeriodKey as activePeriodId
+      );
+      setKpis(calculatedKpis);
 
-    const trendData = prepareTrendData_V4(allV4Data, selectedTrendMetric, selectedPeriodKey, analysisMode, selectedBusinessTypes, dataForCalculations);
-    setTrendChartData(trendData);
+      const trendData = prepareTrendData_V4(allV4Data, selectedTrendMetric, selectedPeriodKey, analysisMode, selectedBusinessTypes);
+      setTrendChartData(trendData);
 
-    const bubbleData = prepareBubbleChartData_V4(dataForCalculations, allV4Data, selectedPeriodKey, analysisMode, selectedBusinessTypes);
-    setBubbleChartData(bubbleData);
+      const bubbleData = prepareBubbleChartData_V4(allV4Data, selectedPeriodKey, analysisMode, selectedBusinessTypes);
+      setBubbleChartData(bubbleData);
 
-    const rankData = prepareBarRankData_V4(dataForCalculations, selectedRankingMetric, allV4Data, selectedPeriodKey, analysisMode, selectedBusinessTypes);
-    setBarRankData(rankData);
+      const rankData = prepareBarRankData_V4(allV4Data, selectedRankingMetric, selectedPeriodKey, analysisMode, selectedBusinessTypes);
+      setBarRankData(rankData);
+    } else {
+      setKpis([]);
+      setTrendChartData([]);
+      setBubbleChartData([]);
+      setBarRankData([]);
+    }
 
-  }, [analysisMode, selectedPeriodKey, allV4Data, selectedTrendMetric, selectedRankingMetric, selectedBusinessTypes]);
+  }, [analysisMode, selectedPeriodKey, allV4Data, selectedBusinessTypes, selectedTrendMetric, selectedRankingMetric]);
 
 
   const prepareTrendData_V4 = (
@@ -167,13 +178,11 @@ export default function DashboardPage() {
     metricKey: TrendMetricKey, 
     currentPeriodId: string, 
     mode: AnalysisMode,
-    selBusinessTypes: string[],
-    currentProcessedData: ProcessedDataForPeriod[] // Pass processed data for current selection
+    selBusinessTypes: string[]
   ): ChartDataItem[] => {
     const trendOutput: ChartDataItem[] = [];
-    const maxPeriods = 12; // Show up to 12 periods for trend
+    const maxPeriods = 12; 
 
-    // Sort all available periods by period_id (assuming 'YYYY-WXX' format allows string sort)
     const sortedPeriods = [...allData].sort((a, b) => a.period_id.localeCompare(b.period_id));
     const currentPeriodIndex = sortedPeriods.findIndex(p => p.period_id === currentPeriodId);
 
@@ -183,26 +192,25 @@ export default function DashboardPage() {
     const periodsForTrend = sortedPeriods.slice(startIndex, currentPeriodIndex + 1);
 
     periodsForTrend.forEach(period => {
-      const processedForPeriod = processDataForSelectedPeriod(
+      // For each period in the trend, process data based on current selections
+      const processedForThisPeriodTrendPoint = processDataForSelectedPeriod(
         allData,
         period.period_id,
-        mode, // Use the global analysis mode for trend consistency
+        mode, 
         selBusinessTypes
       );
 
-      if (processedForPeriod.length > 0 && processedForPeriod[0].currentMetrics) {
-        const metrics = processedForPeriod[0].currentMetrics;
+      if (processedForThisPeriodTrendPoint.length > 0 && processedForThisPeriodTrendPoint[0].currentMetrics) {
+        const metrics = processedForThisPeriodTrendPoint[0].currentMetrics;
         let value: number | undefined | null = metrics[metricKey as keyof typeof metrics] as number | undefined | null;
         
-        // Ensure value is a number, default to 0 if not suitable
         if (typeof value !== 'number' || isNaN(value)) {
             value = 0; 
         }
 
         const chartItem: ChartDataItem = { name: period.period_label };
-        
-        // The key for the line in the chart (e.g., "合计" or specific business line name)
-        const lineName = processedForPeriod[0].businessLineName || "合计";
+        // The lineName is determined by processDataForSelectedPeriod based on selBusinessTypes
+        const lineName = processedForThisPeriodTrendPoint[0].businessLineName || "合计"; 
         chartItem[lineName] = value;
         trendOutput.push(chartItem);
       }
@@ -212,27 +220,34 @@ export default function DashboardPage() {
 
 
   const prepareBubbleChartData_V4 = (
-    _processedAggData: ProcessedDataForPeriod[], 
     allRawData: V4PeriodData[],
     currentPeriodId: string,
     mode: AnalysisMode,
-    selBusinessTypes: string[]
+    selBusinessTypes: string[] // Use selectedBusinessTypes from page state
   ): BubbleChartDataItem[] => {
     let dataForBubbleChart: ProcessedDataForPeriod[] = [];
 
     const currentRawPeriod = allRawData.find(p => p.period_id === currentPeriodId);
     if (!currentRawPeriod) return [];
 
-    const allBusinessTypesInPeriod = Array.from(new Set(currentRawPeriod.business_data.map(bd => bd.business_type).filter(bt => bt && bt.toLowerCase() !== '合计')));
+    // Get all individual business types present in the current period's raw data
+    const allIndividualTypesInPeriod = Array.from(new Set(
+        (currentRawPeriod.business_data || [])
+        .map(bd => bd.business_type)
+        .filter(bt => bt && bt.toLowerCase() !== '合计' && bt.toLowerCase() !== 'total')
+    ));
+    
+    // Determine which types to process for the bubble chart:
+    // If specific types are selected by the user, use those.
+    // Otherwise (no specific selection, meaning "合计" view for KPIs), use ALL individual types for the bubble chart.
+    const typesToProcessForBubbles = selBusinessTypes.length > 0 ? selBusinessTypes : allIndividualTypesInPeriod;
 
-    // If specific business types are selected, use them. Otherwise, use all available for bubble chart.
-    const typesToProcess = selBusinessTypes.length > 0 ? selBusinessTypes : allBusinessTypesInPeriod;
-
-    if (typesToProcess.length > 0) {
-        dataForBubbleChart = typesToProcess.map(bt => {
+    if (typesToProcessForBubbles.length > 0) {
+        dataForBubbleChart = typesToProcessForBubbles.map(bt => {
+            // Process each business type individually for the bubble chart
             const singleTypeProcessed = processDataForSelectedPeriod(allRawData, currentPeriodId, mode, [bt]);
             return singleTypeProcessed[0]; 
-        }).filter(d => d && d.currentMetrics && d.businessLineId !== '合计' && d.businessLineId !== '自定义合计'); // Exclude aggregate lines
+        }).filter(d => d && d.currentMetrics && d.businessLineId !== '合计' && d.businessLineId !== '自定义合计'); 
     }
     
     return dataForBubbleChart.map(d => ({
@@ -241,32 +256,33 @@ export default function DashboardPage() {
         x: d.currentMetrics!.premium_written || 0,
         y: d.currentMetrics!.loss_ratio || 0,
         z: d.currentMetrics!.policy_count || 0,
-    })).filter(item => item.x > 0 || item.y > 0 || item.z > 0); // Filter out items with all zero values
+    })).filter(item => item.x > 0 || item.y > 0 || item.z > 0); 
   }
 
   const prepareBarRankData_V4 = (
-    _processedAggData: ProcessedDataForPeriod[], 
-    metricKey: RankingMetricKey,
     allRawData: V4PeriodData[],
+    metricKey: RankingMetricKey,
     currentPeriodId: string,
     mode: AnalysisMode,
-    selBusinessTypes: string[]
+    selBusinessTypes: string[] // Use selectedBusinessTypes from page state
     ): ChartDataItem[] => {
     let dataForRanking: ProcessedDataForPeriod[] = [];
     const currentRawPeriod = allRawData.find(p => p.period_id === currentPeriodId);
     if (!currentRawPeriod) return [];
 
-    const allBusinessTypesInPeriod = Array.from(new Set(currentRawPeriod.business_data.map(bd => bd.business_type).filter(bt => bt && bt.toLowerCase() !== '合计')));
+    const allIndividualTypesInPeriod = Array.from(new Set(
+        (currentRawPeriod.business_data || [])
+        .map(bd => bd.business_type)
+        .filter(bt => bt && bt.toLowerCase() !== '合计' && bt.toLowerCase() !== 'total')
+    ));
     
-    // If specific business types are selected, use them. Otherwise, use all available for ranking.
-    const typesToProcess = selBusinessTypes.length > 0 ? selBusinessTypes : allBusinessTypesInPeriod;
+    const typesToProcessForRanking = selBusinessTypes.length > 0 ? selBusinessTypes : allIndividualTypesInPeriod;
 
-
-    if (typesToProcess.length > 0) {
-        dataForRanking = typesToProcess.map(bt => {
+    if (typesToProcessForRanking.length > 0) {
+        dataForRanking = typesToProcessForRanking.map(bt => {
             const singleTypeProcessed = processDataForSelectedPeriod(allRawData, currentPeriodId, mode, [bt]);
             return singleTypeProcessed[0];
-        }).filter(d => d && d.currentMetrics && d.businessLineId !== '合计' && d.businessLineId !== '自定义合计'); // Exclude aggregate lines
+        }).filter(d => d && d.currentMetrics && d.businessLineId !== '合计' && d.businessLineId !== '自定义合计');
     }
     
     return [...dataForRanking]
@@ -281,57 +297,65 @@ export default function DashboardPage() {
   const getCommonAiFilters = () => ({
     analysisMode,
     period: currentPeriodLabel,
-    selectedBusinessTypes: selectedBusinessTypes.length > 0 ? selectedBusinessTypes.join(', ') : '全部业务类型 (合计)',
+    selectedBusinessTypes: selectedBusinessTypes.length > 0 ? selectedBusinessTypes.join(', ') : '全部独立业务类型合计',
   });
 
  const handleOverallAiSummary = async () => {
     setIsOverallAiSummaryLoading(true);
     setOverallAiSummary(null);
     try {
-      const currentContextData = processedData.find(p => p.businessLineId === (selectedBusinessTypes.length === 1 ? selectedBusinessTypes[0] : (selectedBusinessTypes.length === 0 ? "合计" : "自定义合计" )));
+      // processedData[0] contains the data for the current selection (single, multi-select aggregate, or all-aggregate)
+      const currentContextData = processedData[0]; 
       let topBusinessLinesData: any[] = [];
 
-      // Prepare top business lines data only if "合计" or "自定义合计" is effectively selected
-      if (currentContextData && (currentContextData.businessLineId === '合计' || currentContextData.businessLineId === '自定义合计') && allV4Data.length > 0 && selectedPeriodKey) {
-          const individualLinesData = allBusinessTypes.map(bt => {
-            return processDataForSelectedPeriod(allV4Data, selectedPeriodKey, analysisMode, [bt])[0];
-          }).filter(d => d && d.currentMetrics && d.businessLineId !== '合计' && d.businessLineId !== '自定义合计');
-          
-          topBusinessLinesData = individualLinesData
-            .sort((a, b) => (b.currentMetrics.premium_written || 0) - (a.currentMetrics.premium_written || 0))
-            .slice(0, 3) // Take top 3
-            .map(d => {
-              let changeInPremium = 'N/A';
-              if (d.currentMetrics?.premium_written !== undefined && d.momMetrics?.premium_written !== undefined) {
-                  const momChangeAbs = d.currentMetrics.premium_written - d.momMetrics.premium_written;
-                   changeInPremium = `${momChangeAbs >= 0 ? '+' : ''}${momChangeAbs.toFixed(2)} 万元`;
-              }
-              return {
-                name: d.businessLineName,
-                premiumWritten: `${d.currentMetrics.premium_written?.toFixed(2) || 'N/A'} 万元`,
-                lossRatio: `${d.currentMetrics.loss_ratio?.toFixed(2) || 'N/A'}%`,
-                changeInPremiumWritten: changeInPremium, // This change is vs MoM YTD for 'cumulative' or vs MoM PoP for 'periodOverPeriod'
-              };
-            });
-      } else if (currentContextData) { // Single business line selected
-         let changeInPremium = 'N/A';
-         if (currentContextData.currentMetrics?.premium_written !== undefined && currentContextData.momMetrics?.premium_written !== undefined) {
-            const momChangeAbs = currentContextData.currentMetrics.premium_written - currentContextData.momMetrics.premium_written;
-            changeInPremium = `${momChangeAbs >= 0 ? '+' : ''}${momChangeAbs.toFixed(2)} 万元`;
-         }
-        topBusinessLinesData = [{ 
-            name: currentContextData.businessLineName,
-            premiumWritten: `${currentContextData.currentMetrics.premium_written?.toFixed(2) || 'N/A'} 万元`,
-            lossRatio: `${currentContextData.currentMetrics.loss_ratio?.toFixed(2) || 'N/A'}%`,
-            changeInPremiumWritten: changeInPremium
-        }];
+      if (currentContextData && currentContextData.currentMetrics) {
+          // If the current context is an aggregate (either "合计" or "自定义合计")
+          // or if no specific business types are selected (implying "合计" of all individual lines)
+          if (currentContextData.businessLineId === '合计' || currentContextData.businessLineId === '自定义合计' || selectedBusinessTypes.length === 0) {
+              const individualLinesData = allBusinessTypes.map(bt => {
+                return processDataForSelectedPeriod(allV4Data, selectedPeriodKey, analysisMode, [bt])[0];
+              }).filter(d => d && d.currentMetrics && d.businessLineId !== '合计' && d.businessLineId !== '自定义合计');
+              
+              topBusinessLinesData = individualLinesData
+                .sort((a, b) => (b.currentMetrics.premium_written || 0) - (a.currentMetrics.premium_written || 0))
+                .slice(0, 3) 
+                .map(d => {
+                  let changeInPremium = 'N/A';
+                  if (d.currentMetrics?.premium_written !== undefined && d.momMetrics?.premium_written !== undefined) {
+                      const momChangeAbs = d.currentMetrics.premium_written - d.momMetrics.premium_written;
+                       changeInPremium = `${momChangeAbs >= 0 ? '+' : ''}${momChangeAbs.toFixed(2)} 万元 (环比YTD)`;
+                  }
+                  return {
+                    name: d.businessLineName,
+                    premiumWritten: `${d.currentMetrics.premium_written?.toFixed(2) || 'N/A'} 万元`,
+                    lossRatio: `${d.currentMetrics.loss_ratio?.toFixed(2) || 'N/A'}%`,
+                    changeInPremiumWritten: changeInPremium, 
+                  };
+                });
+          } else { // Single business line selected, or multiple specific lines selected (which forms "自定义合计")
+            // For a single selected line, currentContextData IS that line.
+            // For multiple selected lines ("自定义合计"), currentContextData IS that aggregate.
+            // In both these cases, we show details for currentContextData.
+             let changeInPremium = 'N/A';
+             if (currentContextData.currentMetrics?.premium_written !== undefined && currentContextData.momMetrics?.premium_written !== undefined) {
+                const momChangeAbs = currentContextData.currentMetrics.premium_written - currentContextData.momMetrics.premium_written;
+                changeInPremium = `${momChangeAbs >= 0 ? '+' : ''}${momChangeAbs.toFixed(2)} 万元 (环比YTD)`;
+             }
+            topBusinessLinesData = [{ 
+                name: currentContextData.businessLineName,
+                premiumWritten: `${currentContextData.currentMetrics.premium_written?.toFixed(2) || 'N/A'} 万元`,
+                lossRatio: `${currentContextData.currentMetrics.loss_ratio?.toFixed(2) || 'N/A'}%`,
+                changeInPremiumWritten: changeInPremium
+            }];
+          }
       }
+
 
        const aiInputData = {
         keyPerformanceIndicators: kpis.map(kpi => ({
             title: kpi.title,
             value: kpi.value,
-            rawValue: kpi.rawValue, // Sending raw value for AI to potentially use
+            rawValue: kpi.rawValue,
             momChangePercent: kpi.change, 
             momChangeAbsolute: kpi.changeAbsolute, 
             yoyChangePercent: kpi.yoyChange, 
@@ -339,7 +363,8 @@ export default function DashboardPage() {
             isRisk: kpi.isRisk || kpi.isBorderRisk || kpi.isOrangeRisk,
             description: kpi.description
         })),
-        topBusinessLinesByPremiumWritten: topBusinessLinesData,
+        // Only include topBusinessLines if it has meaningful data
+        ...(topBusinessLinesData.length > 0 && { topBusinessLinesByPremiumWritten: topBusinessLinesData }),
       };
       
       const input: AiSummaryInput = {
@@ -443,6 +468,16 @@ export default function DashboardPage() {
       setIsBarRankAiSummaryLoading(false);
     }
   };
+  
+  const handleExportData = () => {
+    if (processedData.length > 0) {
+      const fileName = `${currentPeriodLabel}_${analysisMode}_${selectedBusinessTypes.join('_') || '合计'}_车险数据.csv`;
+      exportToCSV(processedData, analysisMode, fileName);
+      toast({ title: "数据导出成功", description: `数据已导出为 ${fileName}` });
+    } else {
+      toast({ variant: "destructive", title: "无数据可导出" });
+    }
+  };
 
   const headerElement = (
     <AppHeader
@@ -458,6 +493,7 @@ export default function DashboardPage() {
       allBusinessTypes={allBusinessTypes}
       selectedBusinessTypes={selectedBusinessTypes}
       onSelectedBusinessTypesChange={setSelectedBusinessTypes}
+      onExportClick={handleExportData}
     />
   );
 
@@ -477,6 +513,7 @@ export default function DashboardPage() {
             aiSummary={trendAiSummary}
             isAiSummaryLoading={isTrendAiSummaryLoading}
             onGenerateAiSummary={handleGenerateTrendAiSummary}
+            key={selectedBusinessTypes.join('-') + '-' + analysisMode} // Add key to force re-render on filter change
           />
         )}
         {activeView === 'bubble' && 
@@ -485,6 +522,7 @@ export default function DashboardPage() {
             aiSummary={bubbleAiSummary}
             isAiSummaryLoading={isBubbleAiSummaryLoading}
             onGenerateAiSummary={handleGenerateBubbleAiSummary}
+            key={selectedBusinessTypes.join('-') + '-' + analysisMode + '-' + selectedPeriodKey}
           />
         }
 
@@ -497,6 +535,7 @@ export default function DashboardPage() {
             aiSummary={barRankAiSummary}
             isAiSummaryLoading={isBarRankAiSummaryLoading}
             onGenerateAiSummary={handleGenerateBarRankAiSummary}
+            key={selectedBusinessTypes.join('-') + '-' + analysisMode + '-' + selectedRankingMetric}
           />
         )}
         {activeView === 'data_table' && <DataTableSection data={processedData} analysisMode={analysisMode} />}
