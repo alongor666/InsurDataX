@@ -1,5 +1,5 @@
 
-import type { LucideIcon } from 'lucide-react';
+import type { LucideIcon as ActualLucideIcon } from 'lucide-react'; // Keep actual for other uses if any
 
 export type AnalysisMode = 'cumulative' | 'periodOverPeriod'; // 累计数据 | 当周发生额
 export type DashboardView = 'kpi' | 'trend' | 'bubble' | 'bar_rank' | 'data_table';
@@ -63,8 +63,8 @@ export interface AggregatedBusinessMetrics {
   avg_loss_per_case: number;
   expense_amount: number;
 
-  marginal_contribution_ratio: number; // 新公式: 100 - variable_cost_ratio
-  marginal_contribution_amount: number; // 新公式: premium_earned * (marginal_contribution_ratio / 100)
+  marginal_contribution_ratio: number; 
+  marginal_contribution_amount: number; 
 }
 
 
@@ -72,30 +72,25 @@ export interface AggregatedBusinessMetrics {
 export interface ProcessedDataForPeriod {
   businessLineId: string;
   businessLineName: string;
-  icon?: LucideIcon;
+  icon?: string; // Changed from LucideIcon to string identifier
 
   currentMetrics: AggregatedBusinessMetrics;
   momMetrics?: AggregatedBusinessMetrics | null; // Metrics for Month-over-Month comparison period (always YTD based)
   yoyMetrics?: AggregatedBusinessMetrics | null; // Metrics for Year-over-Year comparison period (always YTD based)
   
-  // For direct use in DataTableSection, these are from currentMetrics based on analysis mode.
-  // These specific fields in ProcessedDataForPeriod might be redundant if DataTableSection directly uses currentMetrics.
-  // However, keeping them for now to minimize disruption to DataTableSection's existing props.
   premium_written: number;
   total_loss_amount: number;
   policy_count: number;
   loss_ratio: number;
   expense_ratio: number;
-  variable_cost_ratio: number; // For direct display
+  variable_cost_ratio: number; 
 
-  // For change calculations in DataTableSection (values are percentages or absolute diff in percentage points)
   premium_writtenChange?: number;
   total_loss_amountChange?: number;
   policy_countChange?: number;
   loss_ratioChange?: number;
   expense_ratioChange?: number;
 
-  // premium_share for KPI
   premium_share?: number;
 }
 
@@ -105,23 +100,23 @@ export interface Kpi {
   title: string;
   value: string;
   rawValue?: number;
-  change?: string; // Period-over-period (环比) - Percentage
-  changeAbsolute?: string; // Period-over-period (环比) - Absolute Value
+  change?: string; 
+  changeAbsolute?: string; 
   changeType?: 'positive' | 'negative' | 'neutral';
-  yoyChange?: string; // Year-over-year (同比) - Percentage
-  yoyChangeAbsolute?: string; // Year-over-year (同比) - Absolute Value
+  yoyChange?: string; 
+  yoyChangeAbsolute?: string; 
   yoyChangeType?: 'positive' | 'negative' | 'neutral';
   description?: string;
-  icon?: LucideIcon;
+  icon?: string; // Changed from LucideIcon to string identifier
   isRisk?: boolean; 
-  isBorderRisk?: boolean; // Specific for border risk like variable_cost_ratio
-  isOrangeRisk?: boolean; // Specific for orange text like expense_ratio
+  isBorderRisk?: boolean; 
+  isOrangeRisk?: boolean; 
 }
 
 // For charts
 export interface ChartDataItem {
-  name: string; // Usually period_label or business_line name
-  [key: string]: number | string; // Metrics, keys are business line names for trend, or metric name for bar
+  name: string; 
+  [key: string]: number | string; 
 }
 
 export interface BubbleChartDataItem {
@@ -134,8 +129,8 @@ export interface BubbleChartDataItem {
 
 // AI Summary related types
 export interface AiSummaryInput {
-  data: string; // JSON string of relevant data for the summary
-  filters: string; // JSON string of applied filters
+  data: string; 
+  filters: string; 
   analysisMode: AnalysisMode;
   currentPeriodLabel: string;
 }
@@ -149,10 +144,10 @@ export interface PeriodOption {
 
 // V4.0 field names for ranking and trend metrics used in page.tsx
 export type RankingMetricKey = keyof Pick<AggregatedBusinessMetrics, 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio' | 'expense_ratio' | 'variable_cost_ratio'>;
-export type TrendMetricKey = keyof Pick<AggregatedBusinessMetrics, 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio' | 'expense_ratio' | 'variable_cost_ratio' | 'premium_earned' | 'expense_amount_raw' | 'claim_count' | 'policy_count_earned'>;
+export type TrendMetricKey = keyof Pick<AggregatedBusinessMetrics, 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio' | 'expense_ratio' | 'variable_cost_ratio' | 'premium_earned' | 'expense_amount' | 'claim_count' | 'policy_count_earned'>; // expense_amount_raw changed to expense_amount
 
 export interface BusinessLineBasic { 
   id: string;
   name: string;
-  icon?: LucideIcon;
+  icon?: ActualLucideIcon; // Kept as ActualLucideIcon for mock-data direct use
 }

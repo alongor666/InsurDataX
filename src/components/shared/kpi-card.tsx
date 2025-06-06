@@ -1,8 +1,25 @@
 
 import type { Kpi } from '@/data/types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, DollarSign, FileText, Percent, Briefcase, Zap, Activity, ShieldCheck, ShieldAlert, Landmark, Users, Ratio, Search, Icon as LucideIconType } from 'lucide-react'; // Import all used icons
+
+const iconMap: { [key: string]: LucideIconType } = {
+  DollarSign,
+  FileText,
+  Percent,
+  Briefcase,
+  Zap,
+  Activity,
+  ShieldCheck,
+  ShieldAlert,
+  Landmark,
+  Users,
+  Ratio,
+  Search,
+  // Add other icons used as string identifiers here
+};
+
 
 const ChangeDisplay = ({ 
   change, 
@@ -22,12 +39,18 @@ const ChangeDisplay = ({
   
   let displayValue = "";
   if (changeAbsolute && change) {
-    displayValue = `${changeAbsolute} (${change})`;
+    // Prefer absolute value first for amounts, then percentage in brackets
+    if (changeAbsolute.includes('元') || changeAbsolute.includes('万元') || changeAbsolute.includes('件')) {
+      displayValue = `${changeAbsolute} (${change})`;
+    } else { // For pp changes, show pp then percentage if available
+      displayValue = `${changeAbsolute} (${change})`;
+    }
   } else if (changeAbsolute) {
     displayValue = changeAbsolute;
   } else if (change) {
     displayValue = change;
   }
+
 
   return (
     <p className={cn("text-xs mt-1 flex items-center", color)}>
@@ -41,28 +64,27 @@ const ChangeDisplay = ({
 export function KpiCard({ kpi }: { kpi: Kpi }) {
   
   let valueClassName = "text-3xl font-bold font-headline text-primary";
-  let cardClassName = "shadow-lg transition-all hover:shadow-xl min-h-[180px]"; // Added min-h for consistency
+  let cardClassName = "shadow-lg transition-all hover:shadow-xl min-h-[180px]"; 
 
-  // Specific value styling
-  if (kpi.isRisk && !kpi.isOrangeRisk && !kpi.isBorderRisk) { // e.g. loss_ratio > 70%
+  if (kpi.isRisk && !kpi.isOrangeRisk && !kpi.isBorderRisk) { 
     valueClassName = cn(valueClassName, "text-red-600 font-bold");
-  } else if (kpi.isOrangeRisk) { // e.g. expense_ratio > 14.5%
+  } else if (kpi.isOrangeRisk) { 
      valueClassName = cn(valueClassName, "text-orange-500");
   }
   
-  // Specific card border styling
-  if (kpi.isBorderRisk) { // e.g. variable_cost_ratio > 90%
+  if (kpi.isBorderRisk) { 
      cardClassName = cn(cardClassName, "border-destructive border-2");
-  } else if (kpi.isRisk && !kpi.isOrangeRisk) { // General risk not covered by border or orange can also make border red
+  } else if (kpi.isRisk && !kpi.isOrangeRisk) { 
      cardClassName = cn(cardClassName, "border-destructive");
   }
 
+  const IconComponent = kpi.icon && iconMap[kpi.icon] ? iconMap[kpi.icon] : null;
 
   return (
     <Card className={cardClassName}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium font-body">{kpi.title}</CardTitle>
-        {kpi.icon && <kpi.icon className={cn("h-5 w-5", kpi.isRisk || kpi.isBorderRisk ? "text-destructive" : (kpi.isOrangeRisk ? "text-orange-500" : "text-muted-foreground"))} />}
+        {IconComponent && <IconComponent className={cn("h-5 w-5", kpi.isRisk || kpi.isBorderRisk ? "text-destructive" : (kpi.isOrangeRisk ? "text-orange-500" : "text-muted-foreground"))} />}
       </CardHeader>
       <CardContent>
         <div className={valueClassName}>{kpi.value}</div>
@@ -80,7 +102,7 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
           label="同比" 
         />
 
-        {kpi.description && !kpi.change && !kpi.yoyChange && (
+        {kpi.description && (
            <p className="text-xs text-muted-foreground mt-1">{kpi.description}</p>
          )}
         
