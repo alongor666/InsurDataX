@@ -14,19 +14,19 @@ export interface V4BusinessDataEntry {
   total_loss_amount: number;       // 总赔款 (已报告赔款) (万元)
   expense_amount_raw: number;      // 原始费用金额 (计算费用率的基础) (万元)
 
-  claim_count?: number;             // 赔案数量 (件/次) - 计算案均赔款、满期出险率的基础
-  policy_count_earned?: number;     // 满期保单数量 (件) - 计算满期出险率的基础
+  claim_count?: number | null;             // 赔案数量 (件/次) - 计算案均赔款、满期出险率的基础
+  policy_count_earned?: number | null;     // 满期保单数量 (件) - 计算满期出险率的基础
 
   // --- 单业务类型预计算值 (YTD values from JSON, for direct use if single type selected, or validation) ---
-  avg_premium_per_policy?: number;   // 单均保费 (元)
-  avg_loss_per_case?: number;        // 案均赔款 (元)
-  avg_commercial_index?: number;     // 自主系数 (无单位) - 不聚合
+  avg_premium_per_policy?: number | null;   // 单均保费 (元)
+  avg_loss_per_case?: number | null;        // 案均赔款 (元)
+  avg_commercial_index?: number | null;     // 自主系数 (无单位) - 不聚合
 
-  loss_ratio?: number;               // 满期赔付率 (%)
-  expense_ratio?: number;            // 费用率 (%)
-  variable_cost_ratio?: number;      // 变动成本率 (%)
-  premium_earned_ratio?: number;     // 保费满期率 (%)
-  claim_frequency?: number;          // 满期出险率 (%)
+  loss_ratio?: number | null;               // 满期赔付率 (%)
+  expense_ratio?: number | null;            // 费用率 (%)
+  variable_cost_ratio?: number | null;      // 变动成本率 (%)
+  premium_earned_ratio?: number | null;     // 保费满期率 (%)
+  claim_frequency?: number | null;          // 满期出险率 (%)
 }
 
 export interface V4PeriodTotals {
@@ -37,11 +37,36 @@ export interface V4PeriodTotals {
 export interface V4PeriodData {
   period_id: string;
   period_label: string;
-  comparison_period_id_yoy?: string;
-  comparison_period_id_mom?: string; //环比
+  comparison_period_id_yoy?: string | null;
+  comparison_period_id_mom?: string | null; //环比
   business_data: V4BusinessDataEntry[];
-  totals_for_period?: V4PeriodTotals;
+  totals_for_period?: V4PeriodTotals | null;
 }
+
+// Represents all calculated metrics for a specific scope (single line/aggregated, YTD/PoP)
+export interface AggregatedBusinessMetrics {
+  premium_written: number;
+  premium_earned: number;
+  total_loss_amount: number;
+  expense_amount_raw: number;
+  policy_count: number;
+  claim_count: number;
+  policy_count_earned: number;
+  avg_commercial_index?: number | null; // Only for single line, undefined for aggregate
+
+  loss_ratio: number;
+  expense_ratio: number;
+  variable_cost_ratio: number;
+  premium_earned_ratio: number;
+  claim_frequency: number;
+  avg_premium_per_policy: number;
+  avg_loss_per_case: number;
+  expense_amount: number;
+
+  marginal_contribution_ratio: number; // 新公式: 100 - variable_cost_ratio
+  marginal_contribution_amount: number; // 新公式: premium_earned * (marginal_contribution_ratio / 100)
+}
+
 
 // Processed data structure for use in components.
 export interface ProcessedDataForPeriod {
@@ -49,56 +74,29 @@ export interface ProcessedDataForPeriod {
   businessLineName: string;
   icon?: LucideIcon;
 
-  // --- V4.0 Core Metrics (Values are AFTER 'cumulative' or 'periodOverPeriod' logic and aggregation) ---
+  currentMetrics: AggregatedBusinessMetrics;
+  momMetrics?: AggregatedBusinessMetrics | null; // Metrics for Month-over-Month comparison period (always YTD based)
+  yoyMetrics?: AggregatedBusinessMetrics | null; // Metrics for Year-over-Year comparison period (always YTD based)
+  
+  // For direct use in DataTableSection, these are from currentMetrics based on analysis mode.
+  // These specific fields in ProcessedDataForPeriod might be redundant if DataTableSection directly uses currentMetrics.
+  // However, keeping them for now to minimize disruption to DataTableSection's existing props.
   premium_written: number;
-  premium_earned: number;
   total_loss_amount: number;
-  expense_amount_raw: number; // 原始费用额，用于计算聚合费用率
-  policy_count: number; // 衍生保单数量
-  claim_count?: number; // 聚合后的赔案数量
-  policy_count_earned?: number; // 聚合后的满期保单数量
-  avg_commercial_index?: number; // 自主系数，用于单选时传递
-
-  // Derived/calculated values based on above after aggregation
+  policy_count: number;
   loss_ratio: number;
   expense_ratio: number;
-  variable_cost_ratio: number;
-  premium_earned_ratio?: number;
-  claim_frequency?: number;
-  avg_premium_per_policy?: number;
-  avg_loss_per_case?: number;
-  expense_amount?: number; // 衍生费用额
+  variable_cost_ratio: number; // For direct display
 
-  premium_share?: number;
-
-  // --- Change values (环比/同比 in percentage points or relative % based on the metric) ---
+  // For change calculations in DataTableSection (values are percentages or absolute diff in percentage points)
   premium_writtenChange?: number;
-  premium_earnedChange?: number;
   total_loss_amountChange?: number;
-  expense_amount_rawChange?: number;
   policy_countChange?: number;
-  claim_countChange?: number;
-  policy_count_earnedChange?: number;
-  avg_commercial_indexChange?: number; // Usually N/A for changes
-
   loss_ratioChange?: number;
   expense_ratioChange?: number;
-  variable_cost_ratioChange?: number;
-  premium_earned_ratioChange?: number;
-  claim_frequencyChange?: number;
-  avg_premium_per_policyChange?: number;
-  avg_loss_per_caseChange?: number;
-  expense_amountChange?: number;
-  
-  // --- Fields to assist in calculating aggregated ratios correctly ---
-  // These are sums of the base values from V4BusinessDataEntry for the selected lines
-  sum_premium_written_for_ratio_calc: number;
-  sum_premium_earned_for_ratio_calc: number;
-  sum_total_loss_amount_for_ratio_calc: number;
-  sum_expense_amount_raw_for_ratio_calc: number;
-  sum_claim_count_for_ratio_calc?: number;
-  sum_policy_count_earned_for_ratio_calc?: number;
-  // sum_derived_policy_count_for_avg_premium_calc should use the aggregated policy_count
+
+  // premium_share for KPI
+  premium_share?: number;
 }
 
 
@@ -136,8 +134,8 @@ export interface BubbleChartDataItem {
 
 // AI Summary related types
 export interface AiSummaryInput {
-  data: string;
-  filters: string;
+  data: string; // JSON string of relevant data for the summary
+  filters: string; // JSON string of applied filters
   analysisMode: AnalysisMode;
   currentPeriodLabel: string;
 }
@@ -150,12 +148,11 @@ export interface PeriodOption {
 
 
 // V4.0 field names for ranking and trend metrics used in page.tsx
-export type RankingMetricKey = keyof Pick<ProcessedDataForPeriod, 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio' | 'expense_ratio' | 'variable_cost_ratio'>;
-export type TrendMetricKey = keyof Pick<ProcessedDataForPeriod, 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio' | 'expense_ratio' | 'variable_cost_ratio' | 'premium_earned' | 'expense_amount_raw' | 'claim_count' | 'policy_count_earned'>;
+export type RankingMetricKey = keyof Pick<AggregatedBusinessMetrics, 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio' | 'expense_ratio' | 'variable_cost_ratio'>;
+export type TrendMetricKey = keyof Pick<AggregatedBusinessMetrics, 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio' | 'expense_ratio' | 'variable_cost_ratio' | 'premium_earned' | 'expense_amount_raw' | 'claim_count' | 'policy_count_earned'>;
 
-export interface BusinessLineBasic { // Renamed to avoid conflict with old BusinessLine
+export interface BusinessLineBasic { 
   id: string;
   name: string;
   icon?: LucideIcon;
-  // Remove data field as it's now sourced from V4
 }
