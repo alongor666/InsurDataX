@@ -1,15 +1,15 @@
 
-import type { BusinessLine, MonthlyData, AnalysisMode, ProcessedDataForPeriod, Kpi, ChartDataItem, BubbleChartDataItem } from '@/data/types';
-import { format, subMonths, startOfYear, endOfMonth, differenceInMonths, startOfMonth } from 'date-fns';
-import { DollarSign, FileText, Percent, Briefcase, Zap, TrendingUp, TrendingDown, Activity } from 'lucide-react'; // Added Briefcase, Zap
+import type { ProcessedDataForPeriod, Kpi, ChartDataItem, BubbleChartDataItem, V4PeriodData, V4BusinessDataEntry, V4PeriodTotals } from '@/data/types';
+import { DollarSign, FileText, Percent, Briefcase, Zap, Activity, TrendingUp, TrendingDown, Minus, ShieldCheck, Landmark, Users, Ratio, Search } from 'lucide-react';
 
-export const formatCurrency = (value: number | undefined): string => {
-  if (value === undefined) return 'N/A';
-  return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
+export const formatCurrency = (value: number | undefined, unit: '万元' | '元' = '万元'): string => {
+  if (value === undefined || isNaN(value)) return 'N/A';
+  const num = unit === '元' ? value : value * 10000;
+  return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num).replace('¥', '');
 };
 
 export const formatNumber = (value: number | undefined): string => {
-  if (value === undefined) return 'N/A';
+  if (value === undefined || isNaN(value)) return 'N/A';
   return new Intl.NumberFormat('zh-CN').format(value);
 };
 
@@ -18,385 +18,363 @@ export const formatPercentage = (value: number | undefined, decimals: number = 1
   return `${value.toFixed(decimals)}%`;
 };
 
-const getPeriodData = (monthlyData: MonthlyData[] | undefined, from: Date, to: Date): MonthlyData[] => {
-  if (!monthlyData) return [];
-  const fromMonthStr = format(from, 'yyyy-MM');
-  const toMonthStr = format(to, 'yyyy-MM');
-  return monthlyData.filter(d => d.date >= fromMonthStr && d.date <= toMonthStr);
-};
-
-const sumMonthlyData = (data: MonthlyData[]): number => data.reduce((sum, item) => sum + item.value, 0);
-
-const getLastMonthData = (monthlyData: MonthlyData[] | undefined, to: Date): MonthlyData | undefined => {
-  if (!monthlyData) return undefined;
-  const toMonthStr = format(to, 'yyyy-MM');
-  return monthlyData.find(d => d.date === toMonthStr);
-};
-
+// This function is a placeholder and will be replaced by V4 data processing logic
 export const processDataForRange = (
-  businessLines: BusinessLine[],
-  analysisMode: AnalysisMode,
-  currentFrom: Date,
-  currentTo: Date
+  businessLinesInput: any[], // This will be V4PeriodData in the future
+  analysisMode: any,
+  currentFrom: any,
+  currentTo: any
 ): ProcessedDataForPeriod[] => {
-  return businessLines.map(line => {
-    // Using original mock data field names here, then mapping/mocking to V4.0 ProcessedDataForPeriod fields
-    const currentPeriodPremiumData = getPeriodData(line.data.premium, currentFrom, currentTo);
-    const currentPeriodClaimsData = getPeriodData(line.data.claims, currentFrom, currentTo);
-    const currentPeriodPoliciesData = getPeriodData(line.data.policies, currentFrom, currentTo);
-
-    let premium_written_val = 0;
-    let total_loss_amount_val = 0;
-    let policy_count_val = 0;
-    
-    // Temporary derived/mocked values for new V4.0 fields
-    let premium_earned_val = 0; 
-    let expense_amount_raw_val = 0;
-
-    let premium_writtenChange: number | undefined = undefined;
-    let total_loss_amountChange: number | undefined = undefined;
-    let policy_countChange: number | undefined = undefined;
-    let premium_earnedChange: number | undefined = undefined;
-    let expense_amount_rawChange: number | undefined = undefined;
-    let loss_ratioChange: number | undefined = undefined;
-    let expense_ratioChange: number | undefined = undefined;
-    let variable_cost_ratioChange: number | undefined = undefined;
-
-
-    if (analysisMode === 'cumulative') {
-      premium_written_val = sumMonthlyData(currentPeriodPremiumData);
-      total_loss_amount_val = sumMonthlyData(currentPeriodClaimsData);
-      policy_count_val = sumMonthlyData(currentPeriodPoliciesData);
-      
-      // Mocking for cumulative
-      premium_earned_val = premium_written_val * 0.95; // Assume 95% earned ratio for mock
-      expense_amount_raw_val = premium_written_val * 0.15; // Assume 15% expense for mock
-
-    } else { // periodOverPeriod (Month-over-Month logic for "当周表现")
-      const currentMonthPremiumWritten = getLastMonthData(line.data.premium, currentTo)?.value ?? 0;
-      const currentMonthTotalLossAmount = getLastMonthData(line.data.claims, currentTo)?.value ?? 0;
-      const currentMonthPolicyCount = getLastMonthData(line.data.policies, currentTo)?.value ?? 0;
-      
-      premium_written_val = currentMonthPremiumWritten;
-      total_loss_amount_val = currentMonthTotalLossAmount;
-      policy_count_val = currentMonthPolicyCount;
-
-      // Mocking for current month
-      premium_earned_val = premium_written_val * 0.95; 
-      expense_amount_raw_val = premium_written_val * 0.15;
-
-
-      const prevTo = subMonths(currentTo, 1);
-      const prevMonthPremiumWritten = getLastMonthData(line.data.premium, prevTo)?.value ?? 0;
-      const prevMonthTotalLossAmount = getLastMonthData(line.data.claims, prevTo)?.value ?? 0;
-      const prevMonthPolicyCount = getLastMonthData(line.data.policies, prevTo)?.value ?? 0;
-      
-      // Mocking for prev month for change calculation
-      const prevMonthPremiumEarned = prevMonthPremiumWritten * 0.95;
-      const prevMonthExpenseAmountRaw = prevMonthPremiumWritten * 0.15;
-      
-      if (prevMonthPremiumWritten !== 0) premium_writtenChange = ((currentMonthPremiumWritten - prevMonthPremiumWritten) / prevMonthPremiumWritten) * 100;
-      if (prevMonthTotalLossAmount !== 0) total_loss_amountChange = ((currentMonthTotalLossAmount - prevMonthTotalLossAmount) / prevMonthTotalLossAmount) * 100;
-      if (prevMonthPolicyCount !== 0) policy_countChange = ((currentMonthPolicyCount - prevMonthPolicyCount) / prevMonthPolicyCount) * 100;
-      if (prevMonthPremiumEarned !== 0) premium_earnedChange = ((premium_earned_val - prevMonthPremiumEarned) / prevMonthPremiumEarned) * 100;
-      if (prevMonthExpenseAmountRaw !== 0) expense_amount_rawChange = ((expense_amount_raw_val - prevMonthExpenseAmountRaw) / prevMonthExpenseAmountRaw) * 100;
-
-      const currentLossRatioVal = premium_earned_val !== 0 ? (total_loss_amount_val / premium_earned_val) * 100 : 0;
-      const prevLossRatioVal = prevMonthPremiumEarned !== 0 ? (prevMonthTotalLossAmount / prevMonthPremiumEarned) * 100 : 0;
-      if (prevLossRatioVal !== 0 && currentLossRatioVal !== 0) {
-        loss_ratioChange = ((currentLossRatioVal - prevLossRatioVal) / Math.abs(prevLossRatioVal)) * 100;
-      } else if (currentLossRatioVal !==0 && prevLossRatioVal === 0) {
-        loss_ratioChange = currentLossRatioVal === 0 ? 0 : 100;
-      }
-
-      const currentExpenseRatioVal = premium_written_val !== 0 ? (expense_amount_raw_val / premium_written_val) * 100 : 0;
-      const prevExpenseRatioVal = prevMonthPremiumWritten !== 0 ? (prevMonthExpenseAmountRaw / prevMonthPremiumWritten) * 100 : 0;
-      if (prevExpenseRatioVal !== 0 && currentExpenseRatioVal !== 0) {
-        expense_ratioChange = ((currentExpenseRatioVal - prevExpenseRatioVal) / Math.abs(prevExpenseRatioVal)) * 100;
-      } else if (currentExpenseRatioVal !==0 && prevExpenseRatioVal === 0) {
-        expense_ratioChange = currentExpenseRatioVal === 0 ? 0 : 100;
-      }
-      
-      const currentVariableCostRatioVal = currentLossRatioVal + currentExpenseRatioVal;
-      const prevVariableCostRatioVal = prevLossRatioVal + prevExpenseRatioVal;
-       if (prevVariableCostRatioVal !== 0 && currentVariableCostRatioVal !== 0) {
-        variable_cost_ratioChange = ((currentVariableCostRatioVal - prevVariableCostRatioVal) / Math.abs(prevVariableCostRatioVal)) * 100;
-      } else if (currentVariableCostRatioVal !==0 && prevVariableCostRatioVal === 0) {
-        variable_cost_ratioChange = currentVariableCostRatioVal === 0 ? 0 : 100;
-      }
-    }
-    
-    const loss_ratio_val = premium_earned_val !== 0 ? (total_loss_amount_val / premium_earned_val) * 100 : 0;
-    const expense_ratio_val = premium_written_val !== 0 ? (expense_amount_raw_val / premium_written_val) * 100 : 0;
-    const variable_cost_ratio_val = loss_ratio_val + expense_ratio_val;
-
-    return {
-      businessLineId: line.id,
-      businessLineName: line.name,
-      icon: line.icon,
-      premium_written: premium_written_val,
-      premium_earned: premium_earned_val,
-      total_loss_amount: total_loss_amount_val,
-      expense_amount_raw: expense_amount_raw_val,
-      policy_count: policy_count_val,
-      loss_ratio: loss_ratio_val,
-      expense_ratio: expense_ratio_val,
-      variable_cost_ratio: variable_cost_ratio_val,
-      premium_writtenChange,
-      premium_earnedChange,
-      total_loss_amountChange,
-      expense_amount_rawChange,
-      policy_countChange,
-      loss_ratioChange,
-      expense_ratioChange,
-      variable_cost_ratioChange,
-    };
-  });
+  // This function's old logic based on monthly mock data is no longer relevant
+  // It needs to be entirely rewritten to process V4PeriodData, calculate "当周发生额",
+  // and handle aggregation based on selected business types.
+  // For now, returning an empty array or minimal structure to avoid breaking page.tsx too much.
+  console.warn("processDataForRange in data-utils.ts is a placeholder and needs full V4 implementation.");
+  return [];
 };
 
-export const calculateKpis = (processedData: ProcessedDataForPeriod[], analysisMode: AnalysisMode): Kpi[] => {
-  const sumField = (field: keyof ProcessedDataForPeriod) => processedData.reduce((sum, d) => sum + (d[field] as number || 0), 0);
 
-  const totalPremiumWritten = sumField('premium_written');
-  const totalPremiumEarned = sumField('premium_earned');
-  const totalLossAmount = sumField('total_loss_amount');
-  const totalExpenseAmountRaw = sumField('expense_amount_raw');
-  const totalPolicyCount = sumField('policy_count');
-
-  const aggregatedLossRatio = totalPremiumEarned !== 0 ? (totalLossAmount / totalPremiumEarned) * 100 : 0;
-  const aggregatedExpenseRatio = totalPremiumWritten !== 0 ? (totalExpenseAmountRaw / totalPremiumWritten) * 100 : 0;
-  const aggregatedVariableCostRatio = aggregatedLossRatio + aggregatedExpenseRatio;
-
-  let totalPremiumWrittenChange: number | undefined = undefined;
-  let aggregatedLossRatioChange: number | undefined = undefined;
-  let aggregatedExpenseRatioChange: number | undefined = undefined;
-  let aggregatedVariableCostRatioChange: number | undefined = undefined;
-  let totalPolicyCountChange: number | undefined = undefined;
-
-  if (analysisMode === 'periodOverPeriod' && processedData.length > 0) {
-    const calculateAggregateChange = (currentAggValue: number, changeField: keyof ProcessedDataForPeriod, baseField: keyof ProcessedDataForPeriod) => {
-      let prevAggValue = 0;
-      for (const d of processedData) {
-        const changePercent = d[changeField] as number ?? 0;
-        const currentVal = d[baseField] as number || 0;
-        if (1 + changePercent / 100 !== 0) {
-           prevAggValue += currentVal / (1 + changePercent / 100);
-        } else {
-            prevAggValue += currentVal; // If change is -100%, effectively previous was 0 or current is 0
-        }
-      }
-      if (prevAggValue !== 0 && currentAggValue !== 0) return ((currentAggValue - prevAggValue) / Math.abs(prevAggValue)) * 100;
-      if (currentAggValue !== 0 && prevAggValue === 0) return 100; // Or some indicator
-      return undefined;
-    };
-    
-    totalPremiumWrittenChange = calculateAggregateChange(totalPremiumWritten, 'premium_writtenChange', 'premium_written');
-    totalPolicyCountChange = calculateAggregateChange(totalPolicyCount, 'policy_countChange', 'policy_count');
-
-    // For ratios, the change calculation based on individual line changes is more complex.
-    // We'll use the pre-calculated individual line ratio changes to derive an approximate aggregate change.
-    // This is an estimation. Accurate aggregate ratio change requires sum of prev numerators and denominators.
-    // For simplicity now, we'll take an average or weighted average if possible, or use a placeholder for PoP change for ratios.
-
-    // Calculate previous period aggregate values to correctly determine PoP change for ratios
-    let prevTotalLossAmount = 0;
-    let prevTotalPremiumEarned = 0;
-    let prevTotalExpenseAmountRaw = 0;
-    let prevTotalPremiumWritten = 0;
-
-    for (const d of processedData) {
-      const tlaChange = d.total_loss_amountChange ?? 0;
-      const peChange = d.premium_earnedChange ?? 0;
-      const earChange = d.expense_amount_rawChange ?? 0;
-      const pwChange = d.premium_writtenChange ?? 0;
-
-      if (1 + tlaChange/100 !== 0) prevTotalLossAmount += d.total_loss_amount / (1 + tlaChange/100); else prevTotalLossAmount += d.total_loss_amount;
-      if (1 + peChange/100 !== 0) prevTotalPremiumEarned += d.premium_earned / (1 + peChange/100); else prevTotalPremiumEarned += d.premium_earned;
-      if (1 + earChange/100 !== 0) prevTotalExpenseAmountRaw += d.expense_amount_raw / (1 + earChange/100); else prevTotalExpenseAmountRaw += d.expense_amount_raw;
-      if (1 + pwChange/100 !== 0) prevTotalPremiumWritten += d.premium_written / (1 + pwChange/100); else prevTotalPremiumWritten += d.premium_written;
-    }
-    
-    const prevAggLossRatio = prevTotalPremiumEarned !== 0 ? (prevTotalLossAmount / prevTotalPremiumEarned) * 100 : 0;
-    if (prevAggLossRatio !== 0 && aggregatedLossRatio !==0) aggregatedLossRatioChange = ((aggregatedLossRatio - prevAggLossRatio) / Math.abs(prevAggLossRatio)) * 100;
-    else if (aggregatedLossRatio !==0 && prevAggLossRatio === 0) aggregatedLossRatioChange = 100;
-    
-    const prevAggExpenseRatio = prevTotalPremiumWritten !== 0 ? (prevTotalExpenseAmountRaw / prevTotalPremiumWritten) * 100 : 0;
-    if (prevAggExpenseRatio !== 0 && aggregatedExpenseRatio !== 0) aggregatedExpenseRatioChange = ((aggregatedExpenseRatio - prevAggExpenseRatio) / Math.abs(prevAggExpenseRatio)) * 100;
-    else if (aggregatedExpenseRatio !== 0 && prevAggExpenseRatio === 0) aggregatedExpenseRatioChange = 100;
-
-    const prevAggVariableCostRatio = prevAggLossRatio + prevAggExpenseRatio;
-    if (prevAggVariableCostRatio !== 0 && aggregatedVariableCostRatio !== 0) aggregatedVariableCostRatioChange = ((aggregatedVariableCostRatio - prevAggVariableCostRatio) / Math.abs(prevAggVariableCostRatio)) * 100;
-    else if (aggregatedVariableCostRatio !== 0 && prevAggVariableCostRatio === 0) aggregatedVariableCostRatioChange = 100;
-
+const calculateChangeAndAbs = (current: number | undefined, previous: number | undefined): { change?: number, absolute?: number } => {
+  if (current === undefined || previous === undefined || isNaN(current) || isNaN(previous)) {
+    return {};
   }
-  
-  const placeholderYoyChange = "+3.5%"; // YoY data not available in current mock structure
-  const placeholderYoyChangeType = 'positive';
-  const placeholderNegativeYoyChange = "-2.1%";
+  const absolute = current - previous;
+  let change: number | undefined;
+  if (previous !== 0) {
+    change = (absolute / Math.abs(previous)) * 100;
+  } else if (current !== 0) {
+    change = 100; // Or Infinity, or handle as a special case string
+  } else {
+    change = 0;
+  }
+  return { change, absolute };
+};
 
-  return [
+
+export const calculateKpis = (
+  processedData: ProcessedDataForPeriod[],
+  analysisMode: string, // Keep 'string' for now, will be AnalysisMode
+  currentPeriodTotals?: V4PeriodTotals // For "保费占比"
+): Kpi[] => {
+  if (!processedData || processedData.length === 0) return [];
+
+  // Aggregate values from processedData (which should already be aggregated or for a single line)
+  // For KPIs, we usually display aggregated values unless a single business line is selected.
+  // Assuming processedData contains a single entry which is the aggregated data for selected lines.
+  // If processedData can contain multiple lines, this aggregation logic needs to be more robust here.
+  // For now, let's assume processedData[0] is the "合计" or the single selected line.
+
+  const aggData = processedData.reduce((acc, d) => {
+    acc.premium_written += (d.premium_written || 0);
+    acc.premium_earned += (d.premium_earned || 0);
+    acc.total_loss_amount += (d.total_loss_amount || 0);
+    acc.expense_amount_raw += (d.expense_amount_raw || 0);
+    acc.policy_count += (d.policy_count || 0);
+    acc.claim_count += (d.claim_count || 0);
+    acc.policy_count_earned += (d.policy_count_earned || 0);
+
+    // For changes, we need to correctly aggregate previous values too.
+    // This simplified aggregation of changes might not be perfectly accurate for ratios.
+    // For now, take the first item's change if available, assuming it's already aggregated.
+    if (acc.premium_writtenChange === undefined) acc.premium_writtenChange = d.premium_writtenChange;
+    if (acc.premium_earnedChange === undefined) acc.premium_earnedChange = d.premium_earnedChange;
+    if (acc.total_loss_amountChange === undefined) acc.total_loss_amountChange = d.total_loss_amountChange;
+    if (acc.expense_amount_rawChange === undefined) acc.expense_amount_rawChange = d.expense_amount_rawChange;
+    if (acc.policy_countChange === undefined) acc.policy_countChange = d.policy_countChange;
+    if (acc.claim_countChange === undefined) acc.claim_countChange = d.claim_countChange;
+    if (acc.policy_count_earnedChange === undefined) acc.policy_count_earnedChange = d.policy_count_earnedChange;
+
+    return acc;
+  }, {
+    premium_written: 0, premium_earned: 0, total_loss_amount: 0, expense_amount_raw: 0,
+    policy_count: 0, claim_count: 0, policy_count_earned: 0,
+    premium_writtenChange: undefined as number | undefined,
+    premium_earnedChange: undefined as number | undefined,
+    total_loss_amountChange: undefined as number | undefined,
+    expense_amount_rawChange: undefined as number | undefined,
+    policy_countChange: undefined as number | undefined,
+    claim_countChange: undefined as number | undefined,
+    policy_count_earnedChange: undefined as number | undefined,
+  });
+
+  const {
+    premium_written, premium_earned, total_loss_amount, expense_amount_raw,
+    policy_count, claim_count = 0, policy_count_earned = 0
+  } = aggData;
+
+  // --- Calculate aggregated metric values ---
+  const loss_ratio = premium_earned !== 0 ? (total_loss_amount / premium_earned) * 100 : 0;
+  const expense_ratio = premium_written !== 0 ? (expense_amount_raw / premium_written) * 100 : 0;
+  const variable_cost_ratio = loss_ratio + expense_ratio;
+  const expense_amount = premium_written * (expense_ratio / 100); // 费用额 (万元)
+  
+  const premium_earned_ratio = premium_written !== 0 ? (premium_earned / premium_written) * 100 : 0;
+  const avg_premium_per_policy = policy_count !== 0 ? (premium_written * 10000 / policy_count) : 0; // 元
+  const claim_frequency = policy_count_earned !== 0 ? (claim_count / policy_count_earned) * 100 : 0;
+  const avg_loss_per_case = claim_count !== 0 ? (total_loss_amount * 10000 / claim_count) : 0; // 元
+
+  const marginal_contribution_amount = premium_earned - total_loss_amount - expense_amount; // 边贡额 (万元)
+  const marginal_contribution_ratio = premium_earned !== 0 ? (marginal_contribution_amount / premium_earned) * 100 : 0; // 边际贡献率 (%)
+
+  const premium_share = (currentPeriodTotals?.total_premium_written_overall && currentPeriodTotals.total_premium_written_overall !== 0)
+    ? (premium_written / currentPeriodTotals.total_premium_written_overall) * 100
+    : 0;
+
+  // --- Calculate PoP changes and absolute values ---
+  // Helper to calculate previous value based on current and change percentage
+  const getPreviousValue = (current: number, changePercent?: number) => {
+    if (changePercent === undefined || isNaN(changePercent)) return undefined;
+    if (1 + changePercent / 100 === 0) return current !== 0 ? Infinity : 0; // Avoid division by zero, if current is non-zero and change is -100%, prev was huge
+    return current / (1 + changePercent / 100);
+  };
+  
+  // --- Aggregate PoP changes. This part needs careful V4 implementation with previous period sums.
+  // The following is a simplified placeholder for changes based on aggregated current values and first item's change percentages.
+  // A more accurate method involves summing previous period's base values.
+  // For now, we use the aggregated change percentages from aggData which is a simplification.
+  
+  const prev_premium_written = getPreviousValue(premium_written, aggData.premium_writtenChange);
+  const prev_premium_earned = getPreviousValue(premium_earned, aggData.premium_earnedChange);
+  const prev_total_loss_amount = getPreviousValue(total_loss_amount, aggData.total_loss_amountChange);
+  const prev_expense_amount_raw = getPreviousValue(expense_amount_raw, aggData.expense_amount_rawChange);
+  const prev_policy_count = getPreviousValue(policy_count, aggData.policy_countChange);
+  const prev_claim_count = getPreviousValue(claim_count, aggData.claim_countChange);
+  const prev_policy_count_earned = getPreviousValue(policy_count_earned, aggData.policy_count_earnedChange);
+
+  const pw_chg = calculateChangeAndAbs(premium_written, prev_premium_written);
+  const pe_chg = calculateChangeAndAbs(premium_earned, prev_premium_earned);
+  const tla_chg = calculateChangeAndAbs(total_loss_amount, prev_total_loss_amount);
+  const ear_chg = calculateChangeAndAbs(expense_amount_raw, prev_expense_amount_raw); // For expense_amount itself
+  const pc_chg = calculateChangeAndAbs(policy_count, prev_policy_count);
+  const cc_chg = calculateChangeAndAbs(claim_count, prev_claim_count);
+  const pce_chg = calculateChangeAndAbs(policy_count_earned, prev_policy_count_earned);
+  
+  const prev_loss_ratio = prev_premium_earned !== undefined && prev_premium_earned !== 0 ? (prev_total_loss_amount! / prev_premium_earned) * 100 : 0;
+  const lr_chg = calculateChangeAndAbs(loss_ratio, prev_loss_ratio);
+
+  const prev_expense_ratio = prev_premium_written !== undefined && prev_premium_written !== 0 ? (prev_expense_amount_raw! / prev_premium_written) * 100 : 0;
+  const er_chg = calculateChangeAndAbs(expense_ratio, prev_expense_ratio);
+  
+  const prev_variable_cost_ratio = prev_loss_ratio + prev_expense_ratio;
+  const vcr_chg = calculateChangeAndAbs(variable_cost_ratio, prev_variable_cost_ratio);
+  
+  const prev_expense_amount = prev_premium_written !== undefined ? prev_premium_written * (prev_expense_ratio / 100) : undefined;
+  const ea_chg = calculateChangeAndAbs(expense_amount, prev_expense_amount);
+
+  const prev_premium_earned_ratio = prev_premium_written !== undefined && prev_premium_written !== 0 ? (prev_premium_earned! / prev_premium_written) * 100 : 0;
+  const per_chg = calculateChangeAndAbs(premium_earned_ratio, prev_premium_earned_ratio);
+
+  const prev_avg_premium_per_policy = prev_policy_count !== undefined && prev_policy_count !== 0 ? (prev_premium_written! * 10000 / prev_policy_count) : 0;
+  const app_chg = calculateChangeAndAbs(avg_premium_per_policy, prev_avg_premium_per_policy);
+
+  const prev_claim_frequency = prev_policy_count_earned !== undefined && prev_policy_count_earned !== 0 ? (prev_claim_count! / prev_policy_count_earned) * 100 : 0;
+  const cf_chg = calculateChangeAndAbs(claim_frequency, prev_claim_frequency);
+
+  const prev_avg_loss_per_case = prev_claim_count !== undefined && prev_claim_count !== 0 ? (prev_total_loss_amount! * 10000 / prev_claim_count) : 0;
+  const alc_chg = calculateChangeAndAbs(avg_loss_per_case, prev_avg_loss_per_case);
+
+  const prev_marginal_contribution_amount = (prev_premium_earned !== undefined && prev_total_loss_amount !== undefined && prev_expense_amount !== undefined) ? prev_premium_earned - prev_total_loss_amount - prev_expense_amount : undefined;
+  const mca_chg = calculateChangeAndAbs(marginal_contribution_amount, prev_marginal_contribution_amount);
+
+  const prev_marginal_contribution_ratio = (prev_premium_earned !== undefined && prev_premium_earned !== 0 && prev_marginal_contribution_amount !== undefined) ? (prev_marginal_contribution_amount / prev_premium_earned) * 100 : 0;
+  const mcr_chg = calculateChangeAndAbs(marginal_contribution_ratio, prev_marginal_contribution_ratio);
+
+  // Placeholder for YoY changes
+  const placeholderYoyChange = "+0.0%"; 
+  const placeholderYoyChangeAbs = "0";
+  const placeholderYoyChangeType = 'neutral';
+  
+  const kpis: Kpi[] = [
+    // Column 1
     {
-      id: 'premium_written',
-      title: '跟单保费',
-      value: formatCurrency(totalPremiumWritten),
-      rawValue: totalPremiumWritten,
-      change: totalPremiumWrittenChange !== undefined ? formatPercentage(totalPremiumWrittenChange) : undefined,
-      changeType: totalPremiumWrittenChange === undefined ? 'neutral' : totalPremiumWrittenChange > 0 ? 'positive' : 'negative',
-      yoyChange: placeholderYoyChange, 
-      yoyChangeType: placeholderYoyChangeType,
+      id: 'marginal_contribution_ratio', title: '边际贡献率', value: formatPercentage(marginal_contribution_ratio), rawValue: marginal_contribution_ratio,
+      change: mcr_chg.change !== undefined ? formatPercentage(mcr_chg.change) : undefined,
+      changeAbsolute: mcr_chg.absolute !== undefined ? formatPercentage(mcr_chg.absolute, 2) : undefined, // Rate change is in pp
+      changeType: mcr_chg.change === undefined ? 'neutral' : mcr_chg.change > 0 ? 'positive' : 'negative',
+      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      icon: Ratio,
+    },
+    {
+      id: 'variable_cost_ratio', title: '变动成本率', value: formatPercentage(variable_cost_ratio), rawValue: variable_cost_ratio,
+      change: vcr_chg.change !== undefined ? formatPercentage(vcr_chg.change) : undefined,
+      changeAbsolute: vcr_chg.absolute !== undefined ? formatPercentage(vcr_chg.absolute, 2) : undefined,
+      changeType: vcr_chg.change === undefined ? 'neutral' : vcr_chg.change > 0 ? 'negative' : 'positive',
+      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      icon: Zap, isBorderRisk: variable_cost_ratio > 90,
+    },
+    {
+      id: 'expense_ratio', title: '费用率', value: formatPercentage(expense_ratio), rawValue: expense_ratio,
+      change: er_chg.change !== undefined ? formatPercentage(er_chg.change) : undefined,
+      changeAbsolute: er_chg.absolute !== undefined ? formatPercentage(er_chg.absolute, 2) : undefined,
+      changeType: er_chg.change === undefined ? 'neutral' : er_chg.change > 0 ? 'negative' : 'positive',
+      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      icon: Briefcase, isOrangeRisk: expense_ratio > 14.5,
+    },
+    {
+      id: 'loss_ratio', title: '满期赔付率', value: formatPercentage(loss_ratio), rawValue: loss_ratio,
+      change: lr_chg.change !== undefined ? formatPercentage(lr_chg.change) : undefined,
+      changeAbsolute: lr_chg.absolute !== undefined ? formatPercentage(lr_chg.absolute, 2) : undefined,
+      changeType: lr_chg.change === undefined ? 'neutral' : lr_chg.change > 0 ? 'negative' : 'positive',
+      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      icon: Percent, isRisk: loss_ratio > 70, description: "基于已报告赔款",
+    },
+    // Column 2
+    {
+      id: 'marginal_contribution_amount', title: '边贡额', value: formatCurrency(marginal_contribution_amount), rawValue: marginal_contribution_amount,
+      change: mca_chg.change !== undefined ? formatPercentage(mca_chg.change) : undefined,
+      changeAbsolute: mca_chg.absolute !== undefined ? formatCurrency(mca_chg.absolute) : undefined,
+      changeType: mca_chg.change === undefined ? 'neutral' : mca_chg.change > 0 ? 'positive' : 'negative',
+      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      icon: Landmark,
+    },
+    {
+      id: 'premium_written', title: '保费', value: formatCurrency(premium_written), rawValue: premium_written,
+      change: pw_chg.change !== undefined ? formatPercentage(pw_chg.change) : undefined,
+      changeAbsolute: pw_chg.absolute !== undefined ? formatCurrency(pw_chg.absolute) : undefined,
+      changeType: pw_chg.change === undefined ? 'neutral' : pw_chg.change > 0 ? 'positive' : 'negative',
+      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
       icon: DollarSign,
     },
     {
-      id: 'policy_count',
-      title: '保单数量',
-      value: formatNumber(totalPolicyCount),
-      rawValue: totalPolicyCount,
-      change: totalPolicyCountChange !== undefined ? formatPercentage(totalPolicyCountChange) : undefined,
-      changeType: totalPolicyCountChange === undefined ? 'neutral' : totalPolicyCountChange > 0 ? 'positive' : 'negative',
-      yoyChange: placeholderYoyChange,
-      yoyChangeType: placeholderYoyChangeType,
+      id: 'expense_amount', title: '费用', value: formatCurrency(expense_amount), rawValue: expense_amount,
+      change: ea_chg.change !== undefined ? formatPercentage(ea_chg.change) : undefined,
+      changeAbsolute: ea_chg.absolute !== undefined ? formatCurrency(ea_chg.absolute) : undefined,
+      changeType: ea_chg.change === undefined ? 'neutral' : ea_chg.change > 0 ? 'negative' : 'positive', // Higher expense is negative
+      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      icon: Briefcase, // Using briefcase again, could find another
+    },
+    {
+      id: 'total_loss_amount', title: '赔款', value: formatCurrency(total_loss_amount), rawValue: total_loss_amount,
+      change: tla_chg.change !== undefined ? formatPercentage(tla_chg.change) : undefined,
+      changeAbsolute: tla_chg.absolute !== undefined ? formatCurrency(tla_chg.absolute) : undefined,
+      changeType: tla_chg.change === undefined ? 'neutral' : tla_chg.change > 0 ? 'negative' : 'positive', // Higher loss is negative
+      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      icon: ShieldCheck, // Changed icon
+    },
+    // Column 3
+    {
+      id: 'premium_earned', title: '满期保费', value: formatCurrency(premium_earned), rawValue: premium_earned,
+      change: pe_chg.change !== undefined ? formatPercentage(pe_chg.change) : undefined,
+      changeAbsolute: pe_chg.absolute !== undefined ? formatCurrency(pe_chg.absolute) : undefined,
+      changeType: pe_chg.change === undefined ? 'neutral' : pe_chg.change > 0 ? 'positive' : 'negative',
+      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      icon: DollarSign,
+    },
+    {
+      id: 'premium_earned_ratio', title: '保费满期率', value: formatPercentage(premium_earned_ratio), rawValue: premium_earned_ratio,
+      change: per_chg.change !== undefined ? formatPercentage(per_chg.change) : undefined,
+      changeAbsolute: per_chg.absolute !== undefined ? formatPercentage(per_chg.absolute, 2) : undefined,
+      changeType: per_chg.change === undefined ? 'neutral' : per_chg.change > 0 ? 'positive' : 'negative',
+      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      icon: Ratio,
+    },
+    {
+      id: 'avg_premium_per_policy', title: '单均保费', value: formatCurrency(avg_premium_per_policy, '元'), rawValue: avg_premium_per_policy,
+      change: app_chg.change !== undefined ? formatPercentage(app_chg.change) : undefined,
+      changeAbsolute: app_chg.absolute !== undefined ? formatCurrency(app_chg.absolute, '元') : undefined,
+      changeType: app_chg.change === undefined ? 'neutral' : app_chg.change > 0 ? 'positive' : 'negative', // Typically higher is better
+      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
       icon: FileText,
     },
     {
-      id: 'loss_ratio',
-      title: '满期赔付率',
-      value: formatPercentage(aggregatedLossRatio),
-      rawValue: aggregatedLossRatio,
-      change: aggregatedLossRatioChange !== undefined ? formatPercentage(aggregatedLossRatioChange) : undefined,
-      changeType: aggregatedLossRatioChange === undefined ? 'neutral' : aggregatedLossRatioChange > 0 ? 'negative' : 'positive', // Higher LR is negative
-      yoyChange: placeholderNegativeYoyChange, // Assume YoY LR also negative if increased
-      yoyChangeType: 'negative',
-      icon: Percent,
-      isRisk: aggregatedLossRatio > 70,
+      id: 'policy_count', title: '保单件数', value: formatNumber(policy_count), rawValue: policy_count,
+      change: pc_chg.change !== undefined ? formatPercentage(pc_chg.change) : undefined,
+      changeAbsolute: pc_chg.absolute !== undefined ? formatNumber(pc_chg.absolute) : undefined,
+      changeType: pc_chg.change === undefined ? 'neutral' : pc_chg.change > 0 ? 'positive' : 'negative',
+      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      icon: FileText,
+    },
+    // Column 4
+    {
+      id: 'premium_share', title: '保费占比', value: formatPercentage(premium_share), rawValue: premium_share,
+      // Change for share needs careful definition of previous share
+      change: undefined, changeAbsolute: undefined, changeType: 'neutral',
+      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      icon: Users,
     },
     {
-      id: 'expense_ratio',
-      title: '费用率',
-      value: formatPercentage(aggregatedExpenseRatio),
-      rawValue: aggregatedExpenseRatio,
-      change: aggregatedExpenseRatioChange !== undefined ? formatPercentage(aggregatedExpenseRatioChange) : undefined,
-      changeType: aggregatedExpenseRatioChange === undefined ? 'neutral' : aggregatedExpenseRatioChange > 0 ? 'negative' : 'positive', // Higher ER is negative
-      yoyChange: placeholderNegativeYoyChange, // Assume YoY ER also negative if increased
-      yoyChangeType: 'negative',
-      icon: Briefcase,
-      isRisk: aggregatedExpenseRatio > 14.5,
+      id: 'avg_commercial_index', title: '自主系数', value: "N/A", // Placeholder, needs logic for single vs aggregated
+      rawValue: undefined, // Placeholder
+      change: undefined, changeAbsolute: undefined, changeType: 'neutral',
+      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      icon: Search,
     },
     {
-      id: 'variable_cost_ratio',
-      title: '变动成本率',
-      value: formatPercentage(aggregatedVariableCostRatio),
-      rawValue: aggregatedVariableCostRatio,
-      change: aggregatedVariableCostRatioChange !== undefined ? formatPercentage(aggregatedVariableCostRatioChange) : undefined,
-      changeType: aggregatedVariableCostRatioChange === undefined ? 'neutral' : aggregatedVariableCostRatioChange > 0 ? 'negative' : 'positive', // Higher VCR is negative
-      yoyChange: placeholderNegativeYoyChange, // Assume YoY VCR also negative if increased
-      yoyChangeType: 'negative',
-      icon: Zap,
-      isRisk: aggregatedVariableCostRatio > 90,
+      id: 'claim_frequency', title: '满期出险率', value: formatPercentage(claim_frequency), rawValue: claim_frequency,
+      change: cf_chg.change !== undefined ? formatPercentage(cf_chg.change) : undefined,
+      changeAbsolute: cf_chg.absolute !== undefined ? formatPercentage(cf_chg.absolute, 2) : undefined,
+      changeType: cf_chg.change === undefined ? 'neutral' : cf_chg.change > 0 ? 'negative' : 'positive', // Higher is worse
+      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      icon: Activity,
+    },
+    {
+      id: 'avg_loss_per_case', title: '案均赔款', value: formatCurrency(avg_loss_per_case, '元'), rawValue: avg_loss_per_case,
+      change: alc_chg.change !== undefined ? formatPercentage(alc_chg.change) : undefined,
+      changeAbsolute: alc_chg.absolute !== undefined ? formatCurrency(alc_chg.absolute, '元') : undefined,
+      changeType: alc_chg.change === undefined ? 'neutral' : alc_chg.change > 0 ? 'negative' : 'positive', // Higher is usually worse
+      yoyChange: placeholderYoyChange, yoyChangeAbsolute: placeholderYoyChangeAbs, yoyChangeType: placeholderYoyChangeType,
+      icon: ShieldCheck,
     },
   ];
+
+  // Ensure correct risk flags are set
+  kpis.forEach(kpi => {
+    if (kpi.id === 'loss_ratio') kpi.isRisk = (kpi.rawValue ?? 0) > 70;
+    if (kpi.id === 'expense_ratio') kpi.isOrangeRisk = (kpi.rawValue ?? 0) > 14.5;
+    if (kpi.id === 'variable_cost_ratio') kpi.isBorderRisk = (kpi.rawValue ?? 0) > 90;
+  });
+  
+  return kpis;
 };
 
+
 export const prepareTrendData = (
-  businessLines: BusinessLine[],
-  selectedMetricKey: keyof MetricData | keyof ProcessedDataForPeriod, // Can be from raw data or processed data
-  from: Date,
-  to: Date
+  businessLines: any[], // This will be V4PeriodData[]
+  selectedMetricKey: any, // TrendMetricKey
+  from: Date, // Not used with V4 period_id system
+  to: Date // Not used with V4 period_id system
 ): ChartDataItem[] => {
-  const dataMap = new Map<string, { name: string, [key: string]: number | string }>();
-  const monthDiff = differenceInMonths(endOfMonth(to), startOfMonth(from)) + 1;
-  const labels: string[] = [];
-  let currentDateIter = startOfMonth(from);
-  for(let i = 0; i < monthDiff; i++) {
-    labels.push(format(currentDateIter, 'yyyy-MM'));
-    currentDateIter = subMonths(currentDateIter, -1); // Increment month
-  }
-  
-  labels.forEach(dateStr => {
-    dataMap.set(dateStr, { name: dateStr });
-  });
-
-  businessLines.forEach(line => {
-    // Determine if selectedMetricKey is from original BusinessLine.data or needs to be derived like in ProcessedDataForPeriod
-    // For simplicity, assume selectedMetricKey directly maps to BusinessLine.data fields like 'premium', 'claims', 'policies' for now
-    // or it's one of the calculated ratios on BusinessLine.data.lossRatio
-    
-    let metricSeries: MonthlyData[] | undefined;
-    if (selectedMetricKey === 'premium_written') metricSeries = line.data.premium;
-    else if (selectedMetricKey === 'total_loss_amount') metricSeries = line.data.claims;
-    else if (selectedMetricKey === 'policy_count') metricSeries = line.data.policies;
-    else if (selectedMetricKey === 'loss_ratio' && line.data.lossRatio) metricSeries = line.data.lossRatio;
-    // Add more mappings if TrendAnalysis needs to show premium_earned, expense_amount_raw etc. directly from monthly data
-    // This would require line.data to be richer or for prepareTrendData to do its own monthly processing.
-
-    if (metricSeries) {
-      const periodData = getPeriodData(metricSeries, from, to);
-      periodData.forEach(monthData => {
-        if (dataMap.has(monthData.date)) {
-          const entry = dataMap.get(monthData.date)!;
-          entry[line.name] = monthData.value;
-        }
-      });
-    }
-  });
-  
-  labels.forEach(dateStr => {
-    const entry = dataMap.get(dateStr)!;
-    businessLines.forEach(line => {
-      if(!entry[line.name]) {
-        entry[line.name] = 0; // Fill missing values with 0
-      }
-    });
-  });
-  
-  return Array.from(dataMap.values()).sort((a, b) => (a.name as string).localeCompare(b.name as string));
+  // This function needs to be rewritten for V4 data.
+  // It should iterate through a series of V4PeriodData objects,
+  // process them (for "当周发生额" if needed), and extract the selectedMetricKey
+  // for each business line over the periods.
+  console.warn("prepareTrendData in data-utils.ts is a placeholder and needs full V4 implementation.");
+  return [];
 };
 
 
 export const prepareBubbleChartData = (processedData: ProcessedDataForPeriod[]): BubbleChartDataItem[] => {
+   if (!processedData || processedData.length === 0) return [];
   return processedData.map(d => ({
     id: d.businessLineId,
     name: d.businessLineName,
-    x: d.premium_written, 
-    y: d.loss_ratio, 
-    z: d.policy_count, 
+    // Bubble chart expects x, y, z. We need to map specific fields from ProcessedDataForPeriod.
+    // For example, x: premium_written, y: loss_ratio, z: policy_count
+    // This mapping should ideally be configurable or based on user selection.
+    // For now, using placeholders:
+    x: d.premium_written || 0,
+    y: d.loss_ratio || 0,
+    z: d.policy_count || 0,
   }));
 };
 
 export const prepareBarRankData = (
   processedData: ProcessedDataForPeriod[],
-  rankingMetric: keyof Pick<ProcessedDataForPeriod, 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio'>
+  rankingMetric: keyof Pick<ProcessedDataForPeriod, 'premium_written' | 'total_loss_amount' | 'policy_count' | 'loss_ratio' | 'expense_ratio' | 'variable_cost_ratio'>
 ): ChartDataItem[] => {
+  if (!processedData || processedData.length === 0) return [];
   return [...processedData]
-    .sort((a, b) => (b[rankingMetric] as number) - (a[rankingMetric] as number))
+    .sort((a, b) => (b[rankingMetric] as number || 0) - (a[rankingMetric] as number || 0))
     .map(d => ({
       name: d.businessLineName,
-      [rankingMetric]: d[rankingMetric] as number, // Ensure value is number
+      [rankingMetric]: d[rankingMetric] as number || 0,
     }));
 };
 
-
+// This function is part of the old date-based system and will be replaced or removed.
 export const getDateRangeByValue = (value: string): { from: Date, to: Date } => {
-  const to = new Date(); // Represents the end of the most recent period
+  console.warn("getDateRangeByValue is deprecated and part of old date-based system.");
+  const to = new Date();
   let from = new Date();
-
-  switch (value) {
-    case '3m': // Last 3 full months. If today is Jun 15, it means Mar, Apr, May.
-      from = startOfMonth(subMonths(to, 2));
-      break;
-    case '6m': // Last 6 full months
-      from = startOfMonth(subMonths(to, 5));
-      break;
-    case '12m': // Last 12 full months
-      from = startOfMonth(subMonths(to, 11));
-      break;
-    case 'ytd': // From start of current year to end of most recent full month (or current month if preferred)
-      from = startOfYear(to);
-      break;
-    default: // Default to 3m
-      from = startOfMonth(subMonths(to, 2));
-  }
-  // Ensure 'to' is end of month for consistency, or current date if more "up-to-date" is needed.
-  // For monthly data, endOfMonth(to) makes sense.
-  return { from: startOfMonth(from), to: endOfMonth(to) };
+  return { from, to };
 };
-
