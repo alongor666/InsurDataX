@@ -34,7 +34,10 @@ const barRankingAnalysisPrompt = ai.definePrompt({
   output: {schema: GenerateBarRankingAnalysisOutputSchema},
   prompt: `You are a data analyst specializing in car insurance business performance.
 Analyze the provided bar ranking chart data for car insurance business lines based on the metric: {{{rankedMetric}}}.
-The color of each bar is determined by its variable_cost_ratio (VCR) with the following rules: VCR >= 92% is Red (high risk), 88% <= VCR < 92% is Blue (warning), VCR < 88% is Green (good).
+The color of each bar is dynamically determined by its variable_cost_ratio (VCR) to show performance:
+- Green (Excellent): VCR < 88%. The lower the VCR, the deeper the green.
+- Blue (Healthy): 88% <= VCR < 92%. The closer to 88%, the deeper the blue.
+- Red (Risk): VCR >= 92%. The higher the VCR, the deeper the red.
 
 The current analysis mode is: {{{analysisMode}}}.
 The data is for period: {{{currentPeriodLabel}}}.
@@ -43,8 +46,8 @@ Chart Data (each item includes a 'color' field based on VCR):
 {{{chartDataJson}}}
 
 Based on this data, provide a concise analysis in Chinese. Focus on:
-- Identifying the top 2-3 performing business lines and quantifying their performance, also noting their VCR color.
-- Identifying the bottom 2-3 performing business lines and quantifying their performance, also noting their VCR color.
+- Identifying the top 2-3 performing business lines and quantifying their performance, also noting their VCR-based color and what it implies.
+- Identifying the bottom 2-3 performing business lines and quantifying their performance, also noting their VCR-based color and what it implies.
 - Highlighting any significant gaps or disparities between business lines, considering their VCR colors.
 - Providing potential insights or areas for investigation based on the ranking and VCR colors.
 Keep the summary brief and actionable.`,

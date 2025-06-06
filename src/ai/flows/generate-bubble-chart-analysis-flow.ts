@@ -36,7 +36,10 @@ const bubbleChartAnalysisPrompt = ai.definePrompt({
   output: {schema: GenerateBubbleChartAnalysisOutputSchema},
   prompt: `You are a data analyst specializing in car insurance business performance.
 Analyze the provided bubble chart data for car insurance business lines.
-The color of each bubble is determined by its variable_cost_ratio (VCR) with the following rules: VCR >= 92% is Red (high risk), 88% <= VCR < 92% is Blue (warning), VCR < 88% is Green (good).
+The color of each bubble is dynamically determined by its variable_cost_ratio (VCR) to show performance:
+- Green (Excellent): VCR < 88%. The lower the VCR, the deeper the green.
+- Blue (Healthy): 88% <= VCR < 92%. The closer to 88%, the deeper the blue.
+- Red (Risk): VCR >= 92%. The higher the VCR, the deeper the red.
 
 X-axis represents: {{{xAxisMetric}}}
 Y-axis represents: {{{yAxisMetric}}}
@@ -48,9 +51,9 @@ Chart Data (each item includes a 'color' field based on VCR and a 'vcr' field wi
 {{{chartDataJson}}}
 
 Based on this data, provide a concise analysis in Chinese. Focus on:
-- Identifying any outlier business lines and explaining their characteristics based on the three metrics and their VCR color.
+- Identifying any outlier business lines and explaining their characteristics based on the three metrics and their VCR-based color.
 - Describing any clusters of business lines and their common traits, including their VCR color distribution.
-- Highlighting key relationships or trade-offs observed between the X-axis, Y-axis, bubble size metrics, and VCR color.
+- Highlighting key relationships or trade-offs observed between the X-axis, Y-axis, bubble size metrics, and VCR-based colors.
 - Providing potential insights relevant to the car insurance business based on these observations.
 Keep the summary brief and actionable.`,
 });

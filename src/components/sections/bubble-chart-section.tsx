@@ -6,7 +6,7 @@ import { SectionWrapper } from '@/components/shared/section-wrapper';
 import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { ScatterChart as LucideScatterChart, Palette } from 'lucide-react'; 
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
-import { CartesianGrid, Scatter, ScatterChart as RechartsScatterChart, XAxis, YAxis, ZAxis, TooltipProps, Legend } from "recharts";
+import { CartesianGrid, Scatter, ScatterChart as RechartsScatterChart, XAxis, YAxis, ZAxis, TooltipProps } from "recharts"; // Removed Legend
 import type {NameType, ValueType} from 'recharts/types/component/DefaultTooltipContent';
 import { useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -61,13 +61,12 @@ export function BubbleChartSection({
     return Array.from(lines.values());
   }, [data]);
 
-  // Chart config is now primarily for legend labels, colors are data-driven
   const chartConfig = useMemo(() => {
     if (!uniqueBusinessLines || uniqueBusinessLines.length === 0) return {};
     return uniqueBusinessLines.reduce((acc, line) => {
       acc[line.id] = { 
         label: line.name,
-        color: line.color || `hsl(var(--muted))`, // Fallback color
+        color: line.color || `hsl(var(--muted))`, 
       };
       return acc;
     }, {} as any);
@@ -97,8 +96,9 @@ export function BubbleChartSection({
     return value.toLocaleString(undefined, {maximumFractionDigits: 0});
   };
   
-  const xDomain = hasData ? [0, Math.max(...data.map(item => item.x)) * 1.1] : [0,1];
-  const yDomain = hasData ? [0, Math.max(...data.map(item => item.y)) * 1.1] : [0,1];
+  const xDomain = hasData ? [0, Math.max(...data.map(item => item.x), 0) * 1.1] : [0,1];
+  const yDomain = hasData ? [0, Math.max(...data.map(item => item.y), 0) * 1.1] : [0,1];
+
 
   const metricSelectors = (
     <div className="flex flex-wrap items-center gap-2 md:gap-4">
@@ -134,9 +134,9 @@ export function BubbleChartSection({
       {!hasData ? (
          <p className="text-muted-foreground h-[300px] flex items-center justify-center">暂无数据生成气泡图，或请选择指标。</p>
       ) : (
-        <div className="h-[400px] w-full"> {/* Increased height to accommodate legend */}
+        <div className="h-[350px] w-full">
           <ChartContainer config={chartConfig} className="h-full w-full">
-              <RechartsScatterChart margin={{ top: 20, right: 30, bottom: 40, left: 30 }}>
+              <RechartsScatterChart margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
                   type="number" 
@@ -144,7 +144,7 @@ export function BubbleChartSection({
                   name={xAxisLabel} 
                   domain={xDomain} 
                   tickFormatter={(val) => formatAxisTick(val, selectedXAxisMetric)} 
-                  label={{ value: xAxisLabel, position: 'insideBottomRight', offset: -15, fontSize: 12 }} 
+                  label={{ value: xAxisLabel, position: 'insideBottom', offset: -15, fontSize: 12 }} 
                 />
                 <YAxis 
                   type="number" 
@@ -152,17 +152,14 @@ export function BubbleChartSection({
                   name={yAxisLabel} 
                   domain={yDomain} 
                   tickFormatter={(val) => formatAxisTick(val, selectedYAxisMetric)}
-                  label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', offset:0, fontSize: 12 }}
+                  label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', offset: 0, fontSize: 12 }}
                 />
                 <ZAxis type="number" dataKey="z" range={[100, 1000]} name={sizeMetricLabel} />
                 <ChartTooltip 
                     cursor={{ strokeDasharray: '3 3' }} 
                     content={<CustomTooltip xAxisMetricLabel={xAxisLabel} yAxisMetricLabel={yAxisLabel} sizeMetricLabel={sizeMetricLabel}/>} 
                 />
-                <Legend 
-                  formatter={(value, entry) => chartConfig[entry.payload?.id as string]?.label || value}
-                  wrapperStyle={{ paddingTop: "20px" }}
-                />
+                {/* Legend is removed as per requirement */}
                 {uniqueBusinessLines.map((line) => (
                   <Scatter 
                     key={line.id} 

@@ -1,6 +1,9 @@
 
 import type { ProcessedDataForPeriod, Kpi, V4PeriodData, V4BusinessDataEntry, V4PeriodTotals, AggregatedBusinessMetrics, AnalysisMode } from '@/data/types';
 
+// Icon names are now strings, actual components are mapped in KpiCard.tsx
+// No direct lucide-react imports needed here for icons.
+
 export const formatCurrency = (value: number | undefined | null, displayUnit: '万元' | '元' = '万元'): string => {
   if (value === undefined || isNaN(value) || value === null) return 'N/A';
   if (displayUnit === '万元') {
@@ -21,10 +24,46 @@ export const formatPercentage = (value: number | undefined | null, decimals: num
 };
 
 export const getDynamicColorByVCR = (vcr: number | undefined | null): string => {
-  if (vcr === undefined || vcr === null || isNaN(vcr)) return 'hsl(var(--muted))'; // Default color if VCR is not available
-  if (vcr >= 92) return 'hsl(var(--chart-destructive-red))';
-  if (vcr >= 88 && vcr < 92) return 'hsl(var(--chart-warning-blue))';
-  return 'hsl(var(--chart-success-green))';
+  if (vcr === undefined || vcr === null || isNaN(vcr)) return 'hsl(var(--muted))'; // Default color
+
+  // Hue and Saturation values for each color category
+  const greenHue = 130, greenSat = 60; //优秀-绿色
+  const blueHue = 205, blueSat = 70;   //健康-蓝色
+  const redHue = 0, redSat = 75;       //危险-红色
+
+  // Lightness range: L_deep (darker) to L_light (lighter)
+  const L_deep = 35; // For deepest color in a range
+  const L_light = 60; // For lightest color in a range (but still distinct)
+
+  let hue, sat, light;
+
+  if (vcr < 88) { // 绿色区间 (优秀), VCR越小，越深绿
+    hue = greenHue; sat = greenSat;
+    const vcr_green_lower_bound = 60; // Arbitrary lower bound for deepest green
+    const vcr_green_upper_bound = 87.99;
+    // Normalize VCR within its effective range for green (lower_bound to upper_bound)
+    const normalizedVcr = Math.max(0, Math.min(1, (vcr - vcr_green_lower_bound) / (vcr_green_upper_bound - vcr_green_lower_bound)));
+    // Interpolate lightness: VCR at lower_bound -> L_deep, VCR at upper_bound -> L_light
+    light = L_deep + normalizedVcr * (L_light - L_deep);
+  } else if (vcr >= 88 && vcr < 92) { // 蓝色区间 (健康), VCR越接近88%，越深蓝
+    hue = blueHue; sat = blueSat;
+    const vcr_blue_lower_bound = 88;
+    const vcr_blue_upper_bound = 91.99;
+    const normalizedVcr = Math.max(0, Math.min(1, (vcr - vcr_blue_lower_bound) / (vcr_blue_upper_bound - vcr_blue_lower_bound)));
+    // Interpolate lightness: VCR at 88 -> L_deep, VCR at 91.99 -> L_light
+    light = L_deep + normalizedVcr * (L_light - L_deep);
+  } else { // 红色区间 (危险, vcr >= 92), VCR越大，越深红
+    hue = redHue; sat = redSat;
+    const vcr_red_lower_bound = 92;
+    const vcr_red_upper_bound = 130; // Arbitrary upper bound for deepest red
+    const normalizedVcr = Math.max(0, Math.min(1, (vcr - vcr_red_lower_bound) / (vcr_red_upper_bound - vcr_red_lower_bound)));
+    // Interpolate lightness: VCR at 92 -> L_light, VCR at upper_bound -> L_deep
+    light = L_light - normalizedVcr * (L_light - L_deep);
+  }
+  
+  light = Math.round(Math.max(L_deep - 5, Math.min(L_light + 5, light))); // Clamp lightness
+
+  return `hsl(${hue}, ${sat}%, ${light}%)`;
 };
 
 
@@ -52,8 +91,8 @@ const calculateBaseMetricsForSingleEntry = (entry: V4BusinessDataEntry, isPopMod
   const expense_amount = premium_written * (expense_ratio / 100);
   const variable_cost_ratio = loss_ratio + expense_ratio; 
   
-  const marginal_contribution_ratio = 100 - variable_cost_ratio;
-  const marginal_contribution_amount = premium_earned * (marginal_contribution_ratio / 100);
+  const marginal_contribution_ratio = 100 - variable_cost_ratio; // Updated formula
+  const marginal_contribution_amount = premium_earned * (marginal_contribution_ratio / 100); // Updated formula
 
 
   return {
@@ -147,7 +186,6 @@ export const aggregateAndCalculateMetrics = (
         claim_frequency: typeof originalJsonEntry.claim_frequency === 'number' ? originalJsonEntry.claim_frequency : singleCalculatedMetrics.claim_frequency,
         avg_loss_per_case: typeof originalJsonEntry.avg_loss_per_case === 'number' ? originalJsonEntry.avg_loss_per_case : singleCalculatedMetrics.avg_loss_per_case,
         avg_premium_per_policy: typeof originalJsonEntry.avg_premium_per_policy === 'number' ? originalJsonEntry.avg_premium_per_policy : singleCalculatedMetrics.avg_premium_per_policy,
-        // Placeholder, will be recalculated
         expense_amount: 0,
         variable_cost_ratio: 0,
         marginal_contribution_ratio: 0,
@@ -155,8 +193,8 @@ export const aggregateAndCalculateMetrics = (
       };
       result.expense_amount = result.premium_written * (result.expense_ratio / 100);
       result.variable_cost_ratio = result.loss_ratio + result.expense_ratio; 
-      result.marginal_contribution_ratio = 100 - result.variable_cost_ratio;
-      result.marginal_contribution_amount = result.premium_earned * (result.marginal_contribution_ratio / 100);
+      result.marginal_contribution_ratio = 100 - result.variable_cost_ratio; // Updated
+      result.marginal_contribution_amount = result.premium_earned * (result.marginal_contribution_ratio / 100); // Updated
       return result;
     }
     return singleCalculatedMetrics; 
@@ -185,8 +223,8 @@ export const aggregateAndCalculateMetrics = (
   
   const agg_expense_amount = aggregated.premium_written * (agg_expense_ratio / 100);
   const agg_variable_cost_ratio = agg_loss_ratio + agg_expense_ratio;
-  const agg_marginal_contribution_ratio = 100 - agg_variable_cost_ratio;
-  const agg_marginal_contribution_amount = aggregated.premium_earned * (agg_marginal_contribution_ratio / 100);
+  const agg_marginal_contribution_ratio = 100 - agg_variable_cost_ratio; // Updated
+  const agg_marginal_contribution_amount = aggregated.premium_earned * (agg_marginal_contribution_ratio / 100); // Updated
 
   return {
     premium_written: aggregated.premium_written,
@@ -345,13 +383,13 @@ export const calculateKpis = (
   overallTotalsForPeriod: V4PeriodTotals | undefined | null,
   analysisMode: AnalysisMode, 
   selectedBusinessTypes: string[],
-  activePeriodId: string 
+  activePeriodId: string // Now a required parameter
 ): Kpi[] => {
-  if (!processedData || processedData.length === 0) return [];
-  if (!activePeriodId) {
+  if (!activePeriodId) { // Defensive check
     console.error("calculateKpis: activePeriodId is required but was not provided.");
     return [];
   }
+  if (!processedData || processedData.length === 0) return [];
   
   const data = processedData[0]; 
   const current = data.currentMetrics; 
@@ -640,3 +678,4 @@ export function exportToCSV(data: ProcessedDataForPeriod[], analysisMode: Analys
     link.click();
     document.body.removeChild(link);
 }
+

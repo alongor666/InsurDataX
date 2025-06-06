@@ -91,7 +91,6 @@ export default function DashboardPage() {
   const [selectedTrendMetric, setSelectedTrendMetric] = useState<TrendMetricKey>('premium_written');
   const [trendChartData, setTrendChartData] = useState<ChartDataItem[]>([]);
 
-  // Bubble chart metric selection
   const [selectedBubbleXAxisMetric, setSelectedBubbleXAxisMetric] = useState<BubbleMetricKey>('premium_written');
   const [selectedBubbleYAxisMetric, setSelectedBubbleYAxisMetric] = useState<BubbleMetricKey>('loss_ratio');
   const [selectedBubbleSizeMetric, setSelectedBubbleSizeMetric] = useState<BubbleMetricKey>('policy_count');
@@ -331,7 +330,7 @@ export default function DashboardPage() {
     analysisMode,
     period: currentPeriodLabel,
     selectedBusinessTypes: selectedBusinessTypes.length > 0 ? selectedBusinessTypes.join(', ') : '全部独立业务类型合计',
-    vcrColorRules: "颜色基于变动成本率(VCR): VCR >= 92% (红色), 88% <= VCR < 92% (蓝色), VCR < 88% (绿色)"
+    vcrColorRules: "颜色基于变动成本率(VCR)动态调整深浅：绿色(优秀, VCR < 88%，越小越深绿)，蓝色(健康, 88%-92%，越接近88%越深蓝)，红色(危险, VCR >= 92%，越大越深红)。"
   });
 
  const handleOverallAiSummary = async () => {
@@ -361,7 +360,7 @@ export default function DashboardPage() {
                     premiumWritten: `${d.currentMetrics.premium_written?.toFixed(2) || 'N/A'} 万元`,
                     lossRatio: `${d.currentMetrics.loss_ratio?.toFixed(2) || 'N/A'}%`,
                     variableCostRatio: `${d.currentMetrics.variable_cost_ratio?.toFixed(2) || 'N/A'}%`,
-                    color: getDynamicColorByVCR(d.currentMetrics.variable_cost_ratio),
+                    color: getDynamicColorByVCR(d.currentMetrics.variable_cost_ratio), // Color based on VCR
                     changeInPremiumWritten: changeInPremium, 
                   };
                 });
@@ -376,7 +375,7 @@ export default function DashboardPage() {
                 premiumWritten: `${currentContextData.currentMetrics.premium_written?.toFixed(2) || 'N/A'} 万元`,
                 lossRatio: `${currentContextData.currentMetrics.loss_ratio?.toFixed(2) || 'N/A'}%`,
                 variableCostRatio: `${currentContextData.currentMetrics.variable_cost_ratio?.toFixed(2) || 'N/A'}%`,
-                color: getDynamicColorByVCR(currentContextData.currentMetrics.variable_cost_ratio),
+                color: getDynamicColorByVCR(currentContextData.currentMetrics.variable_cost_ratio), // Color based on VCR
                 changeInPremiumWritten: changeInPremium
             }];
           }
@@ -541,7 +540,7 @@ export default function DashboardPage() {
             aiSummary={trendAiSummary}
             isAiSummaryLoading={isTrendAiSummaryLoading}
             onGenerateAiSummary={handleGenerateTrendAiSummary}
-            key={selectedBusinessTypes.join('-') + '-' + analysisMode + '-' + selectedTrendMetric} 
+            key={selectedBusinessTypes.join('-') + '-' + analysisMode + '-' + selectedTrendMetric + '-' + selectedPeriodKey} 
           />
         )}
         {activeView === 'bubble' && 
@@ -570,7 +569,7 @@ export default function DashboardPage() {
             aiSummary={barRankAiSummary}
             isAiSummaryLoading={isBarRankAiSummaryLoading}
             onGenerateAiSummary={handleGenerateBarRankAiSummary}
-            key={selectedBusinessTypes.join('-') + '-' + analysisMode + '-' + selectedRankingMetric}
+            key={selectedBusinessTypes.join('-') + '-' + analysisMode + '-' + selectedRankingMetric + '-' + selectedPeriodKey}
           />
         )}
         {activeView === 'data_table' && <DataTableSection data={processedData} analysisMode={analysisMode} />}

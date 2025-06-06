@@ -35,7 +35,10 @@ const trendAnalysisPrompt = ai.definePrompt({
   output: {schema: GenerateTrendAnalysisOutputSchema},
   prompt: `You are a data analyst specializing in car insurance business performance.
 Analyze the provided trend chart data for the metric: {{{selectedMetric}}}.
-If the chart lines have dynamic colors, they are determined by variable_cost_ratio (VCR): VCR >= 92% is Red, 88%-92% is Blue, <88% is Green.
+If the chart lines have dynamic colors, they are determined by variable_cost_ratio (VCR) to show performance levels:
+- Green (Excellent): VCR < 88%. The lower the VCR, the deeper the green.
+- Blue (Healthy): 88% <= VCR < 92%. The closer to 88%, the deeper the blue.
+- Red (Risk): VCR >= 92%. The higher the VCR, the deeper the red.
 
 The current analysis mode is: {{{analysisMode}}}.
 The data ends at period: {{{currentPeriodLabel}}}.
@@ -47,7 +50,7 @@ Based on this data, provide a concise analysis in Chinese. Focus on:
 - Key trends observed (e.g., consistent growth, decline, volatility).
 - Significant inflection points or changes in trend.
 - Potential reasons or implications for these trends in the car insurance context.
-- Any notable patterns across different lines if multiple lines are present in the data, considering their potential dynamic coloring.
+- Any notable patterns across different lines if multiple lines are present in the data, considering their potential dynamic coloring and what it implies about their VCR.
 Keep the summary brief and actionable.`,
 });
 
