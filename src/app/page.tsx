@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -29,31 +30,31 @@ import {
 
 
 const availableTrendMetrics: { value: TrendMetricKey, label: string }[] = [
-  { value: 'premium_written', label: '跟单保费' },
-  { value: 'total_loss_amount', label: '总赔款' },
-  { value: 'policy_count', label: '保单数量' },
-  { value: 'loss_ratio', label: '满期赔付率' },
-  { value: 'expense_ratio', label: '费用率' },
-  { value: 'variable_cost_ratio', label: '变动成本率'},
-  { value: 'premium_earned', label: '满期保费'},
-  { value: 'expense_amount', label: '费用额'},
-  { value: 'claim_count', label: '赔案数量'}, 
-  { value: 'policy_count_earned', label: '满期保单'} 
+  { value: 'premium_written', label: '跟单保费 (万元)' },
+  { value: 'total_loss_amount', label: '总赔款 (万元)' },
+  { value: 'policy_count', label: '保单数量 (件)' },
+  { value: 'loss_ratio', label: '满期赔付率 (%)' },
+  { value: 'expense_ratio', label: '费用率 (%)' },
+  { value: 'variable_cost_ratio', label: '变动成本率 (%)'},
+  { value: 'premium_earned', label: '满期保费 (万元)'},
+  { value: 'expense_amount', label: '费用额 (万元)'},
+  { value: 'claim_count', label: '赔案数量 (件)'}, 
+  { value: 'policy_count_earned', label: '满期保单 (件)'} 
 ];
 
 const availableRankingMetrics: { value: RankingMetricKey, label: string }[] = [
-  { value: 'premium_written', label: '跟单保费' },
-  { value: 'total_loss_amount', label: '总赔款' },
-  { value: 'policy_count', label: '保单数量' },
-  { value: 'loss_ratio', label: '满期赔付率' },
-  { value: 'expense_ratio', label: '费用率' },
-  { value: 'variable_cost_ratio', label: '变动成本率'},
-  { value: 'avg_premium_per_policy', label: '单均保费'},
-  { value: 'avg_loss_per_case', label: '案均赔款'},
-  { value: 'premium_earned_ratio', label: '保费满期率'},
-  { value: 'claim_frequency', label: '满期出险率'},
-  { value: 'marginal_contribution_amount', label: '边贡额'},
-  { value: 'marginal_contribution_ratio', label: '边际贡献率'},
+  { value: 'premium_written', label: '跟单保费 (万元)' },
+  { value: 'total_loss_amount', label: '总赔款 (万元)' },
+  { value: 'policy_count', label: '保单数量 (件)' },
+  { value: 'loss_ratio', label: '满期赔付率 (%)' },
+  { value: 'expense_ratio', label: '费用率 (%)' },
+  { value: 'variable_cost_ratio', label: '变动成本率 (%)'},
+  { value: 'avg_premium_per_policy', label: '单均保费 (元)'},
+  { value: 'avg_loss_per_case', label: '案均赔款 (元)'},
+  { value: 'premium_earned_ratio', label: '保费满期率 (%)'},
+  { value: 'claim_frequency', label: '满期出险率 (%)'},
+  { value: 'marginal_contribution_amount', label: '边贡额 (万元)'},
+  { value: 'marginal_contribution_ratio', label: '边际贡献率 (%)'},
 ];
 
 const availableBubbleMetrics: { value: BubbleMetricKey, label: string }[] = [
@@ -577,3 +578,4 @@ export default function DashboardPage() {
     </AppLayout>
   );
 }
+
