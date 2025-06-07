@@ -1,6 +1,6 @@
 # 车险经营分析周报 - 字段字典与计算逻辑 (V4.0)
 
-**最后更新日期：** 2024-05-20
+**最后更新日期：** 2024-05-24
 
 **核心原则：**
 
@@ -49,9 +49,9 @@
 | 赔付类   | 满期出险率    | `claim_frequency`              | %    | 原始 (率值)     | **JSON提供 (YTD)**：预计算值 (`claim_count` / `policy_count_earned` \* 100)。<br/>**聚合**：SUM(`claim_count`) / SUM(`policy_count_earned`) \* 100 (依赖JSON提供`claim_count`和`policy_count_earned`)                      |
 | 赔付类   | 案均赔款     | `avg_loss_per_case`            | 元   | 原始 (均值)     | **JSON提供 (YTD)**：预计算值 (`total_loss_amount` (元) / `claim_count`)。<br/>**聚合**：SUM(`total_loss_amount` \* 10000) / SUM(`claim_count`) (依赖JSON提供`claim_count`)                                                      |
 | **费用类** |         |                                |      |               |                                                                                                                                                                                                                                       |
-| 费用类   | 费用(额)    | `expense_amount`               | 万元 | 衍生 (金额)     | **计算 (基于YTD值)**：`premium_written` \* (`expense_ratio` / 100)。<br/>**聚合**：聚合`premium_written` \* (聚合`expense_ratio` / 100)                                                                                      |
+| 费用类   | 费用(额)    | `expense_amount`               | 万元 | 衍生 (金额)     | **计算 (基于YTD值)**：`premium_written` \* (`expense_ratio` / 100)。<br/>**聚合**：聚合`premium_written` \* (聚合`expense_ratio` / 100)。这里的聚合`expense_ratio`指基于跟单保费的费用率。                                                    |
 | 费用类   | 增量费用     | `expense_increment` (环比绝对值) | 万元 | 衍生 (金额)     | **计算**：当前期聚合`expense_amount` - 对比期(环比)聚合`expense_amount`。KPI卡片中为`changeAbsolute`。                                                                                                                                  |
-| 费用类   | 费用率      | `expense_ratio`                | %    | 原始 (率值)     | **JSON提供 (YTD)**：预计算值 (`expense_amount_raw` / `premium_written` \* 100)。<br/>**聚合**：SUM(`expense_amount_raw`) / SUM(`premium_written`) \* 100 (依赖JSON提供`expense_amount_raw`)                                          |
+| 费用类   | 费用率      | `expense_ratio`                | %    | 原始 (率值)     | **JSON提供 (YTD)**：预计算值 (`expense_amount_raw` / `premium_written` \* 100)。<br/>**聚合**：SUM(`expense_amount_raw`) / SUM(`premium_written`) \* 100 (依赖JSON提供`expense_amount_raw`)。这是独立显示的费用率。                                          |
 | 费用类   | 增量费用率    | `expense_increment_ratio`      | %    | 衍生 (率值)     | **计算**：`expense_increment` / `premium_increment` \* 100 (注意分母可能为0或负数，需处理除零异常)。*此指标目前未在KPI看板直接展示*                                                                                                            |
 | **占比类** |         |                                |      |               |                                                                                                                                                                                                                                       |
 | 占比类   | 保费占比     | `premium_share`                | %    | 衍生 (占比)     | **计算**：聚合`premium_written` (所选业务类型或合计) / **总计`premium_written` (全量数据中该周期的 `totals_for_period.total_premium_written_overall`)** \* 100                                                                       |
@@ -59,10 +59,10 @@
 | 占比类   | 增量赔款占比   | `loss_increment_share`         | %    | 衍生 (占比)     | **计算**：`loss_increment` (所选业务类型) / `loss_increment` (**当前筛选的所有业务类型合计**) \* 100。*此指标目前未在KPI看板直接展示*                                                                                                          |
 | 占比类   | 增量费用占比   | `expense_increment_share`      | %    | 衍生 (占比)     | **计算**：`expense_increment` (所选业务类型) / `expense_increment` (**当前筛选的所有业务类型合计**) \* 100。*此指标目前未在KPI看板直接展示*                                                                                                    |
 | **综合类** |         |                                |      |               |                                                                                                                                                                                                                                       |
-| 综合类   | 变动成本率    | `variable_cost_ratio`          | %    | 原始 (率值)     | **JSON提供 (YTD)**：预计算值 (`expense_ratio` + `loss_ratio`)。即 (`expense_amount_raw`/`premium_written`)\*100 + (`total_loss_amount`/`premium_earned`)\*100。<br/>**聚合**：聚合`expense_ratio` + 聚合`loss_ratio`                             |
+| 综合类   | 变动成本率    | `variable_cost_ratio`          | %    | 原始 (率值)     | **JSON提供 (YTD单业务类型)**：预计算值 (`expense_ratio` + `loss_ratio`)。即 (`expense_amount_raw`/`premium_written`)\*100 + (`total_loss_amount`/`premium_earned`)\*100。<br/>**KPI看板聚合**：为满足`边际贡献率 = 100% - 变动成本率`关系，聚合`variable_cost_ratio` = 聚合`loss_ratio` (基于满期保费) + (`聚合expense_amount_raw` / `聚合premium_earned` * 100)。注意：这不等于看板上独立显示的“费用率”+“满期赔付率”。                             |
 | 综合类   | 自主系数     | `avg_commercial_index`         | -    | 原始 (数值)     | **JSON提供 (YTD)**：直接值。<br/>**不聚合**。单选业务类型时显示JSON提供值，多选或合计时不显示或标记为不适用。                                                                                                                                     |
-| 综合类   | 边际贡献率    | `marginal_contribution_ratio`  | %    | 衍生 (率值)     | **计算**：(聚合`premium_earned` - 聚合`total_loss_amount` - 聚合`expense_amount`) / 聚合`premium_earned` \* 100。                                                                                                              |
-| 综合类   | 边贡额      | `marginal_contribution_amount` | 万元 | 衍生 (金额)     | **计算**：聚合`premium_earned` - 聚合`total_loss_amount` - 聚合`expense_amount`。                                                                                                                                   |
+| 综合类   | 边际贡献率    | `marginal_contribution_ratio`  | %    | 衍生 (率值)     | **计算**：为满足`边际贡献率 = 100% - 变动成本率`关系，聚合`marginal_contribution_ratio` = 100% - 聚合`variable_cost_ratio` (按上述KPI看板聚合方式计算)。                                                                                                              |
+| 综合类   | 边贡额      | `marginal_contribution_amount` | 万元 | 衍生 (金额)     | **计算**：`聚合premium_earned` * (`聚合marginal_contribution_ratio` / 100)。这里的“聚合marginal_contribution_ratio”是按上述KPI看板方式计算得出。                                                                                                                                   |
 
 **备注：**
 *   “增量XX”指标在KPI看板上主要体现为环比的“绝对值变化”。
@@ -79,29 +79,29 @@
   {
     "period_id": "2025-W22",
     "period_label": "2025年第22周",
-    "comparison_period_id_yoy": "2024-W22", // 示例，实际应有对应数据
+    "comparison_period_id_yoy": "2024-W22", 
     "comparison_period_id_mom": "2025-W21",
     "business_data": [
       {
         "business_type": "非营业客车新车",
-        // --- 聚合计算基础字段 (YTD值) ---
+        
         "premium_written": 652.9,
         "premium_earned": 131.2,
         "total_loss_amount": 183.35,
-        "expense_amount_raw": 124.7039, // Derived: 652.9 * (19.1/100)
+        "expense_amount_raw": 124.7039, 
         "claim_count": 323,
-        "policy_count_earned": 652,     // Derived: 323 / (49.5/100)
-        // --- 单业务类型预计算值 (YTD值) ---
+        "policy_count_earned": 652,     
+        
         "avg_premium_per_policy": 2013.3,
         "avg_loss_per_case": 5676.4,
         "avg_commercial_index": 0.9479,
         "loss_ratio": 139.7,
         "expense_ratio": 19.1,
-        "variable_cost_ratio": 158.8,
-        "premium_earned_ratio": 20.1, // Derived: (131.2 / 652.9) * 100
+        "variable_cost_ratio": 158.8, 
+        "premium_earned_ratio": 20.1, 
         "claim_frequency": 49.5
       }
-      // ... 其他业务类型数据 (如 "非营业客车旧车非过户" 等)
+      
     ],
     "totals_for_period": {
         "total_premium_written_overall": 20243.5
@@ -110,33 +110,33 @@
   {
     "period_id": "2025-W21",
     "period_label": "2025年第21周",
-    "comparison_period_id_yoy": "2024-W21", // 示例
-    "comparison_period_id_mom": "2025-W20", // 示例，实际应有W20数据
+    "comparison_period_id_yoy": "2024-W21", 
+    "comparison_period_id_mom": "2025-W20", 
     "business_data": [
       {
         "business_type": "非营业客车新车",
         "premium_written": 626.2,
         "premium_earned": 118.9,
         "total_loss_amount": 171.37,
-        "expense_amount_raw": 117.0994, // Derived: 626.2 * (18.7/100)
+        "expense_amount_raw": 117.0994, 
         "claim_count": 298,
-        "policy_count_earned": 589,     // Derived: 298 / (50.6/100)
+        "policy_count_earned": 589,     
         "avg_premium_per_policy": 2020.0,
         "avg_loss_per_case": 5750.6,
         "avg_commercial_index": 0.9474,
         "loss_ratio": 144.1,
         "expense_ratio": 18.7,
-        "variable_cost_ratio": 162.8,
-        "premium_earned_ratio": 19.0,  // Derived: (118.9 / 626.2) * 100
+        "variable_cost_ratio": 162.8, 
+        "premium_earned_ratio": 19.0,  
         "claim_frequency": 50.6
       }
-      // ... 其他业务类型数据
+      
     ],
     "totals_for_period": {
       "total_premium_written_overall": 19461.6
     }
   }
-  // ... 其他周期的数据 (如 对应的同比周期 2024-W22, 2024-W21 等)
+  
 ]
 ```
 
@@ -182,3 +182,5 @@
 9.  **业务类型筛选**：尽快实现业务类型筛选功能，以完整验证聚合逻辑。
 10. **图表数据源**：更新各图表的数据源，使其正确反映当前分析模式和筛选条件下的数据。
 11. **AI智能摘要**：确保传递给AI模型的数据结构与模型期望一致。
+12. **KPI看板指标关系**：注意“边际贡献率”和“变动成本率”在KPI看板上为了满足 `MCR = 1 - VCR` 而进行的计算调整，这可能导致看板上的“变动成本率”不直接等于独立显示的“费用率”与“满期赔付率”之和。
+
