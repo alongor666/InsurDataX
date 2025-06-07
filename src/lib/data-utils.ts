@@ -22,18 +22,18 @@ const METRIC_FORMAT_RULES: Record<string, MetricFormatRule> = {
   // Autonomous Coefficient (3 decimals)
   'avg_commercial_index': { type: 'decimal_3' }, // 自主系数
 
-  // Monetary - Yuan (integer)
+  // Monetary - Yuan (integer, with thousands separator)
   'avg_premium_per_policy': { type: 'integer_yuan' }, // 单均保费
   'avg_loss_per_case': { type: 'integer_yuan' }, // 案均赔款
 
-  // Monetary - Wan Yuan (integer)
+  // Monetary - Wan Yuan (integer, with thousands separator)
   'premium_written': { type: 'integer_wanyuan' }, // 跟单保费
   'premium_earned': { type: 'integer_wanyuan' }, // 满期保费
   'total_loss_amount': { type: 'integer_wanyuan' }, // 总赔款
   'expense_amount': { type: 'integer_wanyuan' }, // 费用额
   'marginal_contribution_amount': { type: 'integer_wanyuan' }, // 边贡额
 
-  // Counts (integer)
+  // Counts (integer, with thousands separator)
   'policy_count': { type: 'integer_count' }, // 保单数量
   'claim_count': { type: 'integer_count' }, // 赔案数量
   'policy_count_earned': { type: 'integer_count' }, // 满期保单
@@ -50,7 +50,7 @@ export const formatDisplayValue = (
   const rule = METRIC_FORMAT_RULES[metricId];
 
   if (!rule) { // Fallback for unspecified metrics
-    return Math.round(rawValue).toString();
+    return new Intl.NumberFormat('zh-CN').format(Math.round(rawValue));
   }
 
   switch (rule.type) {
@@ -62,34 +62,10 @@ export const formatDisplayValue = (
     case 'integer_wanyuan':
     case 'integer_count':
     case 'integer_generic':
-      return Math.round(rawValue).toString();
+      return new Intl.NumberFormat('zh-CN').format(Math.round(rawValue));
     default:
-      return Math.round(rawValue).toString();
+      return new Intl.NumberFormat('zh-CN').format(Math.round(rawValue));
   }
-};
-
-
-// Deprecated, use formatDisplayValue
-export const formatCurrency = (value: number | undefined | null, displayUnit: '万元' | '元' = '万元'): string => {
-  if (value === undefined || isNaN(value) || value === null) return 'N/A';
-  // This function is now mostly for internal logic if needed, UI should use formatDisplayValue
-  if (displayUnit === '万元') {
-    return `${value.toFixed(2)} 万元`; // Retain for possible internal use
-  } else {
-    return `${new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.round(value))} 元`;
-  }
-};
-
-// Deprecated, use formatDisplayValue
-export const formatNumber = (value: number | undefined | null): string => {
-  if (value === undefined || isNaN(value) || value === null) return 'N/A';
-   return Math.round(value).toString(); // To be replaced by formatDisplayValue
-};
-
-// Deprecated, use formatDisplayValue
-export const formatPercentage = (value: number | undefined | null, decimals: number = 1): string => {
-  if (value === undefined || isNaN(value) || value === null) return 'N/A';
-  return `${value.toFixed(decimals)}%`; // To be replaced by formatDisplayValue
 };
 
 
@@ -110,19 +86,23 @@ export const getDynamicColorByVCR = (vcr: number | undefined | null): string => 
     const vcr_green_lower_bound = 60; 
     const vcr_green_upper_bound = 87.99;
     const normalizedVcr = Math.max(0, Math.min(1, (vcr - vcr_green_lower_bound) / (vcr_green_upper_bound - vcr_green_lower_bound)));
-    light = L_deep + normalizedVcr * (L_light - L_deep);
+    light = L_light - normalizedVcr * (L_light - L_deep); // VCR越小, normalizedVcr越小, light越接近L_light(浅) -> 修正: VCR越小, 越深.
+    light = L_deep + (1 - normalizedVcr) * (L_light - L_deep);
+
   } else if (vcr >= 88 && vcr < 92) { 
     hue = blueHue; sat = blueSat;
     const vcr_blue_lower_bound = 88;
     const vcr_blue_upper_bound = 91.99;
     const normalizedVcr = Math.max(0, Math.min(1, (vcr - vcr_blue_lower_bound) / (vcr_blue_upper_bound - vcr_blue_lower_bound)));
-    light = L_deep + normalizedVcr * (L_light - L_deep);
+    // VCR越接近88% (normalizedVCR 越小), 蓝色越深
+    light = L_deep + (1-normalizedVcr) * (L_light - L_deep);
   } else { 
     hue = redHue; sat = redSat;
     const vcr_red_lower_bound = 92;
     const vcr_red_upper_bound = 130; 
     const normalizedVcr = Math.max(0, Math.min(1, (vcr - vcr_red_lower_bound) / (vcr_red_upper_bound - vcr_red_lower_bound)));
-    light = L_light - normalizedVcr * (L_light - L_deep);
+    // VCR越大, normalizedVcr越大, 红色越深
+    light = L_deep + normalizedVcr * (L_light - L_deep);
   }
   
   light = Math.round(Math.max(L_deep - 5, Math.min(L_light + 5, light))); 
@@ -155,8 +135,8 @@ const calculateBaseMetricsForSingleEntry = (entry: V4BusinessDataEntry, isPopMod
   const expense_amount = premium_written * (expense_ratio / 100);
   const variable_cost_ratio = loss_ratio + expense_ratio; 
   
-  const marginal_contribution_ratio = 100 - variable_cost_ratio;
-  const marginal_contribution_amount = premium_earned * (marginal_contribution_ratio / 100);
+  const marginal_contribution_ratio = premium_earned !== 0 ? ((premium_earned - total_loss_amount - expense_amount) / premium_earned) * 100 : 0;
+  const marginal_contribution_amount = premium_earned - total_loss_amount - expense_amount;
 
 
   return {
@@ -250,15 +230,15 @@ export const aggregateAndCalculateMetrics = (
         claim_frequency: typeof originalJsonEntry.claim_frequency === 'number' ? originalJsonEntry.claim_frequency : singleCalculatedMetrics.claim_frequency,
         avg_loss_per_case: typeof originalJsonEntry.avg_loss_per_case === 'number' ? originalJsonEntry.avg_loss_per_case : singleCalculatedMetrics.avg_loss_per_case,
         avg_premium_per_policy: typeof originalJsonEntry.avg_premium_per_policy === 'number' ? originalJsonEntry.avg_premium_per_policy : singleCalculatedMetrics.avg_premium_per_policy,
-        expense_amount: 0,
-        variable_cost_ratio: 0,
-        marginal_contribution_ratio: 0,
-        marginal_contribution_amount: 0,
+        expense_amount: 0, // to be recalculated
+        variable_cost_ratio: 0, // to be recalculated
+        marginal_contribution_ratio: 0, // to be recalculated
+        marginal_contribution_amount: 0, // to be recalculated
       };
       result.expense_amount = result.premium_written * (result.expense_ratio / 100);
       result.variable_cost_ratio = result.loss_ratio + result.expense_ratio; 
-      result.marginal_contribution_ratio = 100 - result.variable_cost_ratio;
-      result.marginal_contribution_amount = result.premium_earned * (result.marginal_contribution_ratio / 100);
+      result.marginal_contribution_ratio = result.premium_earned !== 0 ? ((result.premium_earned - result.total_loss_amount - result.expense_amount) / result.premium_earned) * 100 : 0;
+      result.marginal_contribution_amount = result.premium_earned - result.total_loss_amount - result.expense_amount;
       return result;
     }
     return singleCalculatedMetrics; 
@@ -287,8 +267,9 @@ export const aggregateAndCalculateMetrics = (
   
   const agg_expense_amount = aggregated.premium_written * (agg_expense_ratio / 100);
   const agg_variable_cost_ratio = agg_loss_ratio + agg_expense_ratio;
-  const agg_marginal_contribution_ratio = 100 - agg_variable_cost_ratio;
-  const agg_marginal_contribution_amount = aggregated.premium_earned * (agg_marginal_contribution_ratio / 100);
+  const agg_marginal_contribution_ratio = aggregated.premium_earned !== 0 ? ((aggregated.premium_earned - aggregated.total_loss_amount - agg_expense_amount) / aggregated.premium_earned) * 100 : 0;
+  const agg_marginal_contribution_amount = aggregated.premium_earned - aggregated.total_loss_amount - agg_expense_amount;
+
 
   return {
     premium_written: aggregated.premium_written,
@@ -401,7 +382,6 @@ export const processDataForSelectedPeriod = (
     premium_share: premium_share,
     vcr_color: getDynamicColorByVCR(currentAggregatedMetrics.variable_cost_ratio),
 
-    // Direct access fields for table, now raw values for formatting in component
     premium_written: currentAggregatedMetrics.premium_written,
     total_loss_amount: currentAggregatedMetrics.total_loss_amount,
     policy_count: currentAggregatedMetrics.policy_count,
@@ -409,7 +389,6 @@ export const processDataForSelectedPeriod = (
     expense_ratio: currentAggregatedMetrics.expense_ratio,
     variable_cost_ratio: currentAggregatedMetrics.variable_cost_ratio,
 
-    // Change percentages (these are already percentages or pp, formatting will add '%')
     premium_writtenChange: momAggregatedMetrics && momAggregatedMetrics.premium_written !== 0 && currentAggregatedMetrics.premium_written !== undefined ? (currentAggregatedMetrics.premium_written - momAggregatedMetrics.premium_written) / Math.abs(momAggregatedMetrics.premium_written) * 100 : (currentAggregatedMetrics.premium_written !== 0 && currentAggregatedMetrics.premium_written !== undefined ? Infinity : 0),
     total_loss_amountChange: momAggregatedMetrics && momAggregatedMetrics.total_loss_amount !== 0 && currentAggregatedMetrics.total_loss_amount !== undefined ? (currentAggregatedMetrics.total_loss_amount - momAggregatedMetrics.total_loss_amount) / Math.abs(momAggregatedMetrics.total_loss_amount) * 100 : (currentAggregatedMetrics.total_loss_amount !== 0 && currentAggregatedMetrics.total_loss_amount !== undefined ? Infinity : 0),
     policy_countChange: momAggregatedMetrics && momAggregatedMetrics.policy_count !== 0 && currentAggregatedMetrics.policy_count !== undefined ? (currentAggregatedMetrics.policy_count - momAggregatedMetrics.policy_count) / Math.abs(momAggregatedMetrics.policy_count) * 100 : (currentAggregatedMetrics.policy_count !== 0 && currentAggregatedMetrics.policy_count !== undefined ? Infinity : 0),
@@ -444,6 +423,48 @@ const calculateChangeAndType = (current?: number | null, previous?: number | nul
 };
 
 
+const formatKpiChange = (changeResult: { percent?: number, absolute?: number, type: Kpi['changeType'] }, metricIdForAbsFormat: string, isRateChange: boolean = false, higherIsBetterForColor: boolean = true) => {
+  let changePercentStr, changeAbsStr;
+
+  const ruleForAbs = METRIC_FORMAT_RULES[metricIdForAbsFormat];
+  let isAbsPercentageType = false;
+  if (ruleForAbs && ruleForAbs.type === 'percentage') {
+      isAbsPercentageType = true;
+  }
+
+  if (changeResult.percent !== undefined && isFinite(changeResult.percent)) {
+      changePercentStr = `${changeResult.percent.toFixed(1)}%`;
+  } else if (changeResult.percent === Infinity) {
+      changePercentStr = "+∞%";
+  } else if (changeResult.percent === -Infinity) {
+      changePercentStr = "-∞%";
+  }
+
+  if (changeResult.absolute !== undefined) {
+    if (isAbsPercentageType) { 
+      changeAbsStr = `${changeResult.absolute.toFixed(1)} pp`;
+    } else {
+      changeAbsStr = formatDisplayValue(changeResult.absolute, metricIdForAbsFormat);
+    }
+  }
+  
+  let effectiveChangeType = changeResult.type;
+  // For rate changes specifically, re-evaluate type based on absolute change and desired direction for color
+  if (isRateChange) { 
+      const epsilon = 0.00001;
+      if (changeResult.absolute !== undefined && Math.abs(changeResult.absolute) > epsilon) { 
+           effectiveChangeType = higherIsBetterForColor ? 
+                               (changeResult.absolute > 0 ? 'positive' : 'negative') : 
+                               (changeResult.absolute > 0 ? 'negative' : 'positive');
+      } else {
+          effectiveChangeType = 'neutral';
+      }
+  }
+  // For non-rate changes, changeResult.type (which already considered higherIsBetter in calculateChangeAndType) is used.
+
+  return { change: changePercentStr, changeAbsolute: changeAbsStr, changeType: effectiveChangeType };
+};
+
 export const calculateKpis = (
   processedData: ProcessedDataForPeriod[], 
   overallTotalsForPeriod: V4PeriodTotals | undefined | null,
@@ -463,49 +484,19 @@ export const calculateKpis = (
   const yoyYtd = data.yoyMetrics; 
 
   if (!current) return [];
-
-  const formatKpiChange = (changeResult: { percent?: number, absolute?: number, type: Kpi['changeType'] }, metricIdForAbsFormat: string, isRateChange: boolean = false, higherIsBetterForColor: boolean = true) => {
-    let changePercentStr, changeAbsStr;
-
-    const ruleForAbs = METRIC_FORMAT_RULES[metricIdForAbsFormat];
-    let isAbsPercentageType = false;
-    if (ruleForAbs && ruleForAbs.type === 'percentage') {
-        isAbsPercentageType = true;
-    }
-
-    if (changeResult.percent !== undefined && isFinite(changeResult.percent)) {
-        // For "change" (percentage change of the base value), always format as X.X%
-        changePercentStr = `${changeResult.percent.toFixed(1)}%`;
-    } else if (changeResult.percent === Infinity) {
-        changePercentStr = "+∞%";
-    } else if (changeResult.percent === -Infinity) {
-        changePercentStr = "-∞%";
-    }
-
-    if (changeResult.absolute !== undefined) {
-      if (isAbsPercentageType) { // If the absolute change IS a change in percentage points
-        changeAbsStr = `${changeResult.absolute.toFixed(1)} pp`; // Using "pp" for clarity
-      } else {
-        changeAbsStr = formatDisplayValue(changeResult.absolute, metricIdForAbsFormat);
-      }
-    }
-    
-    let effectiveChangeType = changeResult.type;
-    if (isRateChange) { 
-        const epsilon = 0.00001;
-        if (changeResult.absolute !== undefined && Math.abs(changeResult.absolute) > epsilon) { 
-             effectiveChangeType = higherIsBetterForColor ? 
-                                 (changeResult.absolute > 0 ? 'positive' : 'negative') : 
-                                 (changeResult.absolute > 0 ? 'negative' : 'positive');
-        } else {
-            effectiveChangeType = 'neutral';
-        }
-    }
-
-    return { change: changePercentStr, changeAbsolute: changeAbsStr, changeType: effectiveChangeType };
-  };
   
-  const premWrittenMomChg = calculateChangeAndType(current.premium_written, momYtd?.premium_written, true);
+  // Specific logic for premium_written change type based on VCR
+  let premWrittenIsGrowthGood = true; // Default: growth is good
+  if (current.variable_cost_ratio !== undefined && current.variable_cost_ratio >= 92) { // Dangerous VCR
+      premWrittenIsGrowthGood = false; // Growth is bad, so decline is good for color indication
+  }
+  const premWrittenMomChgDetails = calculateChangeAndType(current.premium_written, momYtd?.premium_written, premWrittenIsGrowthGood);
+  const premWrittenMomFormatted = formatKpiChange(premWrittenMomChgDetails, 'premium_written', false, premWrittenIsGrowthGood);
+
+  const premWrittenYoyChgDetails = calculateChangeAndType(current.premium_written, yoyYtd?.premium_written, premWrittenIsGrowthGood);
+  const premWrittenYoyFormatted = formatKpiChange(premWrittenYoyChgDetails, 'premium_written', false, premWrittenIsGrowthGood);
+
+
   const premEarnedMomChg = calculateChangeAndType(current.premium_earned, momYtd?.premium_earned, true);
   const lossAmtMomChg = calculateChangeAndType(current.total_loss_amount, momYtd?.total_loss_amount, false);
   const expenseAmtMomChg = calculateChangeAndType(current.expense_amount, momYtd?.expense_amount, false);
@@ -522,7 +513,6 @@ export const calculateKpis = (
   const marginalContribAmtMomChg = calculateChangeAndType(current.marginal_contribution_amount, momYtd?.marginal_contribution_amount, true);
   const marginalContribRatioMomChg = calculateChangeAndType(current.marginal_contribution_ratio, momYtd?.marginal_contribution_ratio, true);
   
-  const premWrittenYoyChg = calculateChangeAndType(current.premium_written, yoyYtd?.premium_written, true);
   const premEarnedYoyChg = calculateChangeAndType(current.premium_earned, yoyYtd?.premium_earned, true);
   const lossAmtYoyChg = calculateChangeAndType(current.total_loss_amount, yoyYtd?.total_loss_amount, false); 
   const expenseAmtYoyChg = calculateChangeAndType(current.expense_amount, yoyYtd?.expense_amount, false);
@@ -542,21 +532,11 @@ export const calculateKpis = (
   let rawAvgCommercialIndex: number | undefined | null = undefined;
   const isSingleSelectedType = selectedBusinessTypes && selectedBusinessTypes.length === 1;
 
-  if (isSingleSelectedType && analysisMode === 'cumulative') {
+  if (isSingleSelectedType) { // Independent of analysisMode for display of current YTD value
       const currentV4PeriodDataGlobal = (globalThis as any).allV4DataForKpiWorkaround?.find((p: V4PeriodData) => p.period_id === activePeriodId);
-      if (currentV4PeriodDataGlobal && selectedBusinessTypes && selectedBusinessTypes.length === 1) {
+      if (currentV4PeriodDataGlobal) {
           const singleLineJsonEntry = currentV4PeriodDataGlobal.business_data.find((bd: V4BusinessDataEntry) => bd.business_type === selectedBusinessTypes[0]);
           if (singleLineJsonEntry?.avg_commercial_index !== undefined && singleLineJsonEntry.avg_commercial_index !== null) {
-              rawAvgCommercialIndex = singleLineJsonEntry.avg_commercial_index;
-          }
-      }
-  } else if (isSingleSelectedType && analysisMode === 'periodOverPeriod') {
-     // For periodOverPeriod, avg_commercial_index is effectively the YTD value of the current period, not a "change" value.
-     // So we use the YTD value from the current period's JSON data.
-     const currentV4PeriodDataGlobal = (globalThis as any).allV4DataForKpiWorkaround?.find((p: V4PeriodData) => p.period_id === activePeriodId);
-      if (currentV4PeriodDataGlobal && selectedBusinessTypes && selectedBusinessTypes.length === 1) {
-          const singleLineJsonEntry = currentV4PeriodDataGlobal.business_data.find((bd: V4BusinessDataEntry) => bd.business_type === selectedBusinessTypes[0]);
-           if (singleLineJsonEntry?.avg_commercial_index !== undefined && singleLineJsonEntry.avg_commercial_index !== null) {
               rawAvgCommercialIndex = singleLineJsonEntry.avg_commercial_index;
           }
       }
@@ -574,7 +554,7 @@ export const calculateKpis = (
       id: 'variable_cost_ratio', title: '变动成本率', value: formatDisplayValue(current.variable_cost_ratio, 'variable_cost_ratio'), rawValue: current.variable_cost_ratio,
       ...formatKpiChange(varCostRatioMomChg, 'variable_cost_ratio', true, false), 
       yoyChange: formatKpiChange(varCostRatioYoyChg, 'variable_cost_ratio', true, false).change, yoyChangeAbsolute: formatKpiChange(varCostRatioYoyChg, 'variable_cost_ratio', true, false).changeAbsolute, yoyChangeType: formatKpiChange(varCostRatioYoyChg, 'variable_cost_ratio', true, false).changeType,
-      icon: 'Zap', isBorderRisk: current.variable_cost_ratio !== undefined && current.variable_cost_ratio > 90,
+      icon: 'Zap', isBorderRisk: current.variable_cost_ratio !== undefined && current.variable_cost_ratio >= 90, // Corrected threshold
     },
     { 
       id: 'expense_ratio', title: '费用率', value: formatDisplayValue(current.expense_ratio, 'expense_ratio'), rawValue: current.expense_ratio,
@@ -596,8 +576,12 @@ export const calculateKpis = (
     },
     { 
       id: 'premium_written', title: '保费', value: formatDisplayValue(current.premium_written, 'premium_written'), rawValue: current.premium_written,
-      ...formatKpiChange(premWrittenMomChg, 'premium_written', false, true),
-      yoyChange: formatKpiChange(premWrittenYoyChg, 'premium_written', false, true).change, yoyChangeAbsolute: formatKpiChange(premWrittenYoyChg, 'premium_written', false, true).changeAbsolute, yoyChangeType: formatKpiChange(premWrittenYoyChg, 'premium_written', false, true).changeType,
+      change: premWrittenMomFormatted.change,
+      changeAbsolute: premWrittenMomFormatted.changeAbsolute,
+      changeType: premWrittenMomFormatted.changeType,
+      yoyChange: premWrittenYoyFormatted.change,
+      yoyChangeAbsolute: premWrittenYoyFormatted.changeAbsolute,
+      yoyChangeType: premWrittenYoyFormatted.changeType,
       icon: 'DollarSign',
     },
     { 
@@ -679,29 +663,21 @@ export function exportToCSV(data: ProcessedDataForPeriod[], analysisMode: Analys
         return;
     }
 
+    // Header row will include units
     const headers = [
         "业务线ID", "业务线名称",
-        "跟单保费", "满期保费", "总赔款", "费用(额)",
-        "保单数量", "赔案数量", "满期保单",
-        "单均保费", "案均赔款", "自主系数",
-        "满期赔付率", "费用率", "变动成本率", "保费满期率", "满期出险率",
-        "边际贡献率", "边贡额", "保费占比"
+        "跟单保费(万元)", "满期保费(万元)", "总赔款(万元)", "费用(额)(万元)",
+        "保单数量(件)", "赔案数量(件)", "满期保单(件)",
+        "单均保费(元)", "案均赔款(元)", "自主系数",
+        "满期赔付率(%)", "费用率(%)", "变动成本率(%)", "保费满期率(%)", "满期出险率(%)",
+        "边际贡献率(%)", "边贡额(万元)", "保费占比(%)"
     ];
-    const metricIdsForHeaders = [
-        null, null, // For businessLineId and businessLineName
-        'premium_written', 'premium_earned', 'total_loss_amount', 'expense_amount',
-        'policy_count', 'claim_count', 'policy_count_earned',
-        'avg_premium_per_policy', 'avg_loss_per_case', 'avg_commercial_index',
-        'loss_ratio', 'expense_ratio', 'variable_cost_ratio', 'premium_earned_ratio', 'claim_frequency',
-        'marginal_contribution_ratio', 'marginal_contribution_amount', 'premium_share'
-    ];
-
-
+    
     if (analysisMode === 'periodOverPeriod') { 
         const momHeaders = [
-            "跟单保费环比(%)", "跟单保费环比绝对值",
-            "总赔款环比(%)", "总赔款环比绝对值",
-            "保单数量环比(%)", "保单数量环比绝对值",
+            "跟单保费环比(%)", "跟单保费环比绝对值(万元)",
+            "总赔款环比(%)", "总赔款环比绝对值(万元)",
+            "保单数量环比(%)", "保单数量环比绝对值(件)",
             "满期赔付率环比(pp)", 
             "费用率环比(pp)"    
         ];
@@ -710,53 +686,40 @@ export function exportToCSV(data: ProcessedDataForPeriod[], analysisMode: Analys
     
     const rows = data.map(item => {
         const current = item.currentMetrics;
-        
+        // For CSV, we use raw numbers for easier machine readability, format for display only in UI
         const rowData = [
             item.businessLineId, item.businessLineName,
-            formatDisplayValue(current.premium_written, 'premium_written'),
-            formatDisplayValue(current.premium_earned, 'premium_earned'),
-            formatDisplayValue(current.total_loss_amount, 'total_loss_amount'),
-            formatDisplayValue(current.expense_amount, 'expense_amount'),
-            formatDisplayValue(current.policy_count, 'policy_count'),
-            formatDisplayValue(current.claim_count, 'claim_count'),
-            formatDisplayValue(current.policy_count_earned, 'policy_count_earned'),
-            formatDisplayValue(current.avg_premium_per_policy, 'avg_premium_per_policy'),
-            formatDisplayValue(current.avg_loss_per_case, 'avg_loss_per_case'),
-            formatDisplayValue(current.avg_commercial_index, 'avg_commercial_index'),
-            formatDisplayValue(current.loss_ratio, 'loss_ratio'),
-            formatDisplayValue(current.expense_ratio, 'expense_ratio'),
-            formatDisplayValue(current.variable_cost_ratio, 'variable_cost_ratio'),
-            formatDisplayValue(current.premium_earned_ratio, 'premium_earned_ratio'),
-            formatDisplayValue(current.claim_frequency, 'claim_frequency'),
-            formatDisplayValue(current.marginal_contribution_ratio, 'marginal_contribution_ratio'),
-            formatDisplayValue(current.marginal_contribution_amount, 'marginal_contribution_amount'),
-            formatDisplayValue(item.premium_share, 'premium_share')
-        ];
+            current.premium_written, current.premium_earned, current.total_loss_amount, current.expense_amount,
+            current.policy_count, current.claim_count, current.policy_count_earned,
+            current.avg_premium_per_policy, current.avg_loss_per_case, current.avg_commercial_index,
+            current.loss_ratio, current.expense_ratio, current.variable_cost_ratio, current.premium_earned_ratio, current.claim_frequency,
+            current.marginal_contribution_ratio, current.marginal_contribution_amount, item.premium_share
+        ].map(val => (val === undefined || val === null || isNaN(val as number)) ? "-" : (val as number).toFixed(4)); // Raw numbers with precision
 
         if (analysisMode === 'periodOverPeriod' && item.momMetrics) {
             const momMetrics = item.momMetrics; 
             
             const momPremWrittenChangePct = momMetrics.premium_written !== 0 && current.premium_written !== undefined ? (current.premium_written - momMetrics.premium_written) / Math.abs(momMetrics.premium_written) * 100 : (current.premium_written !== 0 && current.premium_written !== undefined ? Infinity : 0);
-            const momPremWrittenAbs = current.premium_written !== undefined ? current.premium_written - momMetrics.premium_written : undefined;
+            const momPremWrittenAbs = current.premium_written !== undefined && momMetrics.premium_written !== undefined ? current.premium_written - momMetrics.premium_written : undefined;
 
             const momLossAmtChangePct = momMetrics.total_loss_amount !== 0 && current.total_loss_amount !== undefined ? (current.total_loss_amount - momMetrics.total_loss_amount) / Math.abs(momMetrics.total_loss_amount) * 100 : (current.total_loss_amount !== 0 && current.total_loss_amount !== undefined ? Infinity : 0);
-            const momLossAmtAbs = current.total_loss_amount !== undefined ? current.total_loss_amount - momMetrics.total_loss_amount : undefined;
+            const momLossAmtAbs = current.total_loss_amount !== undefined && momMetrics.total_loss_amount !== undefined ? current.total_loss_amount - momMetrics.total_loss_amount : undefined;
             
             const momPolicyCntChangePct = momMetrics.policy_count !== 0 && current.policy_count !== undefined ? (current.policy_count - momMetrics.policy_count) / Math.abs(momMetrics.policy_count) * 100 : (current.policy_count !== 0 && current.policy_count !== undefined ? Infinity : 0);
-            const momPolicyCntAbs = current.policy_count !== undefined ? current.policy_count - momMetrics.policy_count : undefined;
+            const momPolicyCntAbs = current.policy_count !== undefined && momMetrics.policy_count !== undefined ? current.policy_count - momMetrics.policy_count : undefined;
 
-            const momLossRatioPP = current.loss_ratio !== undefined ? current.loss_ratio - momMetrics.loss_ratio : undefined;
-            const momExpenseRatioPP = current.expense_ratio !== undefined ? current.expense_ratio - momMetrics.expense_ratio : undefined;
+            const momLossRatioPP = current.loss_ratio !== undefined && momMetrics.loss_ratio !== undefined ? current.loss_ratio - momMetrics.loss_ratio : undefined;
+            const momExpenseRatioPP = current.expense_ratio !== undefined && momMetrics.expense_ratio !== undefined ? current.expense_ratio - momMetrics.expense_ratio : undefined;
             
             rowData.push(
-                isFinite(momPremWrittenChangePct) ? `${momPremWrittenChangePct.toFixed(1)}%` : (momPremWrittenChangePct > 0 ? "+∞%" : "-∞%"), 
-                formatDisplayValue(momPremWrittenAbs, 'premium_written'),
-                isFinite(momLossAmtChangePct) ? `${momLossAmtChangePct.toFixed(1)}%` : (momLossAmtChangePct > 0 ? "+∞%" : "-∞%"),
-                formatDisplayValue(momLossAmtAbs, 'total_loss_amount'),
-                isFinite(momPolicyCntChangePct) ? `${momPolicyCntChangePct.toFixed(1)}%` : (momPolicyCntChangePct > 0 ? "+∞%" : "-∞%"),
-                formatDisplayValue(momPolicyCntAbs, 'policy_count'),
-                momLossRatioPP !== undefined ? `${momLossRatioPP.toFixed(1)} pp` : "-", // Using pp for clarity in export
-                momExpenseRatioPP !== undefined ? `${momExpenseRatioPP.toFixed(1)} pp` : "-" // Using pp for clarity in export
+                (isFinite(momPremWrittenChangePct) ? momPremWrittenChangePct.toFixed(1) : (momPremWrittenChangePct > 0 ? "+INF" : "-INF")), 
+                (momPremWrittenAbs !== undefined ? momPremWrittenAbs.toFixed(4) : "-"),
+                (isFinite(momLossAmtChangePct) ? momLossAmtChangePct.toFixed(1) : (momLossAmtChangePct > 0 ? "+INF" : "-INF")),
+                (momLossAmtAbs !== undefined ? momLossAmtAbs.toFixed(4) : "-"),
+                (isFinite(momPolicyCntChangePct) ? momPolicyCntChangePct.toFixed(1) : (momPolicyCntChangePct > 0 ? "+INF" : "-INF")),
+                (momPolicyCntAbs !== undefined ? Math.round(momPolicyCntAbs).toString() : "-"),
+                (momLossRatioPP !== undefined ? momLossRatioPP.toFixed(1) : "-"),
+                (momExpenseRatioPP !== undefined ? momExpenseRatioPP.toFixed(1) : "-")
             );
         } else if (analysisMode === 'periodOverPeriod') { 
             rowData.push("-", "-", "-", "-", "-", "-", "-", "-");
