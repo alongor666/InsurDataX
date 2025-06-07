@@ -1,4 +1,3 @@
-
 # 问题与解决日志
 
 本文档用于记录在“车险经营分析周报”项目开发过程中遇到的主要问题及其解决方案。
@@ -143,3 +142,25 @@
         *   确保VCR驱动的动态颜色逻辑（折线图数据点、柱状图柱子）在两种图表上均正确应用。
 - **状态**: 已解决
 - **备注**: 此功能增强了数据可视化的灵活性和表达力。
+
+---
+### 9. 趋势图在“环比数据”模式下的计算逻辑与展示
+- **问题描述**: 当趋势分析图表处于“环比数据” (`periodOverPeriod`) 模式时，其计算逻辑需要明确为：图表上每个点的值代表 `当前期对应指标的YTD值 - 上一期对应指标的YTD值`。这适用于所有指标类型（率值、绝对值）。
+- **发生时间**: 2024-05-26
+- **影响范围**: 趋势分析图表在“环比数据”模式下的数据准确性和展示。
+- **解决方案**:
+    1.  **`src/app/page.tsx`** (`prepareTrendData_V4` 函数):
+        *   当 `analysisMode` 为 `'periodOverPeriod'` 时，修改逻辑。对于趋势图范围内的每个周期P（从第二个周期开始），分别获取P期和P-1期的YTD指标值（通过调用 `processDataForSelectedPeriod` 并强制其在 `'cumulative'` 模式下计算）。
+        *   计算这两个YTD值的差额，作为周期P在图表上的显示值。
+        *   数据点的颜色（VCR）使用P期YTD的VCR。
+    2.  **`src/components/sections/trend-analysis-section.tsx`**:
+        *   组件接收 `analysisMode` prop。
+        *   **Y轴标签**: 当 `analysisMode` 为 `'periodOverPeriod'` 且选定指标为率值类型时，Y轴单位标签显示为 "(pp)"。
+        *   **Y轴刻度格式化**: 当 `analysisMode` 为 `'periodOverPeriod'` 且选定指标为率值类型时，刻度值直接显示差额（如1.9），不附加"%"。
+        *   **Tooltip格式化**: 当 `analysisMode` 为 `'periodOverPeriod'` 且选定指标为率值类型时，Tooltip中显示的值附加 "pp" 单位（如 "1.9 pp"）。
+    3.  **文档更新**:
+        *   `PRODUCT_REQUIREMENTS_DOCUMENT.md` (F-TREND, 术语定义) 和 `README.md` 已更新，以反映此特定计算和展示逻辑。
+- **状态**: 已解决
+- **备注**: 此调整确保了趋势图在环比模式下的计算逻辑与用户最新要求一致，同时不影响KPI看板和数据表的环比计算。
+
+```

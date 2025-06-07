@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import type { AnalysisMode, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod, V4PeriodData, PeriodOption, DashboardView, TrendMetricKey, RankingMetricKey, BubbleMetricKey, AggregatedBusinessMetrics, DataSourceType } from '@/data/types';
+import type { AnalysisMode, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod, V4PeriodData, PeriodOption, DashboardView, TrendMetricKey, RankingMetricKey, BubbleMetricKey, AggregatedBusinessMetrics, DataSourceType, CoreAggregatedMetricKey } from '@/data/types';
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { AppHeader } from '@/components/layout/header';
@@ -215,7 +215,7 @@ export default function DashboardPage() {
       }
     };
     fetchData();
-  }, [dataSource, toast]); // Removed selectedPeriodKey from dependencies to avoid re-fetching on period change, only on data source change
+  }, [dataSource, toast]); 
 
   useEffect(() => {
     if (isGlobalLoading || allV4Data.length === 0 || !selectedPeriodKey) {
@@ -271,7 +271,6 @@ export default function DashboardPage() {
       setBubbleChartData([]);
       setBarRankData([]);
     }
-    // Reset chart-specific AI summaries when data changes
     setTrendAiSummary(null);
     setBubbleAiSummary(null);
     setBarRankAiSummary(null);
@@ -279,63 +278,93 @@ export default function DashboardPage() {
   }, [isGlobalLoading, analysisMode, selectedPeriodKey, selectedComparisonPeriodKey, allV4Data, selectedBusinessTypes, selectedTrendMetric, selectedRankingMetric, selectedBubbleXAxisMetric, selectedBubbleYAxisMetric, selectedBubbleSizeMetric, periodOptions, toast]); 
 
 
-  const prepareTrendData_V4 = (
+ const prepareTrendData_V4 = (
     allData: V4PeriodData[],
     metricKey: TrendMetricKey,
-    currentPeriodId: string,
+    currentPeriodId: string, // This is the *end* period for the trend range
     mode: AnalysisMode,
     selBusinessTypes: string[]
   ): ChartDataItem[] => {
     const trendOutput: ChartDataItem[] = [];
     const maxPeriods = 12;
-
+  
     const sortedPeriods = [...allData].sort((a, b) => a.period_id.localeCompare(b.period_id));
-    const currentPeriodIndex = sortedPeriods.findIndex(p => p.period_id === currentPeriodId);
-
-    if (currentPeriodIndex === -1 && sortedPeriods.length > 0) {
-      // If currentPeriodId is somehow invalid but we have data, default to latest available.
-      // This case should ideally be prevented by setSelectedPeriodKey logic in fetchData.
-      // For trend, we might want to show latest 12 even if selectedPeriodKey is old or invalid.
-      // However, currentPeriodId for trend base should align with the global selectedPeriodKey.
-      // For now, return empty if currentPeriodId is not in sortedPeriods.
-      return [];
-    } else if (currentPeriodIndex === -1 && sortedPeriods.length === 0) {
-      return [];
-    }
-
-
-    const startIndex = Math.max(0, currentPeriodIndex - maxPeriods + 1);
-    const periodsForTrend = sortedPeriods.slice(startIndex, currentPeriodIndex + 1);
-
-    periodsForTrend.forEach(period => {
-      
-      const processedForThisPeriodTrendPoint = processDataForSelectedPeriod(
-        allData, // Pass allData here to ensure access to previous periods for PoP calculation if mode is PoP
-        period.period_id,
-        null, // Comparison period for trend point is itself, PoP handled by `processData`
-        mode,
-        selBusinessTypes
-      );
-
-      if (processedForThisPeriodTrendPoint.length > 0 && processedForThisPeriodTrendPoint[0].currentMetrics) {
-        const metrics = processedForThisPeriodTrendPoint[0].currentMetrics;
-        const vcr = metrics.variable_cost_ratio;
-        let value: number | undefined | null = metrics[metricKey as keyof typeof metrics] as number | undefined | null;
-
-        if (typeof value !== 'number' || isNaN(value)) {
-            value = 0;
+    const currentPeriodIndexInAll = sortedPeriods.findIndex(p => p.period_id === currentPeriodId);
+  
+    if (currentPeriodIndexInAll === -1) return [];
+  
+    // Determine the actual range of periods to be included in the trend
+    const startIndexInAll = Math.max(0, currentPeriodIndexInAll - maxPeriods + 1);
+    const periodsForTrendRange = sortedPeriods.slice(startIndexInAll, currentPeriodIndexInAll + 1);
+  
+    if (mode === 'periodOverPeriod') {
+      for (const periodP of periodsForTrendRange) {
+        const periodPIndex = sortedPeriods.findIndex(p => p.period_id === periodP.period_id);
+  
+        // If periodP is the very first period in the entire dataset, we cannot calculate PoP.
+        if (periodPIndex === 0) {
+          continue; 
         }
-
-        const chartItem: ChartDataItem = { 
-          name: period.period_label, 
-          color: getDynamicColorByVCR(vcr),
-          vcr: vcr 
-        };
-        const lineName = processedForThisPeriodTrendPoint[0].businessLineName || "合计";
-        chartItem[lineName] = value;
-        trendOutput.push(chartItem);
+  
+        const periodPMinus1 = sortedPeriods[periodPIndex - 1];
+  
+        // Calculate YTD metrics for period P
+        const processedP_YTD_Data = processDataForSelectedPeriod(
+          allData, periodP.period_id, null, 'cumulative', selBusinessTypes
+        );
+        const metricsP_YTD = processedP_YTD_Data[0]?.currentMetrics;
+  
+        // Calculate YTD metrics for period P-1
+        const processedPMinus1_YTD_Data = processDataForSelectedPeriod(
+          allData, periodPMinus1.period_id, null, 'cumulative', selBusinessTypes
+        );
+        const metricsPMinus1_YTD = processedPMinus1_YTD_Data[0]?.currentMetrics;
+  
+        if (metricsP_YTD && metricsPMinus1_YTD) {
+          const valueP_ytd = metricsP_YTD[metricKey as CoreAggregatedMetricKey] as number | undefined | null;
+          const valuePMinus1_ytd = metricsPMinus1_YTD[metricKey as CoreAggregatedMetricKey] as number | undefined | null;
+  
+          if (typeof valueP_ytd === 'number' && typeof valuePMinus1_ytd === 'number' && !isNaN(valueP_ytd) && !isNaN(valuePMinus1_ytd)) {
+            const difference = valueP_ytd - valuePMinus1_ytd;
+            const vcrP_ytd = metricsP_YTD.variable_cost_ratio; 
+  
+            const chartItem: ChartDataItem = {
+              name: periodP.period_label, 
+              color: getDynamicColorByVCR(vcrP_ytd), 
+              vcr: vcrP_ytd
+            };
+            const lineName = processedP_YTD_Data[0]?.businessLineName || "合计";
+            chartItem[lineName] = difference;
+            trendOutput.push(chartItem);
+          }
+        }
       }
-    });
+    } else { // 'cumulative' mode for trend
+      periodsForTrendRange.forEach(period => {
+        const processedForThisPeriodTrendPoint = processDataForSelectedPeriod(
+          allData, period.period_id, null, 'cumulative', selBusinessTypes
+        );
+  
+        if (processedForThisPeriodTrendPoint.length > 0 && processedForThisPeriodTrendPoint[0].currentMetrics) {
+          const metrics = processedForThisPeriodTrendPoint[0].currentMetrics;
+          const vcr = metrics.variable_cost_ratio;
+          let value: number | undefined | null = metrics[metricKey as CoreAggregatedMetricKey] as number | undefined | null;
+  
+          if (typeof value !== 'number' || isNaN(value)) {
+            value = 0;
+          }
+  
+          const chartItem: ChartDataItem = {
+            name: period.period_label,
+            color: getDynamicColorByVCR(vcr),
+            vcr: vcr
+          };
+          const lineName = processedForThisPeriodTrendPoint[0].businessLineName || "合计";
+          chartItem[lineName] = value;
+          trendOutput.push(chartItem);
+        }
+      });
+    }
     return trendOutput;
   };
 
@@ -503,9 +532,6 @@ export default function DashboardPage() {
             primaryComparisonLabel: kpi.primaryComparisonLabel,
             primaryChangePercent: kpi.primaryChange,
             primaryChangeAbsolute: kpi.primaryChangeAbsolute,
-            secondaryComparisonLabel: kpi.secondaryComparisonLabel,
-            secondaryChangePercent: kpi.secondaryChange,
-            secondaryChangeAbsolute: kpi.secondaryChangeAbsolute,
             isRisk: kpi.isRisk || kpi.isBorderRisk || kpi.isOrangeRisk,
             description: kpi.description
         })),
@@ -668,6 +694,7 @@ export default function DashboardPage() {
                 aiSummary={trendAiSummary}
                 isAiSummaryLoading={isTrendAiSummaryLoading}
                 onGenerateAiSummary={handleGenerateTrendAiSummary}
+                analysisMode={analysisMode} // Pass analysisMode
                 key={`trend-${dataSource}-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedTrendMetric}-${selectedPeriodKey}-${selectedComparisonPeriodKey}`}
               />
             )}
@@ -707,3 +734,4 @@ export default function DashboardPage() {
     </AppLayout>
   );
 }
+
