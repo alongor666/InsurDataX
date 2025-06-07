@@ -1,8 +1,7 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import type { AnalysisMode, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod, V4PeriodData, PeriodOption, DashboardView, TrendMetricKey, RankingMetricKey, BubbleMetricKey, AggregatedBusinessMetrics } from '@/data/types'; 
+import type { AnalysisMode, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod, V4PeriodData, PeriodOption, DashboardView, TrendMetricKey, RankingMetricKey, BubbleMetricKey, AggregatedBusinessMetrics, DataSourceType } from '@/data/types'; 
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { AppHeader } from '@/components/layout/header';
@@ -26,6 +25,7 @@ import {
   exportToCSV,
   getDynamicColorByVCR
 } from '@/lib/data-utils';
+import { getAllV4DataFromDb } from '@/lib/db'; // Import DB function
 
 
 const availableTrendMetrics: { value: TrendMetricKey, label: string }[] = [
@@ -82,6 +82,7 @@ const availableBubbleMetrics: { value: BubbleMetricKey, label: string }[] = [
 export default function DashboardPage() {
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('cumulative');
   const [activeView, setActiveView] = useState<DashboardView>('kpi');
+  const [dataSource, setDataSource] = useState<DataSourceType>('json'); // New state for data source
 
   const [allV4Data, setAllV4Data] = useState<V4PeriodData[]>([]);
   const [periodOptions, setPeriodOptions] = useState<PeriodOption[]>([]);
@@ -114,6 +115,8 @@ export default function DashboardPage() {
   const [barRankAiSummary, setBarRankAiSummary] = useState<string | null>(null);
   const [isBarRankAiSummaryLoading, setIsBarRankAiSummaryLoading] = useState(false);
 
+  const [isGlobalLoading, setIsGlobalLoading] = useState(true); // New global loading state
+
   const { toast } = useToast();
 
   const currentPeriodLabel = useMemo(() => {
@@ -122,22 +125,51 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchData = async () => {
+      setIsGlobalLoading(true);
+      setOverallAiSummary(null); // Reset AI summary on data source change
+      setTrendAiSummary(null);
+      setBubbleAiSummary(null);
+      setBarRankAiSummary(null);
       try {
-        const response = await fetch('/data/insurance_data_v4.json');
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        let data: V4PeriodData[] = [];
+        if (dataSource === 'json') {
+          toast({ title: "数据加载中", description: "正在从JSON文件加载数据..." });
+          const response = await fetch('/data/insurance_data_v4.json');
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status} when fetching JSON.`);
+          }
+          data = await response.json();
+          toast({ title: "数据加载成功", description: "已从JSON文件加载数据。" });
+        } else if (dataSource === 'db') {
+          toast({ title: "数据加载中", description: "正在尝试从PostgreSQL数据库加载数据..." });
+          try {
+            data = await getAllV4DataFromDb(); 
+            if (data.length === 0) {
+                 toast({ title: "数据库提示", description: "从数据库获取的数据为空，或数据库功能尚未完全实现。" , duration: 5000});
+            } else {
+                 toast({ title: "数据加载成功", description: "已从PostgreSQL数据库加载数据。" });
+            }
+          } catch (dbError) {
+            console.error("Error fetching from DB:", dbError);
+            toast({ variant: "destructive", title: "数据库连接失败", description: `无法从数据库加载数据: ${dbError instanceof Error ? dbError.message : String(dbError)}. 请检查配置或联系管理员。`, duration: 8000 });
+            data = []; // Fallback to empty data
+          }
         }
-        const data: V4PeriodData[] = await response.json();
-        setAllV4Data(data);
-        setGlobalV4DataForKpiWorkaround(data); 
+        
+        setAllV4Data(data); 
+        setGlobalV4DataForKpiWorkaround(data);
 
         const options = data
           .map(p => ({ value: p.period_id, label: p.period_label }))
           .sort((a, b) => b.label.localeCompare(a.label)); 
         setPeriodOptions(options);
 
-        if (options.length > 0) {
+        // If selectedPeriodKey is no longer valid or was never set with data, try to set it.
+        const currentSelectedIsValid = options.some(opt => opt.value === selectedPeriodKey);
+        if (options.length > 0 && (!selectedPeriodKey || !currentSelectedIsValid) ) {
           setSelectedPeriodKey(options[0].value); 
+        } else if (options.length === 0) {
+          setSelectedPeriodKey(''); 
         }
         
         if (data.length > 0 && data[0].business_data) {
@@ -145,18 +177,26 @@ export default function DashboardPage() {
             .filter(bt => bt && bt.toLowerCase() !== '合计' && bt.toLowerCase() !== 'total')))
             .sort((a,b) => a.localeCompare(b));
           setAllBusinessTypes(uniqueTypes);
+        } else {
+          setAllBusinessTypes([]);
         }
 
-      } catch (error) {
-        console.error("Error fetching V4 data:", error);
-        toast({ variant: "destructive", title: "数据加载失败", description: "无法加载核心业务数据，请检查网络连接或联系管理员。" });
+      } catch (error) { 
+        console.error("Error in fetchData:", error);
+        toast({ variant: "destructive", title: "数据加载失败", description: `无法加载数据源: ${error instanceof Error ? error.message : String(error)}` });
+        setAllV4Data([]); 
+        setPeriodOptions([]);
+        setSelectedPeriodKey('');
+        setAllBusinessTypes([]);
+      } finally {
+        setIsGlobalLoading(false);
       }
     };
     fetchData();
-  }, [toast]);
+  }, [dataSource, toast]); // Only re-fetch when dataSource or toast changes. Other dependencies handled by downstream useEffects.
 
   useEffect(() => {
-    if (allV4Data.length === 0 || !selectedPeriodKey) {
+    if (isGlobalLoading || allV4Data.length === 0 || !selectedPeriodKey) {
       setProcessedData([]);
       setKpis([]);
       setTrendChartData([]);
@@ -200,7 +240,7 @@ export default function DashboardPage() {
       setBarRankData([]);
     }
 
-  }, [analysisMode, selectedPeriodKey, allV4Data, selectedBusinessTypes, selectedTrendMetric, selectedRankingMetric, selectedBubbleXAxisMetric, selectedBubbleYAxisMetric, selectedBubbleSizeMetric]);
+  }, [isGlobalLoading, analysisMode, selectedPeriodKey, allV4Data, selectedBusinessTypes, selectedTrendMetric, selectedRankingMetric, selectedBubbleXAxisMetric, selectedBubbleYAxisMetric, selectedBubbleSizeMetric]);
 
 
   const prepareTrendData_V4 = (
@@ -326,7 +366,8 @@ export default function DashboardPage() {
           return {
             name: d.businessLineName,
             [metricKey]: metrics[metricKey] as number || 0,
-            color: getDynamicColorByVCR(vcr) // Ensure color is set based on VCR
+            color: getDynamicColorByVCR(vcr),
+            vcr: vcr // Add vcr for tooltip consistency
           };
         });
   }
@@ -339,6 +380,10 @@ export default function DashboardPage() {
   });
 
  const handleOverallAiSummary = async () => {
+    if (isGlobalLoading || !processedData || processedData.length === 0) {
+      toast({ title: "AI摘要提示", description: "数据正在加载或当前无数据，无法生成摘要。" });
+      return;
+    }
     setIsOverallAiSummaryLoading(true);
     setOverallAiSummary(null);
     try {
@@ -530,6 +575,8 @@ export default function DashboardPage() {
       selectedBusinessTypes={selectedBusinessTypes}
       onSelectedBusinessTypesChange={setSelectedBusinessTypes}
       onExportClick={handleExportData}
+      currentDataSource={dataSource}
+      onDataSourceChange={setDataSource}
     />
   );
 
@@ -538,52 +585,59 @@ export default function DashboardPage() {
       <div className="space-y-6 md:space-y-8">
         <AiSummarySection summary={overallAiSummary} isLoading={isOverallAiSummaryLoading} />
 
-        {activeView === 'kpi' && <KpiDashboardSection kpis={kpis} />}
+        {isGlobalLoading && <p className="text-center text-muted-foreground py-8">正在加载数据，请稍候...</p>}
+        {!isGlobalLoading && allV4Data.length === 0 && dataSource === 'db' && <p className="text-center text-destructive py-8">无法从数据库加载数据或数据库为空。请检查您的数据库连接配置和数据表。您可以尝试切换回JSON数据源。</p>}
+        {!isGlobalLoading && allV4Data.length === 0 && dataSource === 'json' && <p className="text-center text-destructive py-8">JSON数据文件为空或加载失败。请检查 public/data/insurance_data_v4.json 文件。</p>}
 
-        {activeView === 'trend' && (
-          <TrendAnalysisSection
-            data={trendChartData}
-            availableMetrics={availableTrendMetrics}
-            onMetricChange={setSelectedTrendMetric}
-            selectedMetric={selectedTrendMetric}
-            aiSummary={trendAiSummary}
-            isAiSummaryLoading={isTrendAiSummaryLoading}
-            onGenerateAiSummary={handleGenerateTrendAiSummary}
-            key={selectedBusinessTypes.join('-') + '-' + analysisMode + '-' + selectedTrendMetric + '-' + selectedPeriodKey} 
-          />
-        )}
-        {activeView === 'bubble' && 
-          <BubbleChartSection 
-            data={bubbleChartData}
-            availableMetrics={availableBubbleMetrics}
-            selectedXAxisMetric={selectedBubbleXAxisMetric}
-            onXAxisMetricChange={setSelectedBubbleXAxisMetric}
-            selectedYAxisMetric={selectedBubbleYAxisMetric}
-            onYAxisMetricChange={setSelectedBubbleYAxisMetric}
-            selectedSizeMetric={selectedBubbleSizeMetric}
-            onSizeMetricChange={setSelectedBubbleSizeMetric}
-            aiSummary={bubbleAiSummary}
-            isAiSummaryLoading={isBubbleAiSummaryLoading}
-            onGenerateAiSummary={handleGenerateBubbleAiSummary}
-            key={selectedBusinessTypes.join('-') + '-' + analysisMode + '-' + selectedPeriodKey + '-' + selectedBubbleXAxisMetric + '-' + selectedBubbleYAxisMetric + '-' + selectedBubbleSizeMetric}
-          />
-        }
+        {!isGlobalLoading && allV4Data.length > 0 && (
+          <>
+            {activeView === 'kpi' && <KpiDashboardSection kpis={kpis} />}
 
-        {activeView === 'bar_rank' && (
-          <BarChartRankingSection
-            data={barRankData}
-            availableMetrics={availableRankingMetrics}
-            onMetricChange={setSelectedRankingMetric}
-            selectedMetric={selectedRankingMetric}
-            aiSummary={barRankAiSummary}
-            isAiSummaryLoading={isBarRankAiSummaryLoading}
-            onGenerateAiSummary={handleGenerateBarRankAiSummary}
-            key={selectedBusinessTypes.join('-') + '-' + analysisMode + '-' + selectedRankingMetric + '-' + selectedPeriodKey}
-          />
+            {activeView === 'trend' && (
+              <TrendAnalysisSection
+                data={trendChartData}
+                availableMetrics={availableTrendMetrics}
+                onMetricChange={setSelectedTrendMetric}
+                selectedMetric={selectedTrendMetric}
+                aiSummary={trendAiSummary}
+                isAiSummaryLoading={isTrendAiSummaryLoading}
+                onGenerateAiSummary={handleGenerateTrendAiSummary}
+                key={`trend-${dataSource}-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedTrendMetric}-${selectedPeriodKey}`} 
+              />
+            )}
+            {activeView === 'bubble' && 
+              <BubbleChartSection 
+                data={bubbleChartData}
+                availableMetrics={availableBubbleMetrics}
+                selectedXAxisMetric={selectedBubbleXAxisMetric}
+                onXAxisMetricChange={setSelectedBubbleXAxisMetric}
+                selectedYAxisMetric={selectedBubbleYAxisMetric}
+                onYAxisMetricChange={setSelectedBubbleYAxisMetric}
+                selectedSizeMetric={selectedBubbleSizeMetric}
+                onSizeMetricChange={setSelectedBubbleSizeMetric}
+                aiSummary={bubbleAiSummary}
+                isAiSummaryLoading={isBubbleAiSummaryLoading}
+                onGenerateAiSummary={handleGenerateBubbleAiSummary}
+                key={`bubble-${dataSource}-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedPeriodKey}-${selectedBubbleXAxisMetric}-${selectedBubbleYAxisMetric}-${selectedBubbleSizeMetric}`}
+              />
+            }
+
+            {activeView === 'bar_rank' && (
+              <BarChartRankingSection
+                data={barRankData}
+                availableMetrics={availableRankingMetrics}
+                onMetricChange={setSelectedRankingMetric}
+                selectedMetric={selectedRankingMetric}
+                aiSummary={barRankAiSummary}
+                isAiSummaryLoading={isBarRankAiSummaryLoading}
+                onGenerateAiSummary={handleGenerateBarRankAiSummary}
+                key={`barrank-${dataSource}-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedRankingMetric}-${selectedPeriodKey}`}
+              />
+            )}
+            {activeView === 'data_table' && <DataTableSection data={processedData} analysisMode={analysisMode} />}
+          </>
         )}
-        {activeView === 'data_table' && <DataTableSection data={processedData} analysisMode={analysisMode} />}
       </div>
     </AppLayout>
   );
 }
-

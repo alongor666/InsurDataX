@@ -1,5 +1,5 @@
-
 import { Pool } from 'pg';
+import type { V4PeriodData } from '@/data/types'; // Ensure V4PeriodData is imported
 
 // It's HIGHLY recommended to use environment variables for these settings,
 // especially for password, host, and port in production.
@@ -98,7 +98,7 @@ export async function getPeriodDataFromDb(periodId: string) {
  * Fetches all data from the database and structures it similarly to the V4PeriodData array.
  * This would replace reading from the JSON file.
  */
-export async function getAllV4DataFromDb(): Promise<any[]> {
+export async function getAllV4DataFromDb(): Promise<V4PeriodData[]> {
     // This function would need to:
     // 1. Query all distinct period_ids.
     // 2. For each period_id, query its business_data and totals_for_period.
@@ -135,6 +135,10 @@ export async function getAllV4DataFromDb(): Promise<any[]> {
     //     your_periods_table p
     // ORDER BY p.period_id;
 
-    console.warn("DB: getAllV4DataFromDb is not yet implemented with actual DB queries.");
-    return []; // Placeholder
+    console.warn("DB: getAllV4DataFromDb is not yet implemented with actual DB queries. Returning empty array as placeholder.");
+    // Simulate a delay for testing UI responsiveness
+    // await new Promise(resolve => setTimeout(resolve, 1500)); 
+    // Simulate an error for testing:
+    // throw new Error("Simulated DB connection error. Please check your connection string and ensure the database server is running.");
+    return []; // Placeholder: return empty array
 }

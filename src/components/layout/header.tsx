@@ -1,9 +1,8 @@
-
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
-import type { AnalysisMode, PeriodOption, DashboardView } from '@/data/types';
-import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download } from 'lucide-react'; 
+import type { AnalysisMode, PeriodOption, DashboardView, DataSourceType } from '@/data/types';
+import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson } from 'lucide-react'; 
 import {
   Select,
   SelectContent,
@@ -37,6 +36,8 @@ interface AppHeaderProps {
   selectedBusinessTypes: string[];
   onSelectedBusinessTypesChange: (types: string[]) => void;
   onExportClick: () => void;
+  currentDataSource: DataSourceType;
+  onDataSourceChange: (source: DataSourceType) => void;
 }
 
 export function AppHeader({ 
@@ -53,6 +54,8 @@ export function AppHeader({
   selectedBusinessTypes,
   onSelectedBusinessTypesChange,
   onExportClick,
+  currentDataSource,
+  onDataSourceChange,
 }: AppHeaderProps) {
 
   const viewOptions: {label: string, value: DashboardView, icon: React.ElementType}[] = [
@@ -63,11 +66,16 @@ export function AppHeader({
     { label: "数据表", value: "data_table", icon: Rows3 },
   ];
 
+  const dataSourceOptions: {label: string, value: DataSourceType, icon: React.ElementType}[] = [
+      {label: "JSON文件", value: "json", icon: FileJson},
+      {label: "PostgreSQL数据库", value: "db", icon: Database}
+  ];
+
   const handleSelectAllBusinessTypes = () => {
-    if (selectedBusinessTypes.length === allBusinessTypes.length && allBusinessTypes.length > 0) { // Check if all are selected
-      onSelectedBusinessTypesChange([]); // Deselect all
+    if (selectedBusinessTypes.length === allBusinessTypes.length && allBusinessTypes.length > 0) { 
+      onSelectedBusinessTypesChange([]); 
     } else {
-      onSelectedBusinessTypesChange([...allBusinessTypes]); // Select all
+      onSelectedBusinessTypesChange([...allBusinessTypes]); 
     }
   };
 
@@ -80,12 +88,30 @@ export function AppHeader({
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
+      <div className="container flex h-16 items-center justify-between flex-wrap gap-y-2 md:gap-y-0">
         <Link href="/" className="mr-6 flex items-center space-x-2">
           <span className="font-headline text-xl font-bold text-primary">车险经营分析周报</span>
         </Link>
         
-        <div className="flex items-center space-x-1 md:space-x-2">
+        <div className="flex items-center space-x-1 md:space-x-2 flex-wrap gap-y-1">
+          <div className="flex items-center space-x-1 md:space-x-2">
+            <Select value={currentDataSource} onValueChange={(value) => onDataSourceChange(value as DataSourceType)}>
+                <SelectTrigger className="w-[120px] md:w-[150px] h-9 text-xs md:text-sm">
+                    <SelectValue placeholder="选择数据源"/>
+                </SelectTrigger>
+                <SelectContent>
+                    {dataSourceOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value} className="text-xs md:text-sm">
+                           <div className="flex items-center">
+                             <option.icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                             {option.label}
+                           </div>
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+          </div>
+          
           <div className="flex items-center space-x-1 md:space-x-2">
             <Settings2 className="h-5 w-5 text-muted-foreground hidden md:block" />
             <Select value={selectedPeriod} onValueChange={onPeriodChange} disabled={periodOptions.length === 0}>

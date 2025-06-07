@@ -3,6 +3,7 @@ import type { LucideIcon as ActualLucideIcon } from 'lucide-react'; // Keep actu
 
 export type AnalysisMode = 'cumulative' | 'periodOverPeriod'; // 累计数据 | 当周发生额
 export type DashboardView = 'kpi' | 'trend' | 'bubble' | 'bar_rank' | 'data_table';
+export type DataSourceType = 'json' | 'db'; // New: Data source type
 
 // V4.0 JSON Structure Types
 export interface V4BusinessDataEntry {
@@ -159,8 +160,4 @@ export type TrendMetricKey = Exclude<CoreAggregatedMetricKey, 'avg_commercial_in
 export type BubbleMetricKey = Exclude<CoreAggregatedMetricKey, 'avg_commercial_index' | 'expense_amount_raw'>;
 
 
-export interface BusinessLineBasic { 
-  id: string;
-  name: string;
-  icon?: ActualLucideIcon; 
-}
+export interface BusinessLineBasic {
