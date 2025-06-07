@@ -3,8 +3,8 @@
   {
     "period_id": "2025-W18",
     "period_label": "2025年第18周",
-    "comparison_period_id_mom": null,
     "comparison_period_id_yoy": null,
+    "comparison_period_id_mom": null,
     "business_data": [
       {
         "business_type": "非营业客车新车",
@@ -270,8 +270,8 @@
   {
     "period_id": "2025-W19",
     "period_label": "2025年第19周",
-    "comparison_period_id_mom": "2025-W18",
     "comparison_period_id_yoy": null,
+    "comparison_period_id_mom": "2025-W18",
     "business_data": [
       {
         "business_type": "非营业客车新车",
@@ -370,7 +370,7 @@
         "policy_count_earned": 289
       },
       {
-        "business_type": "2 - 9吨营业货车",
+        "business_type": "2-9吨营业货车",
         "premium_written": 182.1,
         "avg_premium_per_policy": 2886.7,
         "premium_earned": 28.3,
@@ -386,7 +386,7 @@
         "policy_count_earned": 98
       },
       {
-        "business_type": "9 - 10吨营业货车",
+        "business_type": "9-10吨营业货车",
         "premium_written": 93.5,
         "avg_premium_per_policy": 3236.2,
         "premium_earned": 12.8,
@@ -446,7 +446,7 @@
         "expense_ratio": 18.7,
         "variable_cost_ratio": 41.3,
         "avg_commercial_index": 1.1415,
-        "expense_amount_raw": 52.0608,
+        "expense_amount_raw": 52.0508,
         "policy_count_earned": 91
       },
       {
@@ -462,7 +462,7 @@
         "expense_ratio": 17.7,
         "variable_cost_ratio": 49.1,
         "avg_commercial_index": 1.0626,
-        "expense_amount_raw": 6.3012,
+        "expense_amount_raw": 6.291199999999999,
         "policy_count_earned": 21
       },
       {
@@ -477,7 +477,7 @@
         "loss_ratio": 125.5,
         "expense_ratio": 0.0,
         "variable_cost_ratio": 125.5,
-        "avg_commercial_index": null,
+        "avg_commercial_index": 0.0,
         "expense_amount_raw": 0.0,
         "policy_count_earned": 7200
       },
@@ -509,7 +509,7 @@
         "loss_ratio": 0.0,
         "expense_ratio": 0.0,
         "variable_cost_ratio": 0.0,
-        "avg_commercial_index": null,
+        "avg_commercial_index": 0.0,
         "expense_amount_raw": 0.0,
         "policy_count_earned": 0
       },
@@ -537,8 +537,8 @@
   {
     "period_id": "2025-W20",
     "period_label": "2025年第20周",
-    "comparison_period_id_mom": "2025-W19",
     "comparison_period_id_yoy": null,
+    "comparison_period_id_mom": "2025-W19",
     "business_data": [
       {
         "business_type": "非营业客车新车",
@@ -804,8 +804,8 @@
   {
     "period_id": "2025-W21",
     "period_label": "2025年第21周",
-    "comparison_period_id_mom": "2025-W20",
     "comparison_period_id_yoy": null,
+    "comparison_period_id_mom": "2025-W20",
     "business_data": [
       {
         "business_type": "非营业客车新车",
@@ -820,7 +820,7 @@
         "expense_ratio": 18.7,
         "variable_cost_ratio": 162.8,
         "avg_commercial_index": 0.9474,
-        "expense_amount_raw": 117.0994,
+        "expense_amount_raw": 117.1094,
         "policy_count_earned": 589
       },
       {
@@ -932,7 +932,7 @@
         "expense_ratio": 12.3,
         "variable_cost_ratio": 138.4,
         "avg_commercial_index": 1.1161,
-        "expense_amount_raw": 13.7022,
+        "expense_amount_raw": 13.6922,
         "policy_count_earned": 52
       },
       {
@@ -1071,8 +1071,8 @@
   {
     "period_id": "2025-W22",
     "period_label": "2025年第22周",
-    "comparison_period_id_mom": "2025-W21",
     "comparison_period_id_yoy": null,
+    "comparison_period_id_mom": "2025-W21",
     "business_data": [
       {
         "business_type": "非营业客车新车",
@@ -1103,7 +1103,7 @@
         "expense_ratio": 18.3,
         "variable_cost_ratio": 79.1,
         "avg_commercial_index": 0.8436,
-        "expense_amount_raw": 2279.98,
+        "expense_amount_raw": 2280.18,
         "policy_count_earned": 31523
       },
       {
@@ -1150,7 +1150,7 @@
         "loss_ratio": 66.5,
         "expense_ratio": 10.3,
         "variable_cost_ratio": 76.8,
-        "avg_commercial_index": 1.095,
+        "avg_commercial_index": 1.0950,
         "expense_amount_raw": 53.972,
         "policy_count_earned": 832
       },
@@ -1262,7 +1262,7 @@
         "loss_ratio": 22.6,
         "expense_ratio": 19.7,
         "variable_cost_ratio": 42.3,
-        "avg_commercial_index": 1.079,
+        "avg_commercial_index": 1.0790,
         "expense_amount_raw": 9.2393,
         "policy_count_earned": 28
       },
