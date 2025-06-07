@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -26,7 +25,6 @@ import {
   exportToCSV,
   getDynamicColorByVCR
 } from '@/lib/data-utils';
-// Removed: import { getAllV4DataFromDb } from '@/lib/db';
 
 
 const availableTrendMetrics: { value: TrendMetricKey, label: string }[] = [
@@ -175,12 +173,12 @@ export default function DashboardPage() {
 
         const options = data
           .map(p => ({ value: p.period_id, label: p.period_label }))
-          .sort((a, b) => b.label.localeCompare(a.label));
+          .sort((a, b) => b.label.localeCompare(a.label)); // Sort by label descending (latest first)
         setPeriodOptions(options);
 
         const currentSelectedIsValid = options.some(opt => opt.value === selectedPeriodKey);
         if (options.length > 0 && (!selectedPeriodKey || !currentSelectedIsValid) ) {
-          setSelectedPeriodKey(options[0].value);
+          setSelectedPeriodKey(options[0].value); // Default to the latest period
         } else if (options.length === 0) {
           setSelectedPeriodKey('');
           setSelectedComparisonPeriodKey(null); 
@@ -190,7 +188,7 @@ export default function DashboardPage() {
         if (selectedComparisonPeriodKey && !options.some(opt => opt.value === selectedComparisonPeriodKey)) {
             setSelectedComparisonPeriodKey(null);
         }
-        if (selectedComparisonPeriodKey === selectedPeriodKey) { 
+        if (selectedComparisonPeriodKey === selectedPeriodKey && selectedPeriodKey !== '') { 
             setSelectedComparisonPeriodKey(null);
         }
 
@@ -217,7 +215,7 @@ export default function DashboardPage() {
       }
     };
     fetchData();
-  }, [dataSource, toast]); 
+  }, [dataSource, toast]); // Removed selectedPeriodKey from dependencies to avoid re-fetching on period change, only on data source change
 
   useEffect(() => {
     if (isGlobalLoading || allV4Data.length === 0 || !selectedPeriodKey) {
@@ -230,7 +228,7 @@ export default function DashboardPage() {
     }
 
     
-    if (selectedComparisonPeriodKey === selectedPeriodKey) {
+    if (selectedComparisonPeriodKey === selectedPeriodKey && selectedPeriodKey !== '') {
         setSelectedComparisonPeriodKey(null); 
         toast({variant: "destructive", title: "选择错误", description: "当前周期和对比周期不能相同。已重置对比周期。"})
         return; 
@@ -273,6 +271,10 @@ export default function DashboardPage() {
       setBubbleChartData([]);
       setBarRankData([]);
     }
+    // Reset chart-specific AI summaries when data changes
+    setTrendAiSummary(null);
+    setBubbleAiSummary(null);
+    setBarRankAiSummary(null);
 
   }, [isGlobalLoading, analysisMode, selectedPeriodKey, selectedComparisonPeriodKey, allV4Data, selectedBusinessTypes, selectedTrendMetric, selectedRankingMetric, selectedBubbleXAxisMetric, selectedBubbleYAxisMetric, selectedBubbleSizeMetric, periodOptions, toast]); 
 
@@ -290,7 +292,17 @@ export default function DashboardPage() {
     const sortedPeriods = [...allData].sort((a, b) => a.period_id.localeCompare(b.period_id));
     const currentPeriodIndex = sortedPeriods.findIndex(p => p.period_id === currentPeriodId);
 
-    if (currentPeriodIndex === -1) return [];
+    if (currentPeriodIndex === -1 && sortedPeriods.length > 0) {
+      // If currentPeriodId is somehow invalid but we have data, default to latest available.
+      // This case should ideally be prevented by setSelectedPeriodKey logic in fetchData.
+      // For trend, we might want to show latest 12 even if selectedPeriodKey is old or invalid.
+      // However, currentPeriodId for trend base should align with the global selectedPeriodKey.
+      // For now, return empty if currentPeriodId is not in sortedPeriods.
+      return [];
+    } else if (currentPeriodIndex === -1 && sortedPeriods.length === 0) {
+      return [];
+    }
+
 
     const startIndex = Math.max(0, currentPeriodIndex - maxPeriods + 1);
     const periodsForTrend = sortedPeriods.slice(startIndex, currentPeriodIndex + 1);
@@ -298,9 +310,9 @@ export default function DashboardPage() {
     periodsForTrend.forEach(period => {
       
       const processedForThisPeriodTrendPoint = processDataForSelectedPeriod(
-        allData,
+        allData, // Pass allData here to ensure access to previous periods for PoP calculation if mode is PoP
         period.period_id,
-        null, 
+        null, // Comparison period for trend point is itself, PoP handled by `processData`
         mode,
         selBusinessTypes
       );
@@ -314,7 +326,11 @@ export default function DashboardPage() {
             value = 0;
         }
 
-        const chartItem: ChartDataItem = { name: period.period_label, color: getDynamicColorByVCR(vcr) };
+        const chartItem: ChartDataItem = { 
+          name: period.period_label, 
+          color: getDynamicColorByVCR(vcr),
+          vcr: vcr 
+        };
         const lineName = processedForThisPeriodTrendPoint[0].businessLineName || "合计";
         chartItem[lineName] = value;
         trendOutput.push(chartItem);
@@ -514,7 +530,7 @@ export default function DashboardPage() {
   };
 
   const handleGenerateTrendAiSummary = async () => {
-    if (!trendChartData.length) {
+    if (isGlobalLoading || !trendChartData.length) {
       toast({ variant: "default", title: "无趋势数据", description: "无法为当前选择生成AI趋势分析。" });
       return;
     }
@@ -534,14 +550,14 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Error generating trend AI summary:", error);
       setTrendAiSummary("生成AI趋势图分析时出错。");
-      toast({ variant: "destructive", title: "AI趋势图分析失败" });
+      toast({ variant: "destructive", title: "AI趋势图分析失败", description: `错误: ${error instanceof Error ? error.message : String(error)}`});
     } finally {
       setIsTrendAiSummaryLoading(false);
     }
   };
 
   const handleGenerateBubbleAiSummary = async () => {
-    if (!bubbleChartData.length) {
+    if (isGlobalLoading || !bubbleChartData.length) {
       toast({ variant: "default", title: "无气泡图数据", description: "无法为当前选择生成AI气泡图分析。" });
       return;
     }
@@ -563,14 +579,14 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Error generating bubble AI summary:", error);
       setBubbleAiSummary("生成AI气泡图分析时出错。");
-      toast({ variant: "destructive", title: "AI气泡图分析失败" });
+      toast({ variant: "destructive", title: "AI气泡图分析失败", description: `错误: ${error instanceof Error ? error.message : String(error)}` });
     } finally {
       setIsBubbleAiSummaryLoading(false);
     }
   };
 
   const handleGenerateBarRankAiSummary = async () => {
-    if (!barRankData.length) {
+    if (isGlobalLoading || !barRankData.length) {
       toast({ variant: "default", title: "无排名数据", description: "无法为当前选择生成AI排名分析。" });
       return;
     }
@@ -590,7 +606,7 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Error generating bar rank AI summary:", error);
       setBarRankAiSummary("生成AI排名图分析时出错。");
-      toast({ variant: "destructive", title: "AI排名图分析失败" });
+      toast({ variant: "destructive", title: "AI排名图分析失败", description: `错误: ${error instanceof Error ? error.message : String(error)}` });
     } finally {
       setIsBarRankAiSummaryLoading(false);
     }
