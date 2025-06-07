@@ -69,11 +69,11 @@ export interface AggregatedBusinessMetrics {
 export interface ProcessedDataForPeriod {
   businessLineId: string;
   businessLineName: string;
-  icon?: string;
+  icon?: string; // This might be deprecated for KPIs if units take over
 
   currentMetrics: AggregatedBusinessMetrics;
   momMetrics?: AggregatedBusinessMetrics | null; // Represents data for 'month-over-month' or 'custom comparison' period
-  yoyMetrics?: AggregatedBusinessMetrics | null; // Represents data for 'year-over-year' period, null if custom comparison is active
+  yoyMetrics?: AggregatedBusinessMetrics | null; // Represents data for 'year-over-year' period, null if custom comparison active
 
   premium_written: number;
   total_loss_amount: number;
@@ -98,7 +98,8 @@ export interface Kpi {
   value: string;
   rawValue?: number;
   description?: string;
-  icon?: string;
+  icon?: string; // Will be used for rates/coefficients
+  unit?: string; // Will be used for absolute value KPIs (e.g., "万元", "元", "件")
   isRisk?: boolean;
   isBorderRisk?: boolean;
   isOrangeRisk?: boolean;

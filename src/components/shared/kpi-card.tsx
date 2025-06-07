@@ -6,6 +6,7 @@ import { TrendingUp, TrendingDown, Minus, DollarSign, FileText, Percent, Briefca
 
 const iconMap: { [key: string]: LucideIconType } = {
   DollarSign, FileText, Percent, Briefcase, Zap, Activity, ShieldCheck, ShieldAlert, Landmark, Users, Ratio, Search,
+  // Add any other icons that might be used by default for rates/coefficients
 };
 
 const ChangeDisplay = ({
@@ -25,12 +26,10 @@ const ChangeDisplay = ({
   const color = changeType === 'positive' ? 'text-green-600' : changeType === 'negative' ? 'text-red-600' : 'text-muted-foreground';
 
   let displayValue = "";
-  // For KPI card, prioritize formatted % or pp change, then absolute value if only one is present
   if (change && changeAbsolute) {
-    // If absolute is a "pp" value, show it first
     if (changeAbsolute.includes('pp')) {
         displayValue = `${changeAbsolute} (${change})`;
-    } else { // Otherwise, percentage first
+    } else { 
         displayValue = `${change} (${changeAbsolute})`;
     }
   } else if (change) {
@@ -60,8 +59,8 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
 
   if (kpi.isBorderRisk) {
      cardClassName = cn(cardClassName, "border-destructive border-2");
-  } else if (kpi.isRisk && !kpi.isOrangeRisk) {
-     cardClassName = cn(cardClassName, "border-destructive");
+  } else if (kpi.isRisk && !kpi.isOrangeRisk) { // Only border-destructive if not orange risk (orange has its own value color)
+     // cardClassName = cn(cardClassName, "border-destructive"); // Let's not add red border for just value being red, only for VCR border risk
   }
 
   const IconComponent = kpi.icon && iconMap[kpi.icon] ? iconMap[kpi.icon] : null;
@@ -70,7 +69,11 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
     <Card className={cardClassName}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium font-body">{kpi.title}</CardTitle>
-        {IconComponent && <IconComponent className={cn("h-5 w-5", kpi.isRisk || kpi.isBorderRisk ? "text-destructive" : (kpi.isOrangeRisk ? "text-orange-500" : "text-muted-foreground"))} />}
+        {kpi.unit ? (
+          <span className="text-xs font-semibold text-muted-foreground">{kpi.unit}</span>
+        ) : (
+          IconComponent && <IconComponent className={cn("h-5 w-5", kpi.isRisk || kpi.isBorderRisk ? "text-destructive" : (kpi.isOrangeRisk ? "text-orange-500" : "text-muted-foreground"))} />
+        )}
       </CardHeader>
       <CardContent>
         <div className={valueClassName}>{kpi.value}</div>
@@ -81,7 +84,7 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
           changeAbsolute={kpi.primaryChangeAbsolute}
           changeType={kpi.primaryChangeType}
         />
-        {kpi.secondaryComparisonLabel && ( // Render secondary comparison only if label exists
+        {kpi.secondaryComparisonLabel && ( 
           <ChangeDisplay
             comparisonLabel={kpi.secondaryComparisonLabel}
             change={kpi.secondaryChange}
