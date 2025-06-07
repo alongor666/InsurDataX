@@ -1,8 +1,9 @@
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
 import type { AnalysisMode, PeriodOption, DashboardView, DataSourceType } from '@/data/types';
-import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson } from 'lucide-react'; 
+import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -20,14 +21,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 interface AppHeaderProps {
   analysisMode: AnalysisMode;
   onAnalysisModeChange: (mode: AnalysisMode) => void;
   onAiSummaryClick: () => void;
-  selectedPeriod: string; 
+  selectedPeriod: string;
   onPeriodChange: (period: string) => void;
+  selectedComparisonPeriod: string | null; // New
+  onComparisonPeriodChange: (periodKey: string | null) => void; // New
   isAiSummaryLoading: boolean;
   periodOptions: PeriodOption[];
   activeView: DashboardView;
@@ -40,12 +44,14 @@ interface AppHeaderProps {
   onDataSourceChange: (source: DataSourceType) => void;
 }
 
-export function AppHeader({ 
-  analysisMode, 
-  onAnalysisModeChange, 
+export function AppHeader({
+  analysisMode,
+  onAnalysisModeChange,
   onAiSummaryClick,
   selectedPeriod,
   onPeriodChange,
+  selectedComparisonPeriod, // New
+  onComparisonPeriodChange, // New
   isAiSummaryLoading,
   periodOptions,
   activeView,
@@ -61,7 +67,7 @@ export function AppHeader({
   const viewOptions: {label: string, value: DashboardView, icon: React.ElementType}[] = [
     { label: "KPI看板", value: "kpi", icon: LayoutDashboard },
     { label: "趋势图", value: "trend", icon: LineChart },
-    { label: "气泡图", value: "bubble", icon: ScanLine }, 
+    { label: "气泡图", value: "bubble", icon: ScanLine },
     { label: "排名图", value: "bar_rank", icon: BarChartHorizontal },
     { label: "数据表", value: "data_table", icon: Rows3 },
   ];
@@ -72,10 +78,10 @@ export function AppHeader({
   ];
 
   const handleSelectAllBusinessTypes = () => {
-    if (selectedBusinessTypes.length === allBusinessTypes.length && allBusinessTypes.length > 0) { 
-      onSelectedBusinessTypesChange([]); 
+    if (selectedBusinessTypes.length === allBusinessTypes.length && allBusinessTypes.length > 0) {
+      onSelectedBusinessTypesChange([]);
     } else {
-      onSelectedBusinessTypesChange([...allBusinessTypes]); 
+      onSelectedBusinessTypesChange([...allBusinessTypes]);
     }
   };
 
@@ -86,13 +92,16 @@ export function AppHeader({
     onSelectedBusinessTypesChange(newSelection);
   };
 
+  const comparisonPeriodOptions = periodOptions.filter(option => option.value !== selectedPeriod);
+
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between flex-wrap gap-y-2 md:gap-y-0">
+      <div className="container flex h-auto md:h-16 items-center justify-between flex-wrap gap-y-2 py-2 md:py-0">
         <Link href="/" className="mr-6 flex items-center space-x-2">
           <span className="font-headline text-xl font-bold text-primary">车险经营分析周报</span>
         </Link>
-        
+
         <div className="flex items-center space-x-1 md:space-x-2 flex-wrap gap-y-1">
           <div className="flex items-center space-x-1 md:space-x-2">
             <Select value={currentDataSource} onValueChange={(value) => onDataSourceChange(value as DataSourceType)}>
@@ -111,12 +120,12 @@ export function AppHeader({
                 </SelectContent>
             </Select>
           </div>
-          
+
           <div className="flex items-center space-x-1 md:space-x-2">
             <Settings2 className="h-5 w-5 text-muted-foreground hidden md:block" />
             <Select value={selectedPeriod} onValueChange={onPeriodChange} disabled={periodOptions.length === 0}>
               <SelectTrigger className="w-[130px] md:w-[170px] h-9 text-xs md:text-sm">
-                <SelectValue placeholder={periodOptions.length > 0 ? "选择数据周期" : "加载周期中..."} />
+                <SelectValue placeholder={periodOptions.length > 0 ? "选择当前周期" : "加载周期中..."} />
               </SelectTrigger>
               <SelectContent>
                 {periodOptions.map(option => (
@@ -125,6 +134,46 @@ export function AppHeader({
               </SelectContent>
             </Select>
           </div>
+
+          <div className="flex items-center space-x-1 md:space-x-2 relative">
+            <GitCompareArrows className="h-5 w-5 text-muted-foreground hidden md:block" />
+            <Select
+              value={selectedComparisonPeriod || "default"}
+              onValueChange={(value) => onComparisonPeriodChange(value === "default" ? null : value)}
+              disabled={periodOptions.length === 0 || !selectedPeriod}
+            >
+              <SelectTrigger className="w-[130px] md:w-[170px] h-9 text-xs md:text-sm pr-8">
+                <SelectValue placeholder={periodOptions.length > 0 ? "选择对比周期" : "选择当前期"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default" className="text-xs md:text-sm">默认对比 (智能环比/同比)</SelectItem>
+                <Separator />
+                {comparisonPeriodOptions.map(option => (
+                  <SelectItem key={option.value} value={option.value} className="text-xs md:text-sm">{option.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedComparisonPeriod && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
+                      onClick={() => onComparisonPeriodChange(null)}
+                    >
+                      <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>清除自定义对比周期</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -164,7 +213,7 @@ export function AppHeader({
           </DropdownMenu>
 
           <AnalysisModeToggle currentMode={analysisMode} onModeChange={onAnalysisModeChange} />
-          
+
           <Button onClick={onAiSummaryClick} variant="outline" size="sm" disabled={isAiSummaryLoading} className="h-9 text-xs md:text-sm">
             <Sparkles className={`mr-1 md:mr-2 h-4 w-4 ${isAiSummaryLoading ? 'animate-spin' : ''}`} />
             {isAiSummaryLoading ? '生成中...' : 'AI摘要'}

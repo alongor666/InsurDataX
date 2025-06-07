@@ -3,57 +3,55 @@ import type { LucideIcon as ActualLucideIcon } from 'lucide-react'; // Keep actu
 
 export type AnalysisMode = 'cumulative' | 'periodOverPeriod'; // 累计数据 | 当周发生额
 export type DashboardView = 'kpi' | 'trend' | 'bubble' | 'bar_rank' | 'data_table';
-export type DataSourceType = 'json' | 'db'; // New: Data source type
+export type DataSourceType = 'json' | 'db';
 
 // V4.0 JSON Structure Types
 export interface V4BusinessDataEntry {
   business_type: string;
 
   // --- 聚合计算基础字段 (YTD values from JSON) ---
-  premium_written: number;         // 跟单保费 (万元)
-  premium_earned: number;          // 满期保费 (万元)
-  total_loss_amount: number;       // 总赔款 (已报告赔款) (万元)
-  expense_amount_raw: number;      // 原始费用金额 (计算费用率的基础) (万元)
+  premium_written: number;
+  premium_earned: number;
+  total_loss_amount: number;
+  expense_amount_raw: number;
 
-  claim_count?: number | null;             // 赔案数量 (件/次) - 计算案均赔款、满期出险率的基础
-  policy_count_earned?: number | null;     // 满期保单数量 (件) - 计算满期出险率的基础
+  claim_count?: number | null;
+  policy_count_earned?: number | null;
 
   // --- 单业务类型预计算值 (YTD values from JSON, for direct use if single type selected, or validation) ---
-  avg_premium_per_policy?: number | null;   // 单均保费 (元)
-  avg_loss_per_case?: number | null;        // 案均赔款 (元)
-  avg_commercial_index?: number | null;     // 自主系数 (无单位) - 不聚合
+  avg_premium_per_policy?: number | null;
+  avg_loss_per_case?: number | null;
+  avg_commercial_index?: number | null;
 
-  loss_ratio?: number | null;               // 满期赔付率 (%)
-  expense_ratio?: number | null;            // 费用率 (%)
-  variable_cost_ratio?: number | null;      // 变动成本率 (%)
-  premium_earned_ratio?: number | null;     // 保费满期率 (%)
-  claim_frequency?: number | null;          // 满期出险率 (%)
+  loss_ratio?: number | null;
+  expense_ratio?: number | null;
+  variable_cost_ratio?: number | null;
+  premium_earned_ratio?: number | null;
+  claim_frequency?: number | null;
 }
 
 export interface V4PeriodTotals {
-  total_premium_written_overall?: number; // 跟单保费总计 (所有业务类型)
-  // ... other possible global totals for the period
+  total_premium_written_overall?: number;
 }
 
 export interface V4PeriodData {
   period_id: string;
   period_label: string;
   comparison_period_id_yoy?: string | null;
-  comparison_period_id_mom?: string | null; //环比
+  comparison_period_id_mom?: string | null;
   business_data: V4BusinessDataEntry[];
   totals_for_period?: V4PeriodTotals | null;
 }
 
-// Represents all calculated metrics for a specific scope (single line/aggregated, YTD/PoP)
 export interface AggregatedBusinessMetrics {
   premium_written: number;
   premium_earned: number;
   total_loss_amount: number;
-  expense_amount_raw: number; // Keep this raw value for ratio calculations if needed
+  expense_amount_raw: number;
   policy_count: number;
   claim_count: number;
   policy_count_earned: number;
-  avg_commercial_index?: number | null; // Only for single line, undefined for aggregate
+  avg_commercial_index?: number | null;
 
   loss_ratio: number;
   expense_ratio: number;
@@ -62,66 +60,65 @@ export interface AggregatedBusinessMetrics {
   claim_frequency: number;
   avg_premium_per_policy: number;
   avg_loss_per_case: number;
-  expense_amount: number; // This is calculated: premium_written * (expense_ratio/100)
+  expense_amount: number;
 
-  marginal_contribution_ratio: number; 
-  marginal_contribution_amount: number; 
+  marginal_contribution_ratio: number;
+  marginal_contribution_amount: number;
 }
 
-
-// Processed data structure for use in components.
 export interface ProcessedDataForPeriod {
   businessLineId: string;
   businessLineName: string;
-  icon?: string; 
+  icon?: string;
 
   currentMetrics: AggregatedBusinessMetrics;
-  momMetrics?: AggregatedBusinessMetrics | null; 
-  yoyMetrics?: AggregatedBusinessMetrics | null; 
-  
-  premium_written: number; // Direct access for table display
-  total_loss_amount: number; // Direct access for table display
-  policy_count: number; // Direct access for table display
-  loss_ratio: number; // Direct access for table display
-  expense_ratio: number; // Direct access for table display
-  variable_cost_ratio: number; // For VCR-based coloring and direct access
-  vcr_color?: string; // Color based on variable_cost_ratio
+  momMetrics?: AggregatedBusinessMetrics | null; // Represents data for 'month-over-month' or 'custom comparison' period
+  yoyMetrics?: AggregatedBusinessMetrics | null; // Represents data for 'year-over-year' period, null if custom comparison is active
 
-  // For periodOverPeriod mode in table
+  premium_written: number;
+  total_loss_amount: number;
+  policy_count: number;
+  loss_ratio: number;
+  expense_ratio: number;
+  variable_cost_ratio: number;
+  vcr_color?: string;
+
   premium_writtenChange?: number;
   total_loss_amountChange?: number;
   policy_countChange?: number;
-  loss_ratioChange?: number; // This is a direct difference in percentage points
-  expense_ratioChange?: number; // This is a direct difference in percentage points
+  loss_ratioChange?: number;
+  expense_ratioChange?: number;
 
-  premium_share?: number; // Calculated for display
+  premium_share?: number;
 }
-
 
 export interface Kpi {
   id: string;
   title: string;
   value: string;
   rawValue?: number;
-  change?: string; 
-  changeAbsolute?: string; 
-  changeType?: 'positive' | 'negative' | 'neutral';
-  yoyChange?: string; 
-  yoyChangeAbsolute?: string; 
-  yoyChangeType?: 'positive' | 'negative' | 'neutral';
   description?: string;
-  icon?: string; 
-  isRisk?: boolean; 
-  isBorderRisk?: boolean; 
-  isOrangeRisk?: boolean; 
+  icon?: string;
+  isRisk?: boolean;
+  isBorderRisk?: boolean;
+  isOrangeRisk?: boolean;
+
+  primaryComparisonLabel?: string; // e.g., "环比", "对比 2025-W20"
+  primaryChange?: string;          // e.g., "+5.0%", "-2.1 pp"
+  primaryChangeAbsolute?: string;  // e.g., "+100 万元"
+  primaryChangeType?: 'positive' | 'negative' | 'neutral';
+
+  secondaryComparisonLabel?: string; // e.g., "同比", null if custom comparison active
+  secondaryChange?: string;
+  secondaryChangeAbsolute?: string;
+  secondaryChangeType?: 'positive' | 'negative' | 'neutral';
 }
 
-// For charts
 export interface ChartDataItem {
-  name: string; 
-  color?: string; // For dynamic coloring based on VCR
-  vcr?: number; // Storing VCR for tooltip if needed
-  [key: string]: number | string | undefined; 
+  name: string;
+  color?: string;
+  vcr?: number;
+  [key: string]: number | string | undefined;
 }
 
 export interface BubbleChartDataItem {
@@ -130,34 +127,29 @@ export interface BubbleChartDataItem {
   x: number;
   y: number;
   z: number;
-  color?: string; // For dynamic coloring based on VCR
-  vcr?: number; // To pass variable_cost_ratio for tooltip or other uses
+  color?: string;
+  vcr?: number;
 }
 
-// AI Summary related types
 export interface AiSummaryInput {
-  data: string; 
-  filters: string; 
+  data: string;
+  filters: string;
   analysisMode: AnalysisMode;
   currentPeriodLabel: string;
 }
 
-// For period selection dropdown
 export interface PeriodOption {
-  value: string; // period_id
-  label: string; // period_label
+  value: string;
+  label: string;
 }
 
-
-// V4.0 field names for ranking and trend metrics used in page.tsx
 export type CoreAggregatedMetricKey = keyof AggregatedBusinessMetrics;
-// Exclude metrics not suitable for direct ranking or trending by default
-// 'avg_commercial_index' is often not aggregated or ranked across multiple lines
-// 'expense_amount_raw' is an intermediate value
 export type RankingMetricKey = Exclude<CoreAggregatedMetricKey, 'avg_commercial_index' | 'expense_amount_raw' >;
 export type TrendMetricKey = Exclude<CoreAggregatedMetricKey, 'avg_commercial_index' | 'expense_amount_raw' >;
-// Bubble chart metrics are usually numeric and representable on axes or by size
 export type BubbleMetricKey = Exclude<CoreAggregatedMetricKey, 'avg_commercial_index' | 'expense_amount_raw'>;
 
-
 export interface BusinessLineBasic {
+  // This type might be needed if we simplify data for selectors or other UI elements
+  id: string;
+  name: string;
+}

@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import type { AnalysisMode, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod, V4PeriodData, PeriodOption, DashboardView, TrendMetricKey, RankingMetricKey, BubbleMetricKey, AggregatedBusinessMetrics, DataSourceType } from '@/data/types'; 
+import type { AnalysisMode, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod, V4PeriodData, PeriodOption, DashboardView, TrendMetricKey, RankingMetricKey, BubbleMetricKey, AggregatedBusinessMetrics, DataSourceType } from '@/data/types';
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { AppHeader } from '@/components/layout/header';
@@ -25,7 +26,7 @@ import {
   exportToCSV,
   getDynamicColorByVCR
 } from '@/lib/data-utils';
-import { getAllV4DataFromDb } from '@/lib/db'; // Import DB function
+// Removed: import { getAllV4DataFromDb } from '@/lib/db';
 
 
 const availableTrendMetrics: { value: TrendMetricKey, label: string }[] = [
@@ -37,7 +38,7 @@ const availableTrendMetrics: { value: TrendMetricKey, label: string }[] = [
   { value: 'variable_cost_ratio', label: '变动成本率 (%)'},
   { value: 'premium_earned', label: '满期保费 (万元)'},
   { value: 'expense_amount', label: '费用额 (万元)'},
-  { value: 'claim_count', label: '赔案数量 (件)'}, 
+  { value: 'claim_count', label: '赔案数量 (件)'},
   { value: 'policy_count_earned', label: '满期保单 (件)'},
   { value: 'marginal_contribution_amount', label: '边贡额 (万元)'},
   { value: 'marginal_contribution_ratio', label: '边际贡献率 (%)'},
@@ -82,14 +83,15 @@ const availableBubbleMetrics: { value: BubbleMetricKey, label: string }[] = [
 export default function DashboardPage() {
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('cumulative');
   const [activeView, setActiveView] = useState<DashboardView>('kpi');
-  const [dataSource, setDataSource] = useState<DataSourceType>('json'); // New state for data source
+  const [dataSource, setDataSource] = useState<DataSourceType>('json');
 
   const [allV4Data, setAllV4Data] = useState<V4PeriodData[]>([]);
   const [periodOptions, setPeriodOptions] = useState<PeriodOption[]>([]);
   const [selectedPeriodKey, setSelectedPeriodKey] = useState<string>('');
-  
+  const [selectedComparisonPeriodKey, setSelectedComparisonPeriodKey] = useState<string | null>(null); 
+
   const [allBusinessTypes, setAllBusinessTypes] = useState<string[]>([]);
-  const [selectedBusinessTypes, setSelectedBusinessTypes] = useState<string[]>([]); 
+  const [selectedBusinessTypes, setSelectedBusinessTypes] = useState<string[]>([]);
 
   const [processedData, setProcessedData] = useState<ProcessedDataForPeriod[]>([]);
   const [kpis, setKpis] = useState<Kpi[]>([]);
@@ -115,7 +117,7 @@ export default function DashboardPage() {
   const [barRankAiSummary, setBarRankAiSummary] = useState<string | null>(null);
   const [isBarRankAiSummaryLoading, setIsBarRankAiSummaryLoading] = useState(false);
 
-  const [isGlobalLoading, setIsGlobalLoading] = useState(true); // New global loading state
+  const [isGlobalLoading, setIsGlobalLoading] = useState(true);
 
   const { toast } = useToast();
 
@@ -126,7 +128,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       setIsGlobalLoading(true);
-      setOverallAiSummary(null); // Reset AI summary on data source change
+      setOverallAiSummary(null);
       setTrendAiSummary(null);
       setBubbleAiSummary(null);
       setBarRankAiSummary(null);
@@ -143,35 +145,56 @@ export default function DashboardPage() {
         } else if (dataSource === 'db') {
           toast({ title: "数据加载中", description: "正在尝试从PostgreSQL数据库加载数据..." });
           try {
-            data = await getAllV4DataFromDb(); 
+            const response = await fetch('/api/insurance-data');
+            if (!response.ok) {
+              let errorDetails = "Failed to fetch from DB API.";
+              try {
+                  const errorJson = await response.json();
+                  errorDetails = errorJson.message || errorJson.error || errorDetails;
+              } catch (e) {
+                  // Failed to parse JSON error response
+              }
+              throw new Error(errorDetails + ` Status: ${response.status}`);
+            }
+            data = await response.json();
+            
             if (data.length === 0) {
                  toast({ title: "数据库提示", description: "从数据库获取的数据为空，或数据库功能尚未完全实现。" , duration: 5000});
             } else {
                  toast({ title: "数据加载成功", description: "已从PostgreSQL数据库加载数据。" });
             }
           } catch (dbError) {
-            console.error("Error fetching from DB:", dbError);
-            toast({ variant: "destructive", title: "数据库连接失败", description: `无法从数据库加载数据: ${dbError instanceof Error ? dbError.message : String(dbError)}. 请检查配置或联系管理员。`, duration: 8000 });
+            console.error("Error fetching from DB API in page.tsx:", dbError);
+            toast({ variant: "destructive", title: "数据库加载失败", description: `无法从数据库加载数据: ${dbError instanceof Error ? dbError.message : String(dbError)}. 请检查配置或联系管理员。`, duration: 8000 });
             data = []; // Fallback to empty data
           }
         }
-        
-        setAllV4Data(data); 
-        setGlobalV4DataForKpiWorkaround(data);
+
+        setAllV4Data(data);
+        setGlobalV4DataForKpiWorkaround(data); 
 
         const options = data
           .map(p => ({ value: p.period_id, label: p.period_label }))
-          .sort((a, b) => b.label.localeCompare(a.label)); 
+          .sort((a, b) => b.label.localeCompare(a.label));
         setPeriodOptions(options);
 
-        // If selectedPeriodKey is no longer valid or was never set with data, try to set it.
         const currentSelectedIsValid = options.some(opt => opt.value === selectedPeriodKey);
         if (options.length > 0 && (!selectedPeriodKey || !currentSelectedIsValid) ) {
-          setSelectedPeriodKey(options[0].value); 
+          setSelectedPeriodKey(options[0].value);
         } else if (options.length === 0) {
-          setSelectedPeriodKey(''); 
+          setSelectedPeriodKey('');
+          setSelectedComparisonPeriodKey(null); 
         }
+
         
+        if (selectedComparisonPeriodKey && !options.some(opt => opt.value === selectedComparisonPeriodKey)) {
+            setSelectedComparisonPeriodKey(null);
+        }
+        if (selectedComparisonPeriodKey === selectedPeriodKey) { 
+            setSelectedComparisonPeriodKey(null);
+        }
+
+
         if (data.length > 0 && data[0].business_data) {
           const uniqueTypes = Array.from(new Set(data.flatMap(p => p.business_data.map(bd => bd.business_type))
             .filter(bt => bt && bt.toLowerCase() !== '合计' && bt.toLowerCase() !== 'total')))
@@ -181,19 +204,20 @@ export default function DashboardPage() {
           setAllBusinessTypes([]);
         }
 
-      } catch (error) { 
+      } catch (error) {
         console.error("Error in fetchData:", error);
         toast({ variant: "destructive", title: "数据加载失败", description: `无法加载数据源: ${error instanceof Error ? error.message : String(error)}` });
-        setAllV4Data([]); 
+        setAllV4Data([]);
         setPeriodOptions([]);
         setSelectedPeriodKey('');
+        setSelectedComparisonPeriodKey(null);
         setAllBusinessTypes([]);
       } finally {
         setIsGlobalLoading(false);
       }
     };
     fetchData();
-  }, [dataSource, toast]); // Only re-fetch when dataSource or toast changes. Other dependencies handled by downstream useEffects.
+  }, [dataSource, toast]); 
 
   useEffect(() => {
     if (isGlobalLoading || allV4Data.length === 0 || !selectedPeriodKey) {
@@ -205,23 +229,33 @@ export default function DashboardPage() {
       return;
     }
 
-    const currentPeriod = allV4Data.find(p => p.period_id === selectedPeriodKey);
     
+    if (selectedComparisonPeriodKey === selectedPeriodKey) {
+        setSelectedComparisonPeriodKey(null); 
+        toast({variant: "destructive", title: "选择错误", description: "当前周期和对比周期不能相同。已重置对比周期。"})
+        return; 
+    }
+
+    const currentPeriod = allV4Data.find(p => p.period_id === selectedPeriodKey);
+
     const dataForCalculations = processDataForSelectedPeriod(
       allV4Data,
       selectedPeriodKey,
+      selectedComparisonPeriodKey, 
       analysisMode,
-      selectedBusinessTypes 
+      selectedBusinessTypes
     );
-    setProcessedData(dataForCalculations); 
-    
+    setProcessedData(dataForCalculations);
+
     if (dataForCalculations.length > 0) {
       const calculatedKpis = calculateKpis(
-        dataForCalculations, 
-        currentPeriod?.totals_for_period, 
-        analysisMode, 
+        dataForCalculations,
+        currentPeriod?.totals_for_period,
+        analysisMode,
         selectedBusinessTypes,
-        selectedPeriodKey 
+        selectedPeriodKey,
+        selectedComparisonPeriodKey, 
+        periodOptions 
       );
       setKpis(calculatedKpis);
 
@@ -240,18 +274,18 @@ export default function DashboardPage() {
       setBarRankData([]);
     }
 
-  }, [isGlobalLoading, analysisMode, selectedPeriodKey, allV4Data, selectedBusinessTypes, selectedTrendMetric, selectedRankingMetric, selectedBubbleXAxisMetric, selectedBubbleYAxisMetric, selectedBubbleSizeMetric]);
+  }, [isGlobalLoading, analysisMode, selectedPeriodKey, selectedComparisonPeriodKey, allV4Data, selectedBusinessTypes, selectedTrendMetric, selectedRankingMetric, selectedBubbleXAxisMetric, selectedBubbleYAxisMetric, selectedBubbleSizeMetric, periodOptions, toast]); 
 
 
   const prepareTrendData_V4 = (
-    allData: V4PeriodData[], 
-    metricKey: TrendMetricKey, 
-    currentPeriodId: string, 
+    allData: V4PeriodData[],
+    metricKey: TrendMetricKey,
+    currentPeriodId: string,
     mode: AnalysisMode,
     selBusinessTypes: string[]
   ): ChartDataItem[] => {
     const trendOutput: ChartDataItem[] = [];
-    const maxPeriods = 12; 
+    const maxPeriods = 12;
 
     const sortedPeriods = [...allData].sort((a, b) => a.period_id.localeCompare(b.period_id));
     const currentPeriodIndex = sortedPeriods.findIndex(p => p.period_id === currentPeriodId);
@@ -262,10 +296,12 @@ export default function DashboardPage() {
     const periodsForTrend = sortedPeriods.slice(startIndex, currentPeriodIndex + 1);
 
     periodsForTrend.forEach(period => {
+      
       const processedForThisPeriodTrendPoint = processDataForSelectedPeriod(
         allData,
         period.period_id,
-        mode, 
+        null, 
+        mode,
         selBusinessTypes
       );
 
@@ -273,13 +309,13 @@ export default function DashboardPage() {
         const metrics = processedForThisPeriodTrendPoint[0].currentMetrics;
         const vcr = metrics.variable_cost_ratio;
         let value: number | undefined | null = metrics[metricKey as keyof typeof metrics] as number | undefined | null;
-        
+
         if (typeof value !== 'number' || isNaN(value)) {
-            value = 0; 
+            value = 0;
         }
 
         const chartItem: ChartDataItem = { name: period.period_label, color: getDynamicColorByVCR(vcr) };
-        const lineName = processedForThisPeriodTrendPoint[0].businessLineName || "合计"; 
+        const lineName = processedForThisPeriodTrendPoint[0].businessLineName || "合计";
         chartItem[lineName] = value;
         trendOutput.push(chartItem);
       }
@@ -306,16 +342,17 @@ export default function DashboardPage() {
         .map(bd => bd.business_type)
         .filter(bt => bt && bt.toLowerCase() !== '合计' && bt.toLowerCase() !== 'total')
     ));
-    
+
     const typesToProcessForBubbles = selBusinessTypes.length > 0 ? selBusinessTypes : allIndividualTypesInPeriod;
 
     if (typesToProcessForBubbles.length > 0) {
         dataForBubbleChart = typesToProcessForBubbles.map(bt => {
-            const singleTypeProcessed = processDataForSelectedPeriod(allRawData, currentPeriodId, mode, [bt]);
-            return singleTypeProcessed[0]; 
-        }).filter(d => d && d.currentMetrics && d.businessLineId !== '合计' && d.businessLineId !== '自定义合计'); 
+            
+            const singleTypeProcessed = processDataForSelectedPeriod(allRawData, currentPeriodId, null, mode, [bt]);
+            return singleTypeProcessed[0];
+        }).filter(d => d && d.currentMetrics && d.businessLineId !== '合计' && d.businessLineId !== '自定义合计');
     }
-    
+
     return dataForBubbleChart.map(d => {
         const metrics = d.currentMetrics as AggregatedBusinessMetrics;
         const vcr = metrics.variable_cost_ratio;
@@ -336,7 +373,7 @@ export default function DashboardPage() {
     metricKey: RankingMetricKey,
     currentPeriodId: string,
     mode: AnalysisMode,
-    selBusinessTypes: string[] 
+    selBusinessTypes: string[]
     ): ChartDataItem[] => {
     let dataForRanking: ProcessedDataForPeriod[] = [];
     const currentRawPeriod = allRawData.find(p => p.period_id === currentPeriodId);
@@ -347,16 +384,17 @@ export default function DashboardPage() {
         .map(bd => bd.business_type)
         .filter(bt => bt && bt.toLowerCase() !== '合计' && bt.toLowerCase() !== 'total')
     ));
-    
+
     const typesToProcessForRanking = selBusinessTypes.length > 0 ? selBusinessTypes : allIndividualTypesInPeriod;
 
     if (typesToProcessForRanking.length > 0) {
         dataForRanking = typesToProcessForRanking.map(bt => {
-            const singleTypeProcessed = processDataForSelectedPeriod(allRawData, currentPeriodId, mode, [bt]);
+            
+            const singleTypeProcessed = processDataForSelectedPeriod(allRawData, currentPeriodId, null, mode, [bt]);
             return singleTypeProcessed[0];
         }).filter(d => d && d.currentMetrics && d.businessLineId !== '合计' && d.businessLineId !== '自定义合计');
     }
-    
+
     return [...dataForRanking]
         .filter(d => d.currentMetrics && d.currentMetrics[metricKey] !== undefined && d.currentMetrics[metricKey] !== null)
         .sort((a, b) => (b.currentMetrics![metricKey] as number || 0) - (a.currentMetrics![metricKey] as number || 0))
@@ -367,17 +405,28 @@ export default function DashboardPage() {
             name: d.businessLineName,
             [metricKey]: metrics[metricKey] as number || 0,
             color: getDynamicColorByVCR(vcr),
-            vcr: vcr // Add vcr for tooltip consistency
+            vcr: vcr
           };
         });
   }
 
-  const getCommonAiFilters = () => ({
-    analysisMode,
-    period: currentPeriodLabel,
-    selectedBusinessTypes: selectedBusinessTypes.length > 0 ? selectedBusinessTypes.join(', ') : '全部独立业务类型合计',
-    vcrColorRules: "颜色基于变动成本率(VCR)动态调整深浅：绿色(优秀, VCR < 88%，越小越深绿)，蓝色(健康, 88%-92%，越接近88%越深蓝)，红色(危险, VCR >= 92%，越大越深红)。"
-  });
+  const getCommonAiFilters = () => {
+    let comparisonPeriodInfo = "默认环比/同比";
+    if (selectedComparisonPeriodKey) {
+        const selectedCompLabel = periodOptions.find(p => p.value === selectedComparisonPeriodKey)?.label;
+        if (selectedCompLabel) {
+            comparisonPeriodInfo = `对比周期: ${selectedCompLabel}`;
+        }
+    }
+    return {
+        analysisMode,
+        period: currentPeriodLabel,
+        comparison: comparisonPeriodInfo,
+        selectedBusinessTypes: selectedBusinessTypes.length > 0 ? selectedBusinessTypes.join(', ') : '全部独立业务类型合计',
+        vcrColorRules: "颜色基于变动成本率(VCR)动态调整深浅：绿色(优秀, VCR < 88%，越小越深绿)，蓝色(健康, 88%-92%，越接近88%越深蓝)，红色(危险, VCR >= 92%，越大越深红)。"
+    };
+};
+
 
  const handleOverallAiSummary = async () => {
     if (isGlobalLoading || !processedData || processedData.length === 0) {
@@ -387,50 +436,45 @@ export default function DashboardPage() {
     setIsOverallAiSummaryLoading(true);
     setOverallAiSummary(null);
     try {
-      const currentContextData = processedData[0]; 
+      const currentContextData = processedData[0];
       let topBusinessLinesData: any[] = [];
+
+      
+      const relevantMetricsToDisplay = (metrics: AggregatedBusinessMetrics, comparisonMetrics?: AggregatedBusinessMetrics | null) => {
+        let changeInPremium = 'N/A';
+        if (metrics?.premium_written !== undefined && comparisonMetrics?.premium_written !== undefined && comparisonMetrics?.premium_written !== 0) {
+            const absChange = metrics.premium_written - comparisonMetrics.premium_written;
+            changeInPremium = `${absChange >= 0 ? '+' : ''}${absChange.toFixed(2)} (${selectedComparisonPeriodKey ? '对比所选' : '环比'})`;
+        } else if (metrics?.premium_written !== undefined && comparisonMetrics?.premium_written === 0) {
+            changeInPremium = `+${metrics.premium_written.toFixed(2)} (${selectedComparisonPeriodKey ? '对比所选' : '环比'})`;
+        }
+        return {
+            premiumWritten: `${metrics.premium_written?.toFixed(2) || 'N/A'} 万元`,
+            lossRatio: `${metrics.loss_ratio?.toFixed(2) || 'N/A'}%`,
+            variableCostRatio: `${metrics.variable_cost_ratio?.toFixed(2) || 'N/A'}%`,
+            color: getDynamicColorByVCR(metrics.variable_cost_ratio),
+            changeInPremiumWritten: changeInPremium,
+        };
+      };
+
 
       if (currentContextData && currentContextData.currentMetrics) {
           if (currentContextData.businessLineId === '合计' || currentContextData.businessLineId === '自定义合计' || selectedBusinessTypes.length === 0) {
               const individualLinesData = allBusinessTypes.map(bt => {
-                return processDataForSelectedPeriod(allV4Data, selectedPeriodKey, analysisMode, [bt])[0];
+                return processDataForSelectedPeriod(allV4Data, selectedPeriodKey, selectedComparisonPeriodKey, analysisMode, [bt])[0];
               }).filter(d => d && d.currentMetrics && d.businessLineId !== '合计' && d.businessLineId !== '自定义合计');
-              
+
               topBusinessLinesData = individualLinesData
                 .sort((a, b) => (b.currentMetrics.premium_written || 0) - (a.currentMetrics.premium_written || 0))
-                .slice(0, 3) 
-                .map(d => {
-                  let changeInPremium = 'N/A';
-                  if (d.currentMetrics?.premium_written !== undefined && d.momMetrics?.premium_written !== undefined && d.momMetrics?.premium_written !== 0) {
-                      const momChangeAbs = d.currentMetrics.premium_written - d.momMetrics.premium_written;
-                       changeInPremium = `${momChangeAbs >= 0 ? '+' : ''}${momChangeAbs.toFixed(2)} 万元 (环比)`;
-                  } else if (d.currentMetrics?.premium_written !== undefined && d.momMetrics?.premium_written === 0) {
-                       changeInPremium = `+${d.currentMetrics.premium_written.toFixed(2)} 万元 (环比)`;
-                  }
-                  return {
+                .slice(0, 3)
+                .map(d => ({
                     name: d.businessLineName,
-                    premiumWritten: `${d.currentMetrics.premium_written?.toFixed(2) || 'N/A'} 万元`,
-                    lossRatio: `${d.currentMetrics.loss_ratio?.toFixed(2) || 'N/A'}%`,
-                    variableCostRatio: `${d.currentMetrics.variable_cost_ratio?.toFixed(2) || 'N/A'}%`,
-                    color: getDynamicColorByVCR(d.currentMetrics.variable_cost_ratio), 
-                    changeInPremiumWritten: changeInPremium, 
-                  };
-                });
-          } else { 
-             let changeInPremium = 'N/A';
-             if (currentContextData.currentMetrics?.premium_written !== undefined && currentContextData.momMetrics?.premium_written !== undefined && currentContextData.momMetrics?.premium_written !== 0) {
-                const momChangeAbs = currentContextData.currentMetrics.premium_written - currentContextData.momMetrics.premium_written;
-                changeInPremium = `${momChangeAbs >= 0 ? '+' : ''}${momChangeAbs.toFixed(2)} 万元 (环比)`;
-             } else if (currentContextData.currentMetrics?.premium_written !== undefined && currentContextData.momMetrics?.premium_written === 0) {
-                changeInPremium = `+${currentContextData.currentMetrics.premium_written.toFixed(2)} 万元 (环比)`;
-             }
-            topBusinessLinesData = [{ 
+                    ...relevantMetricsToDisplay(d.currentMetrics, d.momMetrics) 
+                }));
+          } else {
+            topBusinessLinesData = [{
                 name: currentContextData.businessLineName,
-                premiumWritten: `${currentContextData.currentMetrics.premium_written?.toFixed(2) || 'N/A'} 万元`,
-                lossRatio: `${currentContextData.currentMetrics.loss_ratio?.toFixed(2) || 'N/A'}%`,
-                variableCostRatio: `${currentContextData.currentMetrics.variable_cost_ratio?.toFixed(2) || 'N/A'}%`,
-                color: getDynamicColorByVCR(currentContextData.currentMetrics.variable_cost_ratio), 
-                changeInPremiumWritten: changeInPremium
+                ...relevantMetricsToDisplay(currentContextData.currentMetrics, currentContextData.momMetrics)
             }];
           }
       }
@@ -440,16 +484,18 @@ export default function DashboardPage() {
             title: kpi.title,
             value: kpi.value,
             rawValue: kpi.rawValue,
-            momChangePercent: kpi.change, 
-            momChangeAbsolute: kpi.changeAbsolute, 
-            yoyChangePercent: kpi.yoyChange, 
-            yoyChangeAbsolute: kpi.yoyChangeAbsolute, 
+            primaryComparisonLabel: kpi.primaryComparisonLabel,
+            primaryChangePercent: kpi.primaryChange,
+            primaryChangeAbsolute: kpi.primaryChangeAbsolute,
+            secondaryComparisonLabel: kpi.secondaryComparisonLabel,
+            secondaryChangePercent: kpi.secondaryChange,
+            secondaryChangeAbsolute: kpi.secondaryChangeAbsolute,
             isRisk: kpi.isRisk || kpi.isBorderRisk || kpi.isOrangeRisk,
             description: kpi.description
         })),
         ...(topBusinessLinesData.length > 0 && { topBusinessLinesByPremiumWritten: topBusinessLinesData }),
       };
-      
+
       const input: GenerateBusinessSummaryInput = {
         data: JSON.stringify(aiInputData, null, 2),
         filters: JSON.stringify(getCommonAiFilters(), null, 2),
@@ -479,8 +525,8 @@ export default function DashboardPage() {
         chartDataJson: JSON.stringify(trendChartData),
         selectedMetric: availableTrendMetrics.find(m => m.value === selectedTrendMetric)?.label || selectedTrendMetric,
         analysisMode,
-        currentPeriodLabel,
-        filtersJson: JSON.stringify(getCommonAiFilters())
+        currentPeriodLabel, 
+        filtersJson: JSON.stringify(getCommonAiFilters()) 
       };
       const result = await generateTrendAnalysis(input);
       setTrendAiSummary(result.summary);
@@ -549,11 +595,11 @@ export default function DashboardPage() {
       setIsBarRankAiSummaryLoading(false);
     }
   };
-  
+
   const handleExportData = () => {
     if (processedData.length > 0) {
       const fileName = `${currentPeriodLabel}_${analysisMode}_${selectedBusinessTypes.join('_') || '合计'}_车险数据.csv`;
-      exportToCSV(processedData, analysisMode, fileName);
+      exportToCSV(processedData, analysisMode, fileName, selectedComparisonPeriodKey, periodOptions);
       toast({ title: "数据导出成功", description: `数据已导出为 ${fileName}` });
     } else {
       toast({ variant: "destructive", title: "无数据可导出" });
@@ -567,6 +613,8 @@ export default function DashboardPage() {
       onAiSummaryClick={handleOverallAiSummary}
       selectedPeriod={selectedPeriodKey}
       onPeriodChange={setSelectedPeriodKey}
+      selectedComparisonPeriod={selectedComparisonPeriodKey} 
+      onComparisonPeriodChange={setSelectedComparisonPeriodKey} 
       isAiSummaryLoading={isOverallAiSummaryLoading}
       periodOptions={periodOptions}
       activeView={activeView}
@@ -588,8 +636,10 @@ export default function DashboardPage() {
         {isGlobalLoading && <p className="text-center text-muted-foreground py-8">正在加载数据，请稍候...</p>}
         {!isGlobalLoading && allV4Data.length === 0 && dataSource === 'db' && <p className="text-center text-destructive py-8">无法从数据库加载数据或数据库为空。请检查您的数据库连接配置和数据表。您可以尝试切换回JSON数据源。</p>}
         {!isGlobalLoading && allV4Data.length === 0 && dataSource === 'json' && <p className="text-center text-destructive py-8">JSON数据文件为空或加载失败。请检查 public/data/insurance_data_v4.json 文件。</p>}
+        {!isGlobalLoading && allV4Data.length > 0 && !selectedPeriodKey && <p className="text-center text-muted-foreground py-8">请选择一个数据周期以开始分析。</p>}
 
-        {!isGlobalLoading && allV4Data.length > 0 && (
+
+        {!isGlobalLoading && allV4Data.length > 0 && selectedPeriodKey && (
           <>
             {activeView === 'kpi' && <KpiDashboardSection kpis={kpis} />}
 
@@ -602,11 +652,11 @@ export default function DashboardPage() {
                 aiSummary={trendAiSummary}
                 isAiSummaryLoading={isTrendAiSummaryLoading}
                 onGenerateAiSummary={handleGenerateTrendAiSummary}
-                key={`trend-${dataSource}-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedTrendMetric}-${selectedPeriodKey}`} 
+                key={`trend-${dataSource}-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedTrendMetric}-${selectedPeriodKey}-${selectedComparisonPeriodKey}`}
               />
             )}
-            {activeView === 'bubble' && 
-              <BubbleChartSection 
+            {activeView === 'bubble' &&
+              <BubbleChartSection
                 data={bubbleChartData}
                 availableMetrics={availableBubbleMetrics}
                 selectedXAxisMetric={selectedBubbleXAxisMetric}
@@ -618,7 +668,7 @@ export default function DashboardPage() {
                 aiSummary={bubbleAiSummary}
                 isAiSummaryLoading={isBubbleAiSummaryLoading}
                 onGenerateAiSummary={handleGenerateBubbleAiSummary}
-                key={`bubble-${dataSource}-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedPeriodKey}-${selectedBubbleXAxisMetric}-${selectedBubbleYAxisMetric}-${selectedBubbleSizeMetric}`}
+                key={`bubble-${dataSource}-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedPeriodKey}-${selectedComparisonPeriodKey}-${selectedBubbleXAxisMetric}-${selectedBubbleYAxisMetric}-${selectedBubbleSizeMetric}`}
               />
             }
 
@@ -631,10 +681,10 @@ export default function DashboardPage() {
                 aiSummary={barRankAiSummary}
                 isAiSummaryLoading={isBarRankAiSummaryLoading}
                 onGenerateAiSummary={handleGenerateBarRankAiSummary}
-                key={`barrank-${dataSource}-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedRankingMetric}-${selectedPeriodKey}`}
+                key={`barrank-${dataSource}-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedRankingMetric}-${selectedPeriodKey}-${selectedComparisonPeriodKey}`}
               />
             )}
-            {activeView === 'data_table' && <DataTableSection data={processedData} analysisMode={analysisMode} />}
+            {activeView === 'data_table' && <DataTableSection data={processedData} analysisMode={analysisMode} selectedComparisonPeriodKey={selectedComparisonPeriodKey} periodOptions={periodOptions} />}
           </>
         )}
       </div>
