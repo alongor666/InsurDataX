@@ -111,17 +111,19 @@ const calculateBaseMetricsForSingleEntry = (entry: V4BusinessDataEntry, isPopMod
 
   const loss_ratio_calc = premium_earned !== 0 ? (total_loss_amount / premium_earned) * 100 : 0;
   const expense_ratio_calc = premium_written !== 0 ? (expense_amount_raw / premium_written) * 100 : 0;
+  
+  // VCR = ER + LR
+  const variable_cost_ratio_calc = expense_ratio_calc + loss_ratio_calc;
+  // MCR = 100% - VCR
+  const marginal_contribution_ratio_calc = 100 - variable_cost_ratio_calc;
+  // MCA = PE * MCR
+  const marginal_contribution_amount_calc = premium_earned * (marginal_contribution_ratio_calc / 100);
+
   const premium_earned_ratio_calc = premium_written !== 0 ? (premium_earned / premium_written) * 100 : 0;
   const claim_frequency_calc = policy_count_earned_raw !== 0 ? (claim_count_raw / policy_count_earned_raw) * 100 : 0;
   const avg_loss_per_case_calc = claim_count_raw !== 0 ? (total_loss_amount * 10000) / claim_count_raw : 0;
   const avg_premium_per_policy_recalc = policy_count !== 0 ? (premium_written * 10000) / policy_count : 0;
   const expense_amount_calc = premium_written * (expense_ratio_calc / 100);
-
-  // For single entry, VCR is ER+LR, MCR is 1-VCR, MCA is PE*MCR
-  // Use calculated ER and LR for consistency here, JSON values are handled in aggregateAndCalculateMetrics
-  const variable_cost_ratio_calc = expense_ratio_calc + loss_ratio_calc;
-  const marginal_contribution_ratio_calc = 100 - variable_cost_ratio_calc;
-  const marginal_contribution_amount_calc = premium_earned * (marginal_contribution_ratio_calc / 100);
 
   return {
     premium_written,
@@ -132,14 +134,17 @@ const calculateBaseMetricsForSingleEntry = (entry: V4BusinessDataEntry, isPopMod
     claim_count: Math.round(claim_count_raw),
     policy_count_earned: Math.round(policy_count_earned_raw),
     avg_commercial_index: entry.avg_commercial_index,
+    
     loss_ratio: loss_ratio_calc,
     expense_ratio: expense_ratio_calc,
     variable_cost_ratio: variable_cost_ratio_calc,
+    
     premium_earned_ratio: premium_earned_ratio_calc,
     claim_frequency: claim_frequency_calc,
     avg_premium_per_policy: avg_premium_per_policy_recalc,
     avg_loss_per_case: avg_loss_per_case_calc,
     expense_amount: expense_amount_calc,
+    
     marginal_contribution_ratio: marginal_contribution_ratio_calc,
     marginal_contribution_amount: marginal_contribution_amount_calc,
   };
@@ -148,12 +153,12 @@ const calculateBaseMetricsForSingleEntry = (entry: V4BusinessDataEntry, isPopMod
 export const aggregateAndCalculateMetrics = (
   periodBusinessDataEntries: V4BusinessDataEntry[],
   analysisMode: AnalysisMode,
-  originalYtdEntriesForPeriod: V4BusinessDataEntry[],
-  previousPeriodYtdEntries?: V4BusinessDataEntry[]
+  originalYtdEntriesForPeriod: V4BusinessDataEntry[], // All original entries for the current period
+  previousPeriodYtdEntries?: V4BusinessDataEntry[] // All original entries for the previous period (for PoP)
 ): AggregatedBusinessMetrics => {
 
   let dataToProcess: V4BusinessDataEntry[] = periodBusinessDataEntries;
-
+  // For PoP mode, calculate period-over-period values for base amounts first
   if (analysisMode === 'periodOverPeriod' && previousPeriodYtdEntries) {
     dataToProcess = periodBusinessDataEntries.map(currentYtdEntry => {
       const prevYtdEntry = previousPeriodYtdEntries.find(pe => pe.business_type === currentYtdEntry.business_type);
@@ -167,59 +172,91 @@ export const aggregateAndCalculateMetrics = (
         expense_amount_raw: (currentYtdEntry.expense_amount_raw || 0) - (prevYtdEntry?.expense_amount_raw || 0),
         claim_count: (currentYtdEntry.claim_count || 0) - (prevYtdEntry?.claim_count || 0),
         policy_count_earned: (currentYtdEntry.policy_count_earned || 0) - (prevYtdEntry?.policy_count_earned || 0),
-        avg_premium_per_policy: originalCurrentYtdEntryForPoP.avg_premium_per_policy,
+        avg_premium_per_policy: originalCurrentYtdEntryForPoP.avg_premium_per_policy, // Use YTD for policy count derivation
+        // Nullify pre-calculated rates as they need re-computation for PoP
         loss_ratio: null, expense_ratio: null, variable_cost_ratio: null, premium_earned_ratio: null, claim_frequency: null, avg_loss_per_case: null,
       };
     });
   }
 
+  // Handle single business type in cumulative mode (prioritize JSON values if valid)
   if (periodBusinessDataEntries.length === 1 && analysisMode === 'cumulative') {
-      const originalJsonEntry = originalYtdEntriesForPeriod.find(e => e.business_type === periodBusinessDataEntries[0].business_type) || periodBusinessDataEntries[0];
-      const calculatedBase = calculateBaseMetricsForSingleEntry(originalJsonEntry, false);
+    const singleEntry = periodBusinessDataEntries[0];
+    const originalJsonEntry = originalYtdEntriesForPeriod.find(e => e.business_type === singleEntry.business_type) || singleEntry;
+    const useJsonValues = true; // Flag to control usage of JSON pre-calculated values
 
-      const single_er = (typeof originalJsonEntry.expense_ratio === 'number' && !isNaN(originalJsonEntry.expense_ratio))
-          ? originalJsonEntry.expense_ratio
-          : calculatedBase.expense_ratio;
+    const calculatedBase = calculateBaseMetricsForSingleEntry(originalJsonEntry, false);
 
-      const single_lr = (typeof originalJsonEntry.loss_ratio === 'number' && !isNaN(originalJsonEntry.loss_ratio))
-          ? originalJsonEntry.loss_ratio
-          : calculatedBase.loss_ratio;
+    const single_premium_written = typeof originalJsonEntry.premium_written === 'number' ? originalJsonEntry.premium_written : calculatedBase.premium_written;
+    const single_premium_earned = typeof originalJsonEntry.premium_earned === 'number' ? originalJsonEntry.premium_earned : calculatedBase.premium_earned;
+    const single_total_loss_amount = typeof originalJsonEntry.total_loss_amount === 'number' ? originalJsonEntry.total_loss_amount : calculatedBase.total_loss_amount;
+    const single_expense_amount_raw = typeof originalJsonEntry.expense_amount_raw === 'number' ? originalJsonEntry.expense_amount_raw : calculatedBase.expense_amount_raw;
+    const single_policy_count = calculatedBase.policy_count; // Always derive policy count
+    const single_claim_count = typeof originalJsonEntry.claim_count === 'number' ? Math.round(originalJsonEntry.claim_count) : calculatedBase.claim_count;
+    const single_policy_count_earned = typeof originalJsonEntry.policy_count_earned === 'number' ? Math.round(originalJsonEntry.policy_count_earned) : calculatedBase.policy_count_earned;
+    
+    // Expense Ratio (based on premium_written)
+    const single_er = (typeof originalJsonEntry.expense_ratio === 'number' && !isNaN(originalJsonEntry.expense_ratio) && useJsonValues)
+      ? originalJsonEntry.expense_ratio
+      : (single_premium_written !== 0 ? (single_expense_amount_raw / single_premium_written) * 100 : 0);
+
+    // Loss Ratio (based on premium_earned)
+    const single_lr = (typeof originalJsonEntry.loss_ratio === 'number' && !isNaN(originalJsonEntry.loss_ratio) && useJsonValues)
+      ? originalJsonEntry.loss_ratio
+      : (single_premium_earned !== 0 ? (single_total_loss_amount / single_premium_earned) * 100 : 0);
+    
+    // Variable Cost Ratio = ER + LR
+    const single_vcr = single_er + single_lr;
+    // Marginal Contribution Ratio = 100% - VCR
+    const single_mcr = 100 - single_vcr;
+    // Marginal Contribution Amount = Premium Earned * MCR
+    const single_mca = single_premium_earned * (single_mcr / 100);
+
+    const single_premium_earned_ratio = (typeof originalJsonEntry.premium_earned_ratio === 'number' && !isNaN(originalJsonEntry.premium_earned_ratio) && useJsonValues)
+      ? originalJsonEntry.premium_earned_ratio
+      : (single_premium_written !== 0 ? (single_premium_earned / single_premium_written) * 100 : 0);
+
+    const single_claim_frequency = (typeof originalJsonEntry.claim_frequency === 'number' && !isNaN(originalJsonEntry.claim_frequency) && useJsonValues)
+      ? originalJsonEntry.claim_frequency
+      : (single_policy_count_earned !== 0 ? (single_claim_count / single_policy_count_earned) * 100 : 0);
+    
+    const single_avg_premium_per_policy = (typeof originalJsonEntry.avg_premium_per_policy === 'number' && !isNaN(originalJsonEntry.avg_premium_per_policy) && useJsonValues)
+      ? originalJsonEntry.avg_premium_per_policy
+      : (single_policy_count !== 0 ? (single_premium_written * 10000) / single_policy_count : 0);
       
-      const single_vcr = single_er + single_lr;
-      const single_mcr = 100 - single_vcr;
-      const single_mca = (originalJsonEntry.premium_earned || calculatedBase.premium_earned) * (single_mcr / 100);
+    const single_avg_loss_per_case = (typeof originalJsonEntry.avg_loss_per_case === 'number' && !isNaN(originalJsonEntry.avg_loss_per_case) && useJsonValues)
+      ? originalJsonEntry.avg_loss_per_case
+      : (single_claim_count !== 0 ? (single_total_loss_amount * 10000) / single_claim_count : 0);
+      
+    const single_expense_amount = single_premium_written * (single_er / 100);
 
-      return {
-          premium_written: typeof originalJsonEntry.premium_written === 'number' ? originalJsonEntry.premium_written : calculatedBase.premium_written,
-          premium_earned: typeof originalJsonEntry.premium_earned === 'number' ? originalJsonEntry.premium_earned : calculatedBase.premium_earned,
-          total_loss_amount: typeof originalJsonEntry.total_loss_amount === 'number' ? originalJsonEntry.total_loss_amount : calculatedBase.total_loss_amount,
-          expense_amount_raw: typeof originalJsonEntry.expense_amount_raw === 'number' ? originalJsonEntry.expense_amount_raw : calculatedBase.expense_amount_raw,
-          policy_count: calculatedBase.policy_count,
-          claim_count: typeof originalJsonEntry.claim_count === 'number' ? Math.round(originalJsonEntry.claim_count) : calculatedBase.claim_count,
-          policy_count_earned: typeof originalJsonEntry.policy_count_earned === 'number' ? Math.round(originalJsonEntry.policy_count_earned) : calculatedBase.policy_count_earned,
-          avg_commercial_index: typeof originalJsonEntry.avg_commercial_index === 'number' ? originalJsonEntry.avg_commercial_index : calculatedBase.avg_commercial_index,
-          
-          loss_ratio: single_lr,
-          expense_ratio: single_er,
-          variable_cost_ratio: single_vcr,
-          
-          premium_earned_ratio: (typeof originalJsonEntry.premium_earned_ratio === 'number' && !isNaN(originalJsonEntry.premium_earned_ratio))
-              ? originalJsonEntry.premium_earned_ratio : calculatedBase.premium_earned_ratio,
-          claim_frequency: (typeof originalJsonEntry.claim_frequency === 'number' && !isNaN(originalJsonEntry.claim_frequency))
-              ? originalJsonEntry.claim_frequency : calculatedBase.claim_frequency,
-          avg_premium_per_policy: (typeof originalJsonEntry.avg_premium_per_policy === 'number' && !isNaN(originalJsonEntry.avg_premium_per_policy))
-              ? originalJsonEntry.avg_premium_per_policy : calculatedBase.avg_premium_per_policy,
-          avg_loss_per_case: (typeof originalJsonEntry.avg_loss_per_case === 'number' && !isNaN(originalJsonEntry.avg_loss_per_case))
-              ? originalJsonEntry.avg_loss_per_case : calculatedBase.avg_loss_per_case,
-          
-          expense_amount: (typeof originalJsonEntry.premium_written === 'number' ? originalJsonEntry.premium_written : calculatedBase.premium_written) * (single_er / 100),
-          
-          marginal_contribution_ratio: single_mcr,
-          marginal_contribution_amount: single_mca,
-      };
+
+    return {
+      premium_written: single_premium_written,
+      premium_earned: single_premium_earned,
+      total_loss_amount: single_total_loss_amount,
+      expense_amount_raw: single_expense_amount_raw,
+      policy_count: single_policy_count,
+      claim_count: single_claim_count,
+      policy_count_earned: single_policy_count_earned,
+      avg_commercial_index: typeof originalJsonEntry.avg_commercial_index === 'number' ? originalJsonEntry.avg_commercial_index : calculatedBase.avg_commercial_index,
+      
+      loss_ratio: single_lr,
+      expense_ratio: single_er,
+      variable_cost_ratio: single_vcr,
+      
+      premium_earned_ratio: single_premium_earned_ratio,
+      claim_frequency: single_claim_frequency,
+      avg_premium_per_policy: single_avg_premium_per_policy,
+      avg_loss_per_case: single_avg_loss_per_case,
+      expense_amount: single_expense_amount,
+      
+      marginal_contribution_ratio: single_mcr,
+      marginal_contribution_amount: single_mca,
+    };
   }
 
-  // Aggregation logic for multiple business types or PoP mode
+  // AGGREGATION LOGIC (multi-select, "全部业务" cumulative, or any PoP mode)
   const aggregatedSums = dataToProcess.reduce((acc, entry) => {
     acc.premium_written_sum += (entry.premium_written || 0);
     acc.premium_earned_sum += (entry.premium_earned || 0);
@@ -228,7 +265,11 @@ export const aggregateAndCalculateMetrics = (
     acc.claim_count_sum += (entry.claim_count || 0);
     acc.policy_count_earned_sum += (entry.policy_count_earned || 0);
     
-    const tempMetricsForPolicyCount = calculateBaseMetricsForSingleEntry(entry, analysisMode === 'periodOverPeriod');
+    // For policy_count derivation in aggregate, we need avg_premium_per_policy from original YTD if available
+    // This is complex if mixing PoP and YTD concepts for policy count.
+    // Sticking to deriving policy count based on YTD avg_premium_per_policy for consistency in how policy count is estimated.
+    const originalEntryForPolicyDerivation = originalYtdEntriesForPeriod.find(o => o.business_type === entry.business_type) || entry;
+    const tempMetricsForPolicyCount = calculateBaseMetricsForSingleEntry(originalEntryForPolicyDerivation, analysisMode === 'periodOverPeriod');
     acc.policy_count_derived_sum += tempMetricsForPolicyCount.policy_count;
 
     return acc;
@@ -245,23 +286,27 @@ export const aggregateAndCalculateMetrics = (
   const agg_claim_count = Math.round(aggregatedSums.claim_count_sum);
   const agg_policy_count_earned = Math.round(aggregatedSums.policy_count_earned_sum);
 
-  const agg_loss_ratio = agg_premium_earned !== 0 ? (agg_total_loss_amount / agg_premium_earned) * 100 : 0;
+  // Expense Ratio (based on premium_written)
   const agg_expense_ratio = agg_premium_written !== 0 ? (agg_expense_amount_raw / agg_premium_written) * 100 : 0;
+
+  // Loss Ratio (based on premium_earned)
+  const agg_loss_ratio = agg_premium_earned !== 0 ? (agg_total_loss_amount / agg_premium_earned) * 100 : 0;
   
-  // VCR is strictly ER + LR
-  const agg_variable_cost_ratio = agg_expense_ratio + agg_loss_ratio; 
+  // Variable Cost Ratio = ER + LR
+  const agg_variable_cost_ratio = agg_expense_ratio + agg_loss_ratio;
   
-  // MCR is strictly 100 - VCR
+  // Marginal Contribution Ratio = 100% - VCR
   const agg_marginal_contribution_ratio = 100 - agg_variable_cost_ratio;
   
-  // MCA is strictly PE * MCR
+  // Marginal Contribution Amount = Premium Earned * MCR
   const agg_marginal_contribution_amount = agg_premium_earned * (agg_marginal_contribution_ratio / 100);
 
+  // Other aggregated metrics
   const agg_premium_earned_ratio = agg_premium_written !== 0 ? (agg_premium_earned / agg_premium_written) * 100 : 0;
   const agg_claim_frequency = agg_policy_count_earned !== 0 ? (agg_claim_count / agg_policy_count_earned) * 100 : 0;
   const agg_avg_premium_per_policy = agg_policy_count !== 0 ? (agg_premium_written * 10000) / agg_policy_count : 0;
   const agg_avg_loss_per_case = agg_claim_count !== 0 ? (agg_total_loss_amount * 10000) / agg_claim_count : 0;
-  const agg_expense_amount = agg_premium_written * (agg_expense_ratio / 100);
+  const agg_expense_amount = agg_premium_written * (agg_expense_ratio / 100); // Uses display ER
 
   return {
     premium_written: agg_premium_written,
@@ -271,11 +316,11 @@ export const aggregateAndCalculateMetrics = (
     policy_count: agg_policy_count,
     claim_count: agg_claim_count,
     policy_count_earned: agg_policy_count_earned,
-    avg_commercial_index: undefined, 
+    avg_commercial_index: undefined, // Not applicable for aggregated view
 
     loss_ratio: agg_loss_ratio,
-    expense_ratio: agg_expense_ratio, // This is the one based on premium_written
-    variable_cost_ratio: agg_variable_cost_ratio, // This is ER(on written) + LR(on earned)
+    expense_ratio: agg_expense_ratio,
+    variable_cost_ratio: agg_variable_cost_ratio,
     
     premium_earned_ratio: agg_premium_earned_ratio,
     claim_frequency: agg_claim_frequency,
@@ -340,15 +385,15 @@ export const processDataForSelectedPeriod = (
   const currentAggregatedMetrics = aggregateAndCalculateMetrics(
     currentPeriodFilteredYtdEntries,
     analysisMode,
-    originalYtdEntriesForCurrentPeriod, // Pass all original entries for the current period
+    originalYtdEntriesForCurrentPeriod, 
     analysisMode === 'periodOverPeriod' ? momPeriodFilteredYtdEntriesForPoPBase : undefined
   );
 
   const momAggregatedMetrics = momEquivalentPeriodData
     ? aggregateAndCalculateMetrics(
-        filterRawBusinessData(momEquivalentPeriodData, selectedBusinessTypes), // Use filtered data for comparison period as well
-        'cumulative', // Comparison is always based on cumulative of the comparison period
-        originalYtdMomEntries // Pass all original entries for the mom period
+        filterRawBusinessData(momEquivalentPeriodData, selectedBusinessTypes), 
+        'cumulative', 
+        originalYtdMomEntries 
       )
     : null;
 
@@ -367,7 +412,7 @@ export const processDataForSelectedPeriod = (
     derivedBusinessLineName = selectedBusinessTypes[0];
   } else if (selectedBusinessTypes.length > 0 && selectedBusinessTypes.length < allAvailableBusinessTypesInCurrentPeriod.length) {
     derivedBusinessLineName = "自定义合计";
-  } else { // selectedBusinessTypes.length === 0 OR selectedBusinessTypes.length === allAvailableBusinessTypesInCurrentPeriod.length
+  } else { 
     derivedBusinessLineName = "合计";
   }
   const businessLineId = derivedBusinessLineName;
@@ -385,15 +430,12 @@ export const processDataForSelectedPeriod = (
     yoyMetrics: selectedComparisonPeriodKey ? null : yoyAggregatedMetrics, 
     premium_share: premium_share,
     vcr_color: getDynamicColorByVCR(currentAggregatedMetrics.variable_cost_ratio),
-
-    // Below are for direct table display, can be removed if table uses currentMetrics directly
     premium_written: currentAggregatedMetrics.premium_written,
     total_loss_amount: currentAggregatedMetrics.total_loss_amount,
     policy_count: currentAggregatedMetrics.policy_count,
     loss_ratio: currentAggregatedMetrics.loss_ratio,
     expense_ratio: currentAggregatedMetrics.expense_ratio,
     variable_cost_ratio: currentAggregatedMetrics.variable_cost_ratio,
-    // Change calculations for table, might be redundant if table uses calculateChangeAndType
     premium_writtenChange: momAggregatedMetrics && momAggregatedMetrics.premium_written !== 0 && currentAggregatedMetrics.premium_written !== undefined ? (currentAggregatedMetrics.premium_written - momAggregatedMetrics.premium_written) / Math.abs(momAggregatedMetrics.premium_written) * 100 : (currentAggregatedMetrics.premium_written !== 0 && currentAggregatedMetrics.premium_written !== undefined ? Infinity : 0),
     total_loss_amountChange: momAggregatedMetrics && momAggregatedMetrics.total_loss_amount !== 0 && currentAggregatedMetrics.total_loss_amount !== undefined ? (currentAggregatedMetrics.total_loss_amount - momAggregatedMetrics.total_loss_amount) / Math.abs(momAggregatedMetrics.total_loss_amount) * 100 : (currentAggregatedMetrics.total_loss_amount !== 0 && currentAggregatedMetrics.total_loss_amount !== undefined ? Infinity : 0),
     policy_countChange: momAggregatedMetrics && momAggregatedMetrics.policy_count !== 0 && currentAggregatedMetrics.policy_count !== undefined ? (currentAggregatedMetrics.policy_count - momAggregatedMetrics.policy_count) / Math.abs(momAggregatedMetrics.policy_count) * 100 : (currentAggregatedMetrics.policy_count !== 0 && currentAggregatedMetrics.policy_count !== undefined ? Infinity : 0),
@@ -419,7 +461,7 @@ export function calculateChangeAndType (current?: number | null, previous?: numb
   }
 
   let type: Kpi['primaryChangeType'] = 'neutral';
-  const epsilon = 0.00001; // A small number to handle floating point comparisons
+  const epsilon = 0.00001; 
   if (absolute > epsilon) type = higherIsBetter ? 'positive' : 'negative';
   if (absolute < -epsilon) type = higherIsBetter ? 'negative' : 'positive';
 
@@ -446,19 +488,17 @@ const formatKpiChangeValues = (
         if (isRateChange) { 
             changeAbsStr = `${changeResult.absolute.toFixed(1)} pp`;
         } else {
-            // For absolute change, use formatDisplayValue but ensure it has a sign for non-zero
             const formattedAbs = formatDisplayValue(Math.abs(changeResult.absolute), metricIdForAbsFormat);
             if (changeResult.absolute > 0.00001) changeAbsStr = `+${formattedAbs}`;
             else if (changeResult.absolute < -0.00001) changeAbsStr = `-${formattedAbs}`;
-            else changeAbsStr = formattedAbs; // for zero or very small numbers
+            else changeAbsStr = formattedAbs; 
         }
     }
     
     let effectiveChangeType = changeResult.type; 
-    // Recalculate type for color based on higherIsBetter, as changeResult.type might be neutral from calculateChangeAndType
     if (changeResult.absolute !== undefined) {
         const epsilon = 0.00001; 
-        if (Math.abs(changeResult.absolute) > epsilon) { // Only color if change is significant
+        if (Math.abs(changeResult.absolute) > epsilon) { 
              if (changeResult.absolute > 0) { 
                 effectiveChangeType = valueHigherIsBetterForColor ? 'positive' : 'negative';
              } else { 
@@ -468,7 +508,6 @@ const formatKpiChangeValues = (
             effectiveChangeType = 'neutral';
         }
     }
-
 
     return { change: changePercentStr, changeAbsolute: changeAbsStr, type: effectiveChangeType };
 };
@@ -511,11 +550,10 @@ export const calculateKpis = (
     valueHigherIsBetter: boolean,
     isRateMetric: boolean 
   ): { change?: string; changeAbsolute?: string; type: Kpi['primaryChangeType'] } => {
-    if (metricId === 'avg_commercial_index' && !isSingleSelectedType) {
+    if (metricId === 'avg_commercial_index' && !(selectedBusinessTypes && selectedBusinessTypes.length === 1)) {
       return { type: 'neutral' }; 
     }
     const changeDetails = calculateChangeAndType(currentValue, comparisonValue, valueHigherIsBetter);
-    // For KPI card, we use valueHigherIsBetter directly for color determination passed to formatKpiChangeValues
     const formattedChanges = formatKpiChangeValues(changeDetails, metricId, isRateMetric, valueHigherIsBetter);
     return { change: formattedChanges.change, changeAbsolute: formattedChanges.changeAbsolute, type: formattedChanges.type };
   };
@@ -531,29 +569,21 @@ export const calculateKpis = (
     : { type: 'neutral' as Kpi['primaryChangeType']};
 
 
-  const isSingleSelectedType = selectedBusinessTypes && selectedBusinessTypes.length === 1;
   let rawAvgCommercialIndex: number | undefined | null = undefined;
-  if (isSingleSelectedType && analysisMode === 'cumulative') {
+  if (selectedBusinessTypes && selectedBusinessTypes.length === 1 && analysisMode === 'cumulative') {
       const currentV4PeriodDataGlobal = (globalThis as any).allV4DataForKpiWorkaround?.find((p: V4PeriodData) => p.period_id === activePeriodId);
       if (currentV4PeriodDataGlobal) {
           const singleLineJsonEntry = currentV4PeriodDataGlobal.business_data.find((bd: V4BusinessDataEntry) => bd.business_type === selectedBusinessTypes[0]);
           if (singleLineJsonEntry?.avg_commercial_index !== undefined && singleLineJsonEntry.avg_commercial_index !== null && !isNaN(singleLineJsonEntry.avg_commercial_index)) {
               rawAvgCommercialIndex = singleLineJsonEntry.avg_commercial_index;
-          } else if (current.avg_commercial_index !== undefined && current.avg_commercial_index !== null){ // Fallback to calculated if JSON invalid
+          } else if (current.avg_commercial_index !== undefined && current.avg_commercial_index !== null){ 
               rawAvgCommercialIndex = current.avg_commercial_index;
           }
       } else if (current.avg_commercial_index !== undefined && current.avg_commercial_index !== null) {
          rawAvgCommercialIndex = current.avg_commercial_index;
       }
   } else if (current.avg_commercial_index !== undefined && current.avg_commercial_index !== null && selectedBusinessTypes.length === 0 && analysisMode === 'cumulative'){
-    // This attempts to show an average if "全部业务" is selected, but it's problematic.
-    // For now, let it take the value from current.avg_commercial_index if it's there (likely undefined for aggregate).
-    // Better to ensure avg_commercial_index is undefined in `aggregateAndCalculateMetrics` for non-single selections.
-    // For "全部业务", avg_commercial_index should be '-' (undefined from aggregation).
-    // If we are in "全部业务" (selectedBusinessTypes.length === 0), avg_commercial_index from current.avg_commercial_index will be undefined
-    // due to aggregateAndCalculateMetrics. formatDisplayValue will turn undefined to '-'.
-    // So rawAvgCommercialIndex will be undefined if not single type.
-     rawAvgCommercialIndex = current.avg_commercial_index; // This will be undefined for "全部业务" due to aggregation logic
+     rawAvgCommercialIndex = current.avg_commercial_index; 
   }
 
 
@@ -707,13 +737,14 @@ export function exportToCSV(
         const current = item.currentMetrics;
         const primaryComp = item.momMetrics; 
         const secondaryComp = selectedComparisonPeriodKey ? null : item.yoyMetrics;
+        const selectedBusinessTypes = (globalThis as any)._selectedBusinessTypesForExport || []; // Hack to get selected types
 
         const rowDataNumbers: (number | string | undefined | null)[] = [
             item.businessLineId, item.businessLineName,
             current.premium_written, current.premium_earned, current.total_loss_amount, current.expense_amount,
             current.policy_count, current.claim_count, current.policy_count_earned,
             current.avg_premium_per_policy, current.avg_loss_per_case, 
-            (selectedBusinessTypes.length === 1 && analysisMode === 'cumulative' ? current.avg_commercial_index : undefined), // Only show for single cumulative
+            (selectedBusinessTypes.length === 1 && analysisMode === 'cumulative' ? current.avg_commercial_index : undefined), 
             current.loss_ratio, current.expense_ratio, current.variable_cost_ratio, current.premium_earned_ratio, current.claim_frequency,
             current.marginal_contribution_ratio, current.marginal_contribution_amount, item.premium_share
         ];
@@ -753,21 +784,19 @@ export function exportToCSV(
 
         const rowDataStrings = rowDataNumbers.map(val => {
             if (val === undefined || val === null || (typeof val === 'number' && isNaN(val))) return "-";
-            // For CSV export, use more precision for rates/percentages
             if (typeof val === 'number') {
                  const isRateLike = headers[rowDataNumbers.indexOf(val)]?.includes('(%)') || headers[rowDataNumbers.indexOf(val)]?.includes('(pp)');
-                 if (isRateLike) return val.toFixed(4); // e.g., 4 decimal places for rates in CSV
-                 // For amounts/counts, ensure they are not in scientific notation for large numbers, toFixed(2) for amounts.
+                 if (isRateLike) return val.toFixed(4); 
                  if (headers[rowDataNumbers.indexOf(val)]?.includes('万元') || headers[rowDataNumbers.indexOf(val)]?.includes('元')) return val.toFixed(4);
-                 return val.toString(); // counts and other numbers as is or rounded
+                 return val.toString(); 
             }
-            return String(val).replace(/,/g, ';'); // Escape commas in strings if any
+            return String(val).replace(/,/g, ';'); 
         });
 
         return rowDataStrings.join(",");
     });
 
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" // Add BOM for Excel
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
         + csvHeaders.join(",") + "\n"
         + rows.join("\n");
 
@@ -779,3 +808,10 @@ export function exportToCSV(
     link.click();
     document.body.removeChild(link);
 }
+
+// Temporary hack to pass selectedBusinessTypes to exportToCSV
+// This should ideally be passed as a parameter if possible
+export function setSelectedBusinessTypesForExport(types: string[]) {
+  (globalThis as any)._selectedBusinessTypesForExport = types;
+}
+
