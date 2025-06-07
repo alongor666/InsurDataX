@@ -7,9 +7,10 @@ import { SectionWrapper } from '@/components/shared/section-wrapper';
 import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { BarChartHorizontal, Palette } from 'lucide-react';
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
-import { Bar, BarChart as RechartsBarChart, CartesianGrid, XAxis, YAxis, TooltipProps, ResponsiveContainer, LabelList, Cell } from "recharts"; // Added Cell
+import { Bar, BarChart as RechartsBarChart, CartesianGrid, XAxis, YAxis, TooltipProps, ResponsiveContainer, LabelList, Cell } from "recharts";
 import type {NameType, ValueType} from 'recharts/types/component/DefaultTooltipContent';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { formatDisplayValue } from '@/lib/data-utils'; // Import the new formatter
 
 interface BarChartRankingSectionProps {
   data: ChartDataItem[];
@@ -21,48 +22,45 @@ interface BarChartRankingSectionProps {
   onGenerateAiSummary: () => Promise<void>;
 }
 
-const valueFormatterForLabelList = (value: number, metricConfig?: { value: RankingMetricKey, label: string }): string => {
-  if (value === undefined || value === null || isNaN(value)) return "N/A";
-  if (!metricConfig?.label) return Math.round(value).toLocaleString();
-
-  const label = metricConfig.label.toLowerCase();
-
-  if (label.includes('(%)')) { // Percentage
-    return `${value.toFixed(1)}%`;
-  } else if (label.includes('单均保费') && label.includes('(元)')) { // 单均保费 (元)
-    return `${Math.round(value)} 元`;
-  } else if (label.includes('案均赔款') && label.includes('(元)')) { // 案均赔款 (元)
-    return `${Math.round(value)} 元`;
-  } else if (label.includes('(万元)')) { // Amount in 万元
-    return `${Math.round(value)} 万`;
-  } else if (label.includes('(件)')) { // Count
-    return `${Math.round(value)} 件`;
-  }
-  return Math.round(value).toString();
+// Formatter for LabelList, uses formatDisplayValue
+const valueFormatterForLabelList = (value: number, metricKey: RankingMetricKey): string => {
+  return formatDisplayValue(value, metricKey);
 };
 
-const xAxisTickFormatter = (value: number, metricConfig?: { value: RankingMetricKey, label: string }): string => {
-  if (value === undefined || value === null || isNaN(value)) return "0";
-  if (!metricConfig?.label) return value.toLocaleString();
+// Formatter for XAxis ticks, uses formatDisplayValue
+const xAxisTickFormatter = (value: number, metricKey: RankingMetricKey): string => {
+  // For axes, we might want simpler integers for very large numbers,
+  // but formatDisplayValue will handle the core formatting (decimals, %, etc.)
+  // The "no unit" rule applies here too. Context comes from axis title.
+  const ruleType = (METRIC_FORMAT_RULES_FOR_CHARTS as any)[metricKey]?.type;
+  if(ruleType === 'percentage' && Math.abs(value) > 1000) return (value/1000).toFixed(0) + 'k%'; // simple K for large %
+  if ((ruleType === 'integer_wanyuan' || ruleType === 'integer_yuan') && Math.abs(value) >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+  if ((ruleType === 'integer_wanyuan' || ruleType === 'integer_yuan') && Math.abs(value) >= 1000) return (value / 1000).toFixed(0) + 'K';
   
-  const label = metricConfig.label.toLowerCase();
+  return formatDisplayValue(value, metricKey);
+};
 
-  if (label.includes('(%)')) {
-    return `${value.toFixed(0)}%`;
-  } else if ((label.includes('单均保费') || label.includes('案均赔款')) && label.includes('(元)')) { 
-    if (value === 0) return "0";
-    if (Math.abs(value) >= 1000000) return `${(value / 1000000).toFixed(1)}百万`;
-    if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(0)}千`;
-    return `${value.toFixed(0)}`; 
-  } else if (label.includes('(万元)')) { 
-    if (value === 0) return "0";
-    if (Math.abs(value) >= 10000) return `${(value / 10000).toFixed(1)}亿`;
-    if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(0)}千万`;
-    return `${value.toFixed(0)}`; 
-  } else if (label.includes('(件)')) {
-    return value.toLocaleString(undefined, {maximumFractionDigits: 0});
-  }
-  return value.toLocaleString(undefined, {maximumFractionDigits: 0}); 
+// Simplified rules for chart display, mainly for tick optimization.
+// The main formatting comes from formatDisplayValue.
+const METRIC_FORMAT_RULES_FOR_CHARTS: Record<string, { type: string, originalUnit?: string }> = {
+  'loss_ratio': { type: 'percentage' },
+  'expense_ratio': { type: 'percentage' },
+  'variable_cost_ratio': { type: 'percentage' },
+  'premium_earned_ratio': { type: 'percentage' },
+  'claim_frequency': { type: 'percentage' },
+  'marginal_contribution_ratio': { type: 'percentage' },
+  'premium_share': { type: 'percentage' },
+  'avg_commercial_index': { type: 'decimal_3' },
+  'avg_premium_per_policy': { type: 'integer_yuan', originalUnit: '元' },
+  'avg_loss_per_case': { type: 'integer_yuan', originalUnit: '元' },
+  'premium_written': { type: 'integer_wanyuan', originalUnit: '万元' },
+  'premium_earned': { type: 'integer_wanyuan', originalUnit: '万元' },
+  'total_loss_amount': { type: 'integer_wanyuan', originalUnit: '万元' },
+  'expense_amount': { type: 'integer_wanyuan', originalUnit: '万元' },
+  'marginal_contribution_amount': { type: 'integer_wanyuan', originalUnit: '万元' },
+  'policy_count': { type: 'integer_count', originalUnit: '件' },
+  'claim_count': { type: 'integer_count', originalUnit: '件' },
+  'policy_count_earned': { type: 'integer_count', originalUnit: '件' },
 };
 
 
@@ -71,22 +69,9 @@ const CustomTooltip = ({ active, payload, label, selectedMetricKey, availableMet
     const metricConfig = availableMetricsList.find(m => m.value === selectedMetricKey);
     const value = payload[0].value as number;
     
-    let formattedValue;
-    const metricLabel = metricConfig?.label.toLowerCase() || "";
-
-    if (metricLabel.includes('(%)')) { // Percentage
-        formattedValue = `${value.toFixed(1)}%`;
-    } else if (metricLabel.includes('单均保费') && metricLabel.includes('(元)')) { // 单均保费 (元)
-        formattedValue = `${Math.round(value)} 元`;
-    } else if (metricLabel.includes('案均赔款') && metricLabel.includes('(元)')) { // 案均赔款 (元)
-        formattedValue = `${Math.round(value)} 元`;
-    } else if (metricLabel.includes('(万元)')) { // Amount in 万元
-        formattedValue = `${value.toFixed(2)} 万元`; // Tooltip can show more precision
-    } else if (metricLabel.includes('(件)')) { // Count
-        formattedValue = `${Math.round(value)} 件`;
-    } else { 
-        formattedValue = value.toLocaleString(undefined, {maximumFractionDigits: 2});
-    }
+    // Tooltip shows the formatted value (which is unit-less by rule)
+    // The metric label (from metricConfig.label) provides context for the unit.
+    const formattedValue = formatDisplayValue(value, selectedMetricKey);
     
     return (
       <div className="rounded-lg border bg-background p-2 shadow-sm min-w-[150px]">
@@ -96,7 +81,7 @@ const CustomTooltip = ({ active, payload, label, selectedMetricKey, availableMet
         </p>
         {(payload[0].payload as ChartDataItem).vcr !== undefined && 
             <p className="text-xs" style={{color: (payload[0].payload as ChartDataItem).color}}>
-                VCR: {((payload[0].payload as ChartDataItem).vcr as number).toFixed(1)}%
+                VCR: {formatDisplayValue(((payload[0].payload as ChartDataItem).vcr as number), 'variable_cost_ratio')}
             </p>
         }
       </div>
@@ -117,12 +102,7 @@ export function BarChartRankingSection({
 }: BarChartRankingSectionProps) {
   
   const selectedMetricConfig = availableMetrics.find(m => m.value === selectedMetric);
-
-  const chartConfig = { 
-    [selectedMetric]: {
-      label: selectedMetricConfig?.label || selectedMetric,
-    },
-  };
+  const chartConfig = { [selectedMetric]: { label: selectedMetricConfig?.label || selectedMetric } };
 
   const metricSelector = (
     <div className="flex items-center space-x-2">
@@ -141,7 +121,14 @@ export function BarChartRankingSection({
   );
 
   const hasData = data && data.length > 0;
-  const yAxisWidth = hasData ? Math.max(...data.map(d => d.name.length * 8), 100) : 100; 
+  const yAxisWidth = hasData ? Math.max(...data.map(d => d.name.length * 8), 100, 120) : 120; 
+
+  // Determine X-axis label based on selected metric's original unit
+  let xAxisLabelContent = "";
+  const selectedMetricOriginalUnit = METRIC_FORMAT_RULES_FOR_CHARTS[selectedMetric]?.originalUnit;
+  if (selectedMetricOriginalUnit && selectedMetricOriginalUnit !== 'none') {
+      xAxisLabelContent = `(${selectedMetricOriginalUnit})`;
+  }
 
 
   return (
@@ -156,12 +143,12 @@ export function BarChartRankingSection({
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                 <XAxis 
                     type="number" 
-                    tickFormatter={(value) => xAxisTickFormatter(value, selectedMetricConfig)} 
+                    tickFormatter={(value) => xAxisTickFormatter(value, selectedMetric)} 
                     axisLine={false} 
                     tickLine={false} 
                     domain={[0, 'dataMax + dataMax * 0.05']}
                     className="text-xs"
-                    label={{ value: selectedMetricConfig?.label.match(/\(([^)]+)\)/)?.[1] || "", position: 'insideBottomRight', offset: -15, dy: 10, fontSize:11 }}
+                    label={{ value: xAxisLabelContent, position: 'insideBottomRight', offset: -15, dy: 10, fontSize:11 }}
                 />
                 <YAxis 
                     dataKey="name" 
@@ -181,7 +168,7 @@ export function BarChartRankingSection({
                     <LabelList 
                         dataKey={selectedMetric} 
                         position="right" 
-                        formatter={(val: number) => valueFormatterForLabelList(val, selectedMetricConfig)}
+                        formatter={(val: number) => valueFormatterForLabelList(val, selectedMetric)}
                         className="fill-foreground text-xs font-medium" 
                         offset={5}
                     />
@@ -204,4 +191,3 @@ export function BarChartRankingSection({
     </SectionWrapper>
   );
 }
-

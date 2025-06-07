@@ -6,10 +6,11 @@ import { SectionWrapper } from '@/components/shared/section-wrapper';
 import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { ScatterChart as LucideScatterChart, Palette } from 'lucide-react'; 
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
-import { CartesianGrid, Scatter, ScatterChart as RechartsScatterChart, XAxis, YAxis, ZAxis, TooltipProps } from "recharts"; // Removed Legend
+import { CartesianGrid, Scatter, ScatterChart as RechartsScatterChart, XAxis, YAxis, ZAxis, TooltipProps } from "recharts";
 import type {NameType, ValueType} from 'recharts/types/component/DefaultTooltipContent';
 import { useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { formatDisplayValue } from '@/lib/data-utils'; // Import the new formatter
 
 interface BubbleChartSectionProps {
   data: BubbleChartDataItem[];
@@ -25,21 +26,48 @@ interface BubbleChartSectionProps {
   onGenerateAiSummary: () => Promise<void>;
 }
 
-const CustomTooltip = ({ active, payload, label, xAxisMetricLabel, yAxisMetricLabel, sizeMetricLabel }: TooltipProps<ValueType, NameType> & { xAxisMetricLabel?: string, yAxisMetricLabel?: string, sizeMetricLabel?: string }) => {
+const CustomTooltip = ({ active, payload, xAxisMetric, yAxisMetric, sizeMetric, availableMetricsList }: TooltipProps<ValueType, NameType> & { xAxisMetric: BubbleMetricKey, yAxisMetric: BubbleMetricKey, sizeMetric: BubbleMetricKey, availableMetricsList: { value: BubbleMetricKey, label: string }[] }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload as BubbleChartDataItem;
+    const xAxisConfig = availableMetricsList.find(m => m.value === xAxisMetric);
+    const yAxisConfig = availableMetricsList.find(m => m.value === yAxisMetric);
+    const sizeConfig = availableMetricsList.find(m => m.value === sizeMetric);
+
     return (
       <div className="rounded-lg border bg-background p-2 shadow-sm min-w-[200px]">
         <p className="text-sm font-medium text-foreground mb-1">{data.name}</p>
-        <p className="text-xs text-muted-foreground">{xAxisMetricLabel || 'X'}: {typeof data.x === 'number' ? data.x.toLocaleString(undefined, {maximumFractionDigits: 2}) : data.x}</p>
-        <p className="text-xs text-muted-foreground">{yAxisMetricLabel || 'Y'}: {typeof data.y === 'number' ? (yAxisMetricLabel?.includes('%') ? data.y.toFixed(1) + '%' : data.y.toLocaleString(undefined, {maximumFractionDigits:2})) : data.y}</p>
-        <p className="text-xs text-muted-foreground">{sizeMetricLabel || 'Size'}: {typeof data.z === 'number' ? data.z.toLocaleString() : data.z}</p>
-        {data.vcr !== undefined && <p className="text-xs" style={{color: data.color}}>VCR: {data.vcr.toFixed(1)}%</p>}
+        <p className="text-xs text-muted-foreground">{xAxisConfig?.label || 'X'}: {formatDisplayValue(data.x, xAxisMetric)}</p>
+        <p className="text-xs text-muted-foreground">{yAxisConfig?.label || 'Y'}: {formatDisplayValue(data.y, yAxisMetric)}</p>
+        <p className="text-xs text-muted-foreground">{sizeConfig?.label || 'Size'}: {formatDisplayValue(data.z, sizeMetric)}</p>
+        {data.vcr !== undefined && <p className="text-xs" style={{color: data.color}}>VCR: {formatDisplayValue(data.vcr, 'variable_cost_ratio')}</p>}
       </div>
     );
   }
   return null;
 };
+
+// Simplified rules for chart display, mainly for tick optimization.
+// The main formatting comes from formatDisplayValue.
+const METRIC_FORMAT_RULES_FOR_CHARTS: Record<string, { type: string, originalUnit?: string }> = {
+  'loss_ratio': { type: 'percentage' },
+  'expense_ratio': { type: 'percentage' },
+  'variable_cost_ratio': { type: 'percentage' },
+  'premium_earned_ratio': { type: 'percentage' },
+  'claim_frequency': { type: 'percentage' },
+  'marginal_contribution_ratio': { type: 'percentage' },
+  'avg_commercial_index': { type: 'decimal_3' },
+  'avg_premium_per_policy': { type: 'integer_yuan', originalUnit: '元' },
+  'avg_loss_per_case': { type: 'integer_yuan', originalUnit: '元' },
+  'premium_written': { type: 'integer_wanyuan', originalUnit: '万元' },
+  'premium_earned': { type: 'integer_wanyuan', originalUnit: '万元' },
+  'total_loss_amount': { type: 'integer_wanyuan', originalUnit: '万元' },
+  'expense_amount': { type: 'integer_wanyuan', originalUnit: '万元' },
+  'marginal_contribution_amount': { type: 'integer_wanyuan', originalUnit: '万元' },
+  'policy_count': { type: 'integer_count', originalUnit: '件' },
+  'policy_count_earned': { type: 'integer_count', originalUnit: '件' },
+  'claim_count': { type: 'integer_count', originalUnit: '件' },
+};
+
 
 export function BubbleChartSection({ 
   data, 
@@ -74,31 +102,30 @@ export function BubbleChartSection({
 
   const hasData = data && data.length > 0 && uniqueBusinessLines.length > 0;
 
-  const getMetricLabel = (metricKey: BubbleMetricKey) => availableMetrics.find(m => m.value === metricKey)?.label || metricKey;
+  const getMetricLabelAndUnit = (metricKey: BubbleMetricKey): { label: string, unit: string } => {
+    const config = availableMetrics.find(m => m.value === metricKey);
+    const label = config?.label || metricKey;
+    const unitMatch = label.match(/\(([^)]+)\)/);
+    const unit = unitMatch && unitMatch[1] ? `(${unitMatch[1]})` : "";
+    return { label, unit };
+  };
   
-  const xAxisLabel = getMetricLabel(selectedXAxisMetric);
-  const yAxisLabel = getMetricLabel(selectedYAxisMetric);
-  const sizeMetricLabel = getMetricLabel(selectedSizeMetric);
+  const xAxisInfo = getMetricLabelAndUnit(selectedXAxisMetric);
+  const yAxisInfo = getMetricLabelAndUnit(selectedYAxisMetric);
+  // Size metric label for ZAxis name, not displayed visually but good for config
+  const sizeMetricLabel = getMetricLabelAndUnit(selectedSizeMetric).label;
+
 
   const formatAxisTick = (value: number, metricKey: BubbleMetricKey) => {
-    const label = getMetricLabel(metricKey);
-    if (label.includes('%')) return `${value.toFixed(0)}%`;
-    if (label.includes('(元)')) {
-      if (value >= 1000000) return `${(value / 1000000).toFixed(1)}百万`;
-      if (value >= 1000) return `${(value / 1000).toFixed(1)}千`;
-      return value.toFixed(0);
-    }
-    if (label.includes('(万元)')) {
-        if (value >= 10000) return `${(value / 10000).toFixed(1)}亿`;
-        if (value >= 1000) return `${(value / 1000).toFixed(0)}千万`;
-        return value.toFixed(0);
-    }
-    return value.toLocaleString(undefined, {maximumFractionDigits: 0});
+    const ruleType = (METRIC_FORMAT_RULES_FOR_CHARTS as any)[metricKey]?.type;
+    if(ruleType === 'percentage' && Math.abs(value) > 1000) return (value/1000).toFixed(0) + 'k%';
+    if ((ruleType === 'integer_wanyuan' || ruleType === 'integer_yuan') && Math.abs(value) >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+    if ((ruleType === 'integer_wanyuan' || ruleType === 'integer_yuan') && Math.abs(value) >= 1000) return (value / 1000).toFixed(0) + 'K';
+    return formatDisplayValue(value, metricKey);
   };
   
   const xDomain = hasData ? [0, Math.max(...data.map(item => item.x), 0) * 1.1] : [0,1];
   const yDomain = hasData ? [0, Math.max(...data.map(item => item.y), 0) * 1.1] : [0,1];
-
 
   const metricSelectors = (
     <div className="flex flex-wrap items-center gap-2 md:gap-4">
@@ -141,25 +168,24 @@ export function BubbleChartSection({
                 <XAxis 
                   type="number" 
                   dataKey="x" 
-                  name={xAxisLabel} 
+                  name={xAxisInfo.label} 
                   domain={xDomain} 
                   tickFormatter={(val) => formatAxisTick(val, selectedXAxisMetric)} 
-                  label={{ value: xAxisLabel, position: 'insideBottom', offset: -15, fontSize: 12 }} 
+                  label={{ value: xAxisInfo.unit, position: 'insideBottom', offset: -15, fontSize: 12 }} 
                 />
                 <YAxis 
                   type="number" 
                   dataKey="y" 
-                  name={yAxisLabel} 
+                  name={yAxisInfo.label} 
                   domain={yDomain} 
                   tickFormatter={(val) => formatAxisTick(val, selectedYAxisMetric)}
-                  label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', offset: 0, fontSize: 12 }}
+                  label={{ value: yAxisInfo.unit, angle: -90, position: 'insideLeft', offset: 0, fontSize: 12 }}
                 />
                 <ZAxis type="number" dataKey="z" range={[100, 1000]} name={sizeMetricLabel} />
                 <ChartTooltip 
                     cursor={{ strokeDasharray: '3 3' }} 
-                    content={<CustomTooltip xAxisMetricLabel={xAxisLabel} yAxisMetricLabel={yAxisLabel} sizeMetricLabel={sizeMetricLabel}/>} 
+                    content={<CustomTooltip xAxisMetric={selectedXAxisMetric} yAxisMetric={selectedYAxisMetric} sizeMetric={selectedSizeMetric} availableMetricsList={availableMetrics} />} 
                 />
-                {/* Legend is removed as per requirement */}
                 {uniqueBusinessLines.map((line) => (
                   <Scatter 
                     key={line.id} 

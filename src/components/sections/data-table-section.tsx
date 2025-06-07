@@ -3,7 +3,7 @@ import type { ProcessedDataForPeriod, AnalysisMode } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
 import { TableCellsSplit, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { formatCurrency, formatNumber, formatPercentage } from '@/lib/data-utils';
+import { formatDisplayValue } from '@/lib/data-utils';
 import { cn } from '@/lib/utils';
 
 interface DataTableSectionProps {
@@ -11,34 +11,39 @@ interface DataTableSectionProps {
   analysisMode: AnalysisMode;
 }
 
-const ChangeIndicator = ({ value }: { value: number | undefined }) => {
+const ChangeIndicator = ({ value, metricId, higherIsBetter = true }: { value: number | undefined, metricId: string, higherIsBetter?: boolean }) => {
   if (value === undefined || value === null || isNaN(value)) {
     return <Minus className="h-4 w-4 text-muted-foreground" />;
   }
+
+  const isPercentageMetric = METRIC_FORMAT_RULES[metricId]?.type === 'percentage';
+  const displayValue = isPercentageMetric ? `${value.toFixed(1)}%` : formatDisplayValue(value, metricId);
+
+
+  // Determine color based on whether higher is better for this specific metric's change
+  let changeTypeColorClass = 'text-muted-foreground';
+  if (value > 0) {
+    changeTypeColorClass = higherIsBetter ? 'text-green-600' : 'text-red-600';
+  } else if (value < 0) {
+    changeTypeColorClass = higherIsBetter ? 'text-red-600' : 'text-green-600';
+  }
+  
   const Icon = value > 0 ? TrendingUp : value < 0 ? TrendingDown : Minus;
-  const color = value > 0 ? 'text-green-600' : value < 0 ? 'text-red-600' : 'text-muted-foreground';
+
   return (
-    <span className={cn("flex items-center", color)}>
+    <span className={cn("flex items-center", changeTypeColorClass)}>
       <Icon className="h-4 w-4 mr-1" />
-      {formatPercentage(value)}
+      {displayValue}
     </span>
   );
 };
 
-const LossRatioChangeIndicator = ({ value }: { value: number | undefined }) => {
-   if (value === undefined || value === null || isNaN(value)) {
-    return <Minus className="h-4 w-4 text-muted-foreground" />;
-  }
-  // For Loss Ratio, increase is bad, decrease is good
-  const Icon = value > 0 ? TrendingUp : value < 0 ? TrendingDown : Minus; 
-  const color = value > 0 ? 'text-red-600' : value < 0 ? 'text-green-600' : 'text-muted-foreground';
-  return (
-    <span className={cn("flex items-center", color)}>
-      <Icon className="h-4 w-4 mr-1" />
-      {formatPercentage(value)}
-    </span>
-  );
-}
+// Specific metric rule for formatting (used by ChangeIndicator)
+const METRIC_FORMAT_RULES: Record<string, { type: string }> = {
+  'loss_ratio': { type: 'percentage' },
+  'expense_ratio': { type: 'percentage' },
+  // Add other metric IDs that are percentages if their changes also need explicit '%'
+};
 
 
 export function DataTableSection({ data, analysisMode }: DataTableSectionProps) {
@@ -49,7 +54,8 @@ export function DataTableSection({ data, analysisMode }: DataTableSectionProps) 
       </SectionWrapper>
     );
   }
-
+  const firstItem = data[0]; // Assuming all items have the same structure for metrics
+  
   return (
     <SectionWrapper title="数据表显示" icon={TableCellsSplit}>
       <div className="overflow-x-auto">
@@ -64,38 +70,50 @@ export function DataTableSection({ data, analysisMode }: DataTableSectionProps) 
               <TableHead className="text-right">保单数量</TableHead>
               {analysisMode === 'periodOverPeriod' && <TableHead className="text-right">保单数量环比</TableHead>}
               <TableHead className="text-right">满期赔付率</TableHead>
-              {analysisMode === 'periodOverPeriod' && <TableHead className="text-right">满期赔付率环比</TableHead>}
+              {analysisMode === 'periodOverPeriod' && <TableHead className="text-right">满期赔付率环比(pp)</TableHead>}
                <TableHead className="text-right">费用率</TableHead>
-              {analysisMode === 'periodOverPeriod' && <TableHead className="text-right">费用率环比</TableHead>}
+              {analysisMode === 'periodOverPeriod' && <TableHead className="text-right">费用率环比(pp)</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {data.map((item) => (
               <TableRow key={item.businessLineId}>
                 <TableCell className="font-medium flex items-center">
-                  {item.icon && <item.icon className="h-4 w-4 mr-2 text-primary" />}
+                  {/* Icon rendering needs adjustment if item.icon is a string name */}
+                  {/* For now, assuming item.icon is not used or handled elsewhere if it's a string */}
                   {item.businessLineName}
                 </TableCell>
-                <TableCell className="text-right">{formatCurrency(item.premium_written)}</TableCell>
+                <TableCell className="text-right">{formatDisplayValue(item.currentMetrics.premium_written, 'premium_written')}</TableCell>
                 {analysisMode === 'periodOverPeriod' && (
-                  <TableCell className="text-right"><ChangeIndicator value={item.premium_writtenChange} /></TableCell>
+                  <TableCell className="text-right">
+                    <ChangeIndicator value={item.premium_writtenChange} metricId="premium_written" higherIsBetter={true} />
+                  </TableCell>
                 )}
-                <TableCell className="text-right">{formatCurrency(item.total_loss_amount)}</TableCell>
+                <TableCell className="text-right">{formatDisplayValue(item.currentMetrics.total_loss_amount, 'total_loss_amount')}</TableCell>
                 {analysisMode === 'periodOverPeriod' && (
-                  <TableCell className="text-right"><ChangeIndicator value={item.total_loss_amountChange} /></TableCell>
+                  <TableCell className="text-right">
+                     <ChangeIndicator value={item.total_loss_amountChange} metricId="total_loss_amount" higherIsBetter={false} />
+                  </TableCell>
                 )}
-                <TableCell className="text-right">{formatNumber(item.policy_count)}</TableCell>
+                <TableCell className="text-right">{formatDisplayValue(item.currentMetrics.policy_count, 'policy_count')}</TableCell>
                 {analysisMode === 'periodOverPeriod' && (
-                  <TableCell className="text-right"><ChangeIndicator value={item.policy_countChange} /></TableCell>
+                  <TableCell className="text-right">
+                    <ChangeIndicator value={item.policy_countChange} metricId="policy_count" higherIsBetter={true} />
+                  </TableCell>
                 )}
-                <TableCell className="text-right">{formatPercentage(item.loss_ratio)}</TableCell>
+                <TableCell className="text-right">{formatDisplayValue(item.currentMetrics.loss_ratio, 'loss_ratio')}</TableCell>
                 {analysisMode === 'periodOverPeriod' && (
-                  <TableCell className="text-right"><LossRatioChangeIndicator value={item.loss_ratioChange} /></TableCell>
+                  // For loss_ratioChange (which is in pp), higherIsBetter=false
+                  <TableCell className="text-right">
+                    <ChangeIndicator value={item.loss_ratioChange} metricId="loss_ratio" higherIsBetter={false} />
+                  </TableCell>
                 )}
-                 <TableCell className="text-right">{formatPercentage(item.expense_ratio)}</TableCell>
+                 <TableCell className="text-right">{formatDisplayValue(item.currentMetrics.expense_ratio, 'expense_ratio')}</TableCell>
                 {analysisMode === 'periodOverPeriod' && (
-                  // Assuming higher expense ratio is bad for change indicator
-                  <TableCell className="text-right"><LossRatioChangeIndicator value={item.expense_ratioChange} /></TableCell>
+                  // For expense_ratioChange (which is in pp), higherIsBetter=false
+                  <TableCell className="text-right">
+                    <ChangeIndicator value={item.expense_ratioChange} metricId="expense_ratio" higherIsBetter={false} />
+                  </TableCell>
                 )}
               </TableRow>
             ))}
@@ -105,4 +123,3 @@ export function DataTableSection({ data, analysisMode }: DataTableSectionProps) 
     </SectionWrapper>
   );
 }
-
