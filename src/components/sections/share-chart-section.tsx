@@ -47,26 +47,43 @@ const CustomTooltipContent = ({ active, payload, coordinate, selectedMetricKey, 
   return null;
 };
 
-const RADIAN = Math.PI / 180;
-const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value, percentage }: any) => {
-  if (percentage < 3) return null; 
+const CustomShareChartLegend = (props: any) => {
+  const { payload } = props; // payload is an array of legend items
+  if (!payload || payload.length === 0) return null;
 
-  const labelRadius = outerRadius * 1.18; 
-  const x = cx + labelRadius * Math.cos(-midAngle * RADIAN);
-  const y = cy + labelRadius * Math.sin(-midAngle * RADIAN);
-  const percentageDisplay = (percent * 100).toFixed(1);
+  const itemsPerColumn = 5;
+  const numColumns = 3;
+  const columns: Array<Array<any>> = Array.from({ length: numColumns }, () => []);
+
+  // Data is already sorted by percentage from prepareShareChartData_V4
+  payload.forEach((entry: any, index: number) => {
+    const columnIndex = Math.floor(index / itemsPerColumn);
+    if (columnIndex < numColumns && columns[columnIndex].length < itemsPerColumn) {
+      columns[columnIndex].push(entry);
+    }
+  });
 
   return (
-    <text
-      x={x}
-      y={y}
-      fill="hsl(var(--foreground))"
-      textAnchor={x > cx ? 'start' : 'end'}
-      dominantBaseline="central"
-      className="text-xs"
-    >
-      {`${name} (${percentageDisplay}%)`}
-    </text>
+    <div className="grid grid-cols-3 gap-x-3 mt-3 text-xs text-muted-foreground">
+      {columns.map((columnItems, colIdx) => (
+        <div key={`legend-col-${colIdx}`} className="flex flex-col space-y-0.5">
+          {columnItems.map((entry, entryIdx) => (
+            <div key={`legend-item-${colIdx}-${entryIdx}`} className="flex items-center truncate py-0.5">
+              <span
+                className="mr-1.5 inline-block h-2 w-2 rounded-sm flex-shrink-0"
+                style={{ backgroundColor: entry.color }}
+              />
+              <span 
+                className="truncate hover:overflow-visible hover:whitespace-normal" 
+                title={`${entry.payload?.name || entry.value} (${(entry.payload?.percentage || 0).toFixed(1)}%)`}
+              >
+                {entry.payload?.name || entry.value} ({(entry.payload?.percentage || 0).toFixed(1)}%)
+              </span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 };
 
@@ -113,7 +130,7 @@ export function ShareChartSection({
         <div className="h-[400px] w-full"> 
           <ChartContainer config={chartConfig} className="h-full w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart margin={{ top: 40, right: 60, bottom: 40, left: 60 }}> 
+              <PieChart margin={{ top: 10, right: 20, bottom: 5, left: 20 }}> 
                 <RechartsTooltip 
                     content={<CustomTooltipContent selectedMetricKey={selectedMetric} availableMetricsList={availableMetrics} />} 
                     cursor={{ strokeDasharray: '3 3' }} 
@@ -121,9 +138,9 @@ export function ShareChartSection({
                 <Pie
                   data={data}
                   cx="50%"
-                  cy="50%"
-                  labelLine={true} 
-                  label={renderCustomizedLabel}
+                  cy="45%" // Adjusted cy to make space for legend at bottom
+                  labelLine={false} // Remove label lines
+                  label={false} // Remove labels from pie slices
                   outerRadius={outerRadiusResponsive} 
                   innerRadius={outerRadiusResponsive * 0.4}
                   fill="#8884d8"
@@ -135,19 +152,10 @@ export function ShareChartSection({
                   ))}
                 </Pie>
                 <RechartsLegend 
-                    wrapperStyle={{fontSize: '11px', paddingTop: '10px', paddingBottom: '0px', lineHeight: '1.3'}} 
-                    iconSize={10}
-                    align="center"
+                    content={<CustomShareChartLegend />}
                     verticalAlign="bottom"
-                    layout="horizontal"
-                    payload={
-                        data.map(entry => ({
-                            value: `${entry.name} (${entry.percentage.toFixed(1)}%)`,
-                            type: 'square',
-                            color: entry.color || `hsl(var(--chart-${(data.indexOf(entry) % 5) + 1}))`
-                        }))
-                    }
-                    
+                    align="center"
+                    wrapperStyle={{paddingTop: '10px', paddingBottom: '0px', lineHeight: '1.2'}} 
                 />
               </PieChart>
             </ResponsiveContainer>

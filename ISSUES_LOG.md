@@ -37,8 +37,8 @@
 
 ### 2. AI分析输出非结构化且未充分利用上下文；条形图颜色未按精细化规则更新；聚合变动成本率计算不一致
 - **问题描述**:
-    1. AI生成的分析（总体摘要、图表解读）缺乏结构，通用性强，未能充分根据用户当前的筛选（指标、业务类型）和图表特性（如VCR颜色）进行定制。未能使用Markdown等方式突出重点。
-    2. 水平条形图（排名图）未能正确应用基于VCR的精细化动态颜色规则（红/蓝/绿，且颜色深浅根据VCR值变化）。
+    1. AI生成的分析（总体摘要、图表解读）缺乏结构，通用性强，未能充分根据用户当前的筛选（指标、业务类型）和图表特性（如变动成本率颜色）进行定制。未能使用Markdown等方式突出重点。
+    2. 水平条形图（排名图）未能正确应用基于变动成本率的精细化动态颜色规则（红/蓝/绿，且颜色深浅根据变动成本率值变化）。
     3. 在“全部业务”聚合视图下，KPI看板显示的“变动成本率”未严格等于独立显示的“费用率”与“满期赔付率”之和，与最新的全局计算规则不符。
 - **发生时间**: 2024-05-24 - 2024-05-25
 - **影响范围**:
@@ -50,8 +50,9 @@
     1.  **AI分析优化 (已解决)**:
         *   **Prompt工程**: 修改所有AI Flow (`generate-business-summary.ts`, `generate-trend-analysis-flow.ts`, `generate-bubble-chart-analysis-flow.ts`, `generate-bar-ranking-analysis-flow.ts`) 中的Prompt。
             *   明确指示AI以结构化的方式输出（例如，使用小标题、列表）。
-            *   强调AI必须根据传入的上下文（如`selectedMetric`, `analysisMode`, `filtersJson`中的业务类型和VCR颜色规则及业务含义）生成与当前视图和筛选条件高度相关的分析。
-            *   **要求AI使用Markdown语法（如加粗）来突出关键信息，并解释VCR颜色背后的业务含义，而不是简单描述颜色本身。**
+            *   强调AI必须根据传入的上下文（如`selectedMetric`, `analysisMode`, `filtersJson`中的业务类型和变动成本率颜色规则及业务含义）生成与当前视图和筛选条件高度相关的分析。
+            *   **要求AI使用Markdown语法（如加粗）来突出关键信息，并解释变动成本率颜色背后的业务含义，而不是简单描述颜色本身。**
+            *   进一步优化Prompt，要求AI以麦肯锡专家视角进行深度分析，理解指标间逻辑，并确保输出语言为全中文。
     2.  **条形图颜色修复 (已解决)**:
         *   **`src/components/sections/bar-chart-ranking-section.tsx`**:
             *   确保 `recharts` 的 `Cell` 组件被正确导入和使用。
@@ -65,7 +66,7 @@
             *   确保“边贡额”严格等于 `满期保费 * 边际贡献率`。
             *   更新了`FIELD_DICTIONARY_V4.md`以精确反映此最终计算逻辑。
 - **状态**: 已解决
-- **备注**: 提升AI分析的相关性和结构性需要持续的Prompt调优。核心指标的计算逻辑必须严格遵循已定义的全局规则和约束。
+- **备注**: 提升AI分析的相关性和结构性需要持续的Prompt调优。核心指标的计算逻辑必须严格遵循已定义的全局规则和约束。术语“VCR”已统一为“变动成本率”。
 
 ---
 ### 3. Module not found: Can't resolve 'dns' (pg library issue)
@@ -126,7 +127,7 @@
         *   在 `src/app/page.tsx` 中，确保 `trendAiSummary` 和 `isTrendAiSummaryLoading` state 正确管理。
         *   确保 `handleGenerateTrendAiSummary` 函数正确构造 `GenerateTrendAnalysisInput` 并调用 `generateTrendAnalysis` AI flow，然后更新相关state。
     2.  **UI一致性**:
-        *   修改 `src/components/sections/trend-analysis-section.tsx`, `src/components/sections/bubble-chart-section.tsx`, `src/components/sections/bar-chart-ranking-section.tsx`, `src/components/sections/share-chart-section.tsx`, `src/components/sections/pareto-chart-section.tsx`，确保 `ChartAiSummary` 组件（包含按钮和内容显示）被正确引入并统一放置在对应图表的下方。
+        *   修改 `src/components/sections/trend-analysis-section.tsx`, `src/components/sections/bubble-chart-section.tsx`, `src/components/sections/bar-chart-ranking-section.tsx`, `src/components/sections/share-chart-section.tsx`, `src/components/sections/pareto-chart-section.tsx`，确保 `ChartAiSummary` 组件（包含按钮和内容显示）被正确引入并统一放置在对应图表的下方。AI分析输出字体大小与总体摘要一致。
 - **状态**: 已解决
 - **备注**: 统一UI组件和交互模式能提升用户体验。
 
@@ -139,7 +140,7 @@
     1.  在 `src/components/sections/trend-analysis-section.tsx` 中：
         *   实现 `getMetricChartType` 辅助函数，根据 `METRIC_FORMAT_RULES_FOR_CHARTS` 判断指标类型。
         *   基于判断结果，条件渲染 `<RechartsLineChart>` 或 `<RechartsBarChart>`。
-        *   确保VCR驱动的动态颜色逻辑（折线图数据点、柱状图柱子）在两种图表上均正确应用。
+        *   确保变动成本率驱动的动态颜色逻辑（折线图数据点、柱状图柱子）在两种图表上均正确应用。
         *   为柱状图添加了数据标签。
 - **状态**: 已解决
 - **备注**: 此功能增强了数据可视化的灵活性和表达力。
@@ -153,7 +154,7 @@
     1.  **`src/app/page.tsx`** (`prepareTrendData_V4` 函数):
         *   当 `analysisMode` 为 `'periodOverPeriod'` 时，修改逻辑。对于趋势图范围内的每个周期P（从第二个周期开始），分别获取P期和P-1期的YTD指标值（通过调用 `processDataForSelectedPeriod` 并强制其在 `'cumulative'` 模式下计算）。
         *   计算这两个YTD值的差额，作为周期P在图表上的显示值。
-        *   数据点的颜色（VCR）使用P期YTD的VCR。
+        *   数据点的颜色（变动成本率）使用P期YTD的变动成本率。
     2.  **`src/components/sections/trend-analysis-section.tsx`**:
         *   组件接收 `analysisMode` prop。
         *   **Y轴标签**: 当 `analysisMode` 为 `'periodOverPeriod'` 且选定指标为率值类型时，Y轴单位标签显示为 "(pp)"。
@@ -182,16 +183,16 @@
 - **解决方案**:
     1.  **`src/app/page.tsx`**:
         *   实现了 `prepareShareChartData_V4` 和 `prepareParetoChartData_V4` 函数，用于数据处理。
-        *   实现了 `handleGenerateShareChartAiSummary` (待AI Flow对接) 和 `handleGenerateParetoAiSummary` 函数。
+        *   实现了 `handleGenerateShareChartAiSummary` 和 `handleGenerateParetoAiSummary` 函数。
     2.  **`src/components/sections/share-chart-section.tsx`**: 使用 `recharts` 的 `PieChart` 实现占比图。
     3.  **`src/components/sections/pareto-chart-section.tsx`**: 使用 `recharts` 的 `ComposedChart` 实现帕累托图。
-    4.  **AI Flows**: `generate-pareto-analysis-flow.ts` 已创建，`generate-share-chart-analysis-flow.ts` 待创建。
+    4.  **AI Flows**: `generate-pareto-analysis-flow.ts` 和 `generate-share-chart-analysis-flow.ts` 已创建并对接。
     5.  相关文档（PRD, README, ISSUES_LOG）已更新。
 - **状态**: 已解决
 - **备注**: 新增图表为业务分析提供了新视角。
 
 ---
-### 12. KPI看板显示逻辑优化
+### 12. KPI看板显示逻辑优化 (V1)
 - **问题描述**:
     1.  KPI卡片的对比标签固定显示“环比”，不准确。
     2.  KPI看板第四列的“自主系数”在聚合时无意义，应替换。
@@ -205,3 +206,55 @@
     4.  **文档更新**: `PRODUCT_REQUIREMENTS_DOCUMENT.md`, `README.md`, `FIELD_DICTIONARY_V4.md` 已同步更新相关描述。
 - **状态**: 已解决
 - **备注**: 这些调整提升了KPI看板的准确性和信息的直观性。
+
+---
+### 13. 业务类型名称缩写与文档同步
+- **问题描述**: 为提升图表可读性，需在图表显示中使用业务类型的缩写，但数据源和内部逻辑应保持原始名称。
+- **发生时间**: 2024-05-28
+- **影响范围**: 所有图表组件、数据表、核心数据处理 (`src/lib/data-utils.ts`)、相关文档。
+- **解决方案**:
+    1.  在 `src/lib/data-utils.ts` 中创建 `BUSINESS_TYPE_ABBREVIATIONS` 映射表和 `getDisplayBusinessTypeName` 辅助函数。
+    2.  修改 `processDataForSelectedPeriod`，使其生成的 `ProcessedDataForPeriod.businessLineName` 包含缩写（若有定义）。
+    3.  图表和数据表自动使用此缩写名。
+    4.  更新 `PRODUCT_REQUIREMENTS_DOCUMENT.md` 和 `README.md`，说明图表中使用缩写。
+- **状态**: 已解决
+- **备注**: 确保了数据处理的准确性和前端展示的简洁性。
+
+---
+### 14. 控件布局优化
+- **问题描述**: 应用头部的全局筛选和操作控件布局不够清晰。
+- **发生时间**: 2024-05-28
+- **影响范围**: 应用头部 (`src/components/layout/header.tsx`)。
+- **解决方案**:
+    1.  将第一行控件分为“数据定义组”（数据源、周期、业务类型、分析模式）和“全局操作组”（AI摘要、导出）。
+    2.  在中大屏幕上，两组之间增加垂直分隔线。
+    3.  调整了控件间距和包裹方式。
+    4.  视图导航按钮选中态改为 `secondary`，未选中态改为 `ghost`。
+- **状态**: 已解决
+- **备注**: 提升了头部的视觉组织和操作便捷性。
+
+---
+### 15. KPI看板对比信息及UI优化；图表UI及AI分析内容优化
+- **问题描述**:
+    1. 术语 "VCR" 未在UI和AI分析中统一为 "变动成本率"。
+    2. KPI卡片内独立的对比周期标签导致信息冗余，应统一显示。
+    3. KPI看板整体视觉可能拥挤。
+    4. 占比图图例和标签混乱。
+    5. 帕累托图X轴标签倾斜。
+    6. AI分析内容未强制全中文。
+    7. AI分析Markdown未正确渲染。
+    8. AI分析字体大小不一致。
+- **发生时间**: 2024-05-28
+- **影响范围**: 整个应用UI，特别是KPI看板、各图表区、AI分析输出。
+- **解决方案**:
+    1.  **术语统一**: 全局替换 "VCR" 为 "变动成本率" (UI, AI Prompts, 文档)。
+    2.  **KPI对比信息**: 移除卡片内对比标签，在看板下方统一显示周期对比信息。`Kpi` 类型不再包含 `comparisonLabel`。
+    3.  **KPI视觉**: 调整 `KpiCard` 的 `min-h` 为 `170px`。
+    4.  **占比图优化**: 移除扇区数据标签；自定义图例为3列，每列最多5项，按占比降序排列，显示业务类型缩写和百分比。
+    5.  **帕累托图优化**: X轴业务类型标签改为横向显示，调整图表边距。
+    6.  **AI内容全中文**: 在所有AI Flow Prompt中加入强制中文输出的指令。
+    7.  **Markdown渲染**: 为 `AiSummarySection` 和 `ChartAiSummary` 组件集成 `react-markdown`。
+    8.  **AI字体一致**: 确保 `ChartAiSummary` 的字体大小与 `AiSummarySection` (通过 `prose-sm`) 一致。
+    9.  **文档更新**: `PRODUCT_REQUIREMENTS_DOCUMENT.md`, `README.md`, `FIELD_DICTIONARY_V4.md`, `ISSUES_LOG.md` 同步所有变更。
+- **状态**: 已解决
+- **备注**: 综合性UI和逻辑优化，提升了信息呈现质量和用户体验。
