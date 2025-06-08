@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from '@/components/ui/button';
@@ -37,7 +38,7 @@ export function ChartAiSummary({ summary, isLoading, onGenerateSummary, hasData,
         </div>
       )}
       {!isLoading && summary && (
-        <ReactMarkdown className="prose prose-sm max-w-none dark:prose-invert text-foreground whitespace-pre-wrap text-xs p-3 bg-secondary/50 rounded-md">
+        <ReactMarkdown className="prose prose-sm max-w-none dark:prose-invert text-foreground whitespace-pre-wrap p-3 bg-secondary/50 rounded-md">
           {summary}
         </ReactMarkdown>
       )}

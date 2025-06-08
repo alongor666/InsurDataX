@@ -77,6 +77,7 @@ const bubbleChartAnalysisPrompt = ai.definePrompt({
 
 **重要输出要求：**
 - 分析报告**必须为中文自然语言**。
+- **请确保您的分析报告完全使用中文，避免使用任何英文单词或短语，除非是无法避免的专有名词且已广为接受（但仍尽量提供中文对应）。**
 - **结构清晰，层次分明**，严格按照上述四部分组织内容。
 - 使用**Markdown对关键术语、业务线名称、重要数据和结论进行加粗**。
 - 确保分析的深度，不仅仅是描述数据点，而是**揭示其背后的业务逻辑和战略意义**。
@@ -96,4 +97,3 @@ const bubbleChartAnalysisFlow = ai.defineFlow(
     return output!;
   }
 );
-
