@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ChartDataItem } from '@/data/types'; 
@@ -5,7 +6,7 @@ import { SectionWrapper } from '@/components/shared/section-wrapper';
 import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { LineChart as LucideLineChart, Palette, BarChart2 } from 'lucide-react'; 
 import { ChartContainer, ChartTooltip, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
-import { CartesianGrid, Line, Bar, LineChart as RechartsLineChart, BarChart as RechartsBarChart, XAxis, YAxis, TooltipProps, Cell } from "recharts"; 
+import { CartesianGrid, Line, Bar, LineChart as RechartsLineChart, BarChart as RechartsBarChart, XAxis, YAxis, TooltipProps, Cell, LabelList } from "recharts"; 
 import type {NameType, ValueType} from 'recharts/types/component/DefaultTooltipContent';
 import { useMemo } from 'react'; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -107,6 +108,10 @@ const CustomTooltip = ({ active, payload, label, metricId, analysisModeForToolti
     );
   }
   return null;
+};
+
+const valueFormatterForLabelList = (value: number, metricKey: TrendMetricKey): string => {
+  return formatDisplayValue(value, metricKey);
 };
 
 
@@ -225,7 +230,7 @@ export function TrendAnalysisSection({
                 ))}
               </RechartsLineChart>
             ) : ( 
-              <RechartsBarChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 20 }} barCategoryGap="20%">
+              <RechartsBarChart data={data} margin={{ top: 20, right: 20, left: -10, bottom: 20 }} barCategoryGap="20%">
                 <CartesianGrid strokeDasharray="3 3" vertical={false}/>
                 <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => typeof value === 'string' ? value.slice(-5) : value} />
                 <YAxis 
@@ -242,6 +247,13 @@ export function TrendAnalysisSection({
                      {data.map((entry, index) => (
                         <Cell key={`cell-${index}-${entry.name}`} fill={entry.color || chartConfig[barName]?.color || 'hsl(var(--chart-1))'} />
                       ))}
+                      <LabelList
+                        dataKey={barName}
+                        position="top"
+                        formatter={(val: number) => valueFormatterForLabelList(val, selectedMetric)}
+                        className="fill-foreground text-xs font-medium"
+                        offset={5}
+                      />
                   </Bar>
                 ))}
               </RechartsBarChart>
