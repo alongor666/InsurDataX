@@ -9,31 +9,29 @@ const iconMap: { [key: string]: LucideIconType } = {
 };
 
 const ChangeDisplay = ({
-  comparisonLabel,
-  change, // Percentage or pp string
-  changeAbsolute, // Absolute change string
+  change,
+  changeAbsolute,
   changeType,
 }: {
-  comparisonLabel?: string;
   change?: string;
   changeAbsolute?: string;
   changeType?: Kpi['comparisonChangeType'];
 }) => {
-  if (!comparisonLabel || (!change && !changeAbsolute)) return null;
-  if (change === '-' && changeAbsolute === '-') return null; // Don't display if both are explicitly '-'
+  // No comparisonLabel prop needed/rendered here anymore
+  if ((!change || change === '-') && (!changeAbsolute || changeAbsolute === '-')) return null;
 
   const Icon = changeType === 'positive' ? TrendingUp : changeType === 'negative' ? TrendingDown : Minus;
   const color = changeType === 'positive' ? 'text-green-600' : changeType === 'negative' ? 'text-red-600' : 'text-muted-foreground';
 
   let displayValue = "";
-  if (changeAbsolute && changeAbsolute.includes('pp')) {
+  if (changeAbsolute && changeAbsolute.includes('pp')) { // Prioritize 'pp' for rates
     displayValue = changeAbsolute;
-    if (change && change !== '-') {
+    if (change && change !== '-' && change !== '0.0%') { // Add percent if meaningful
         displayValue += ` (${change})`;
     }
   } else if (change && change !== '-') {
     displayValue = change;
-    if (changeAbsolute && changeAbsolute !== '-') {
+    if (changeAbsolute && changeAbsolute !== '-' && changeAbsolute !== '0') { // Add absolute if meaningful
         displayValue += ` (${changeAbsolute})`;
     }
   } else if (changeAbsolute && changeAbsolute !== '-') {
@@ -41,23 +39,23 @@ const ChangeDisplay = ({
   }
 
 
-  if (!displayValue || displayValue.trim() === '' || displayValue.trim() === '(-)') {
+  if (!displayValue || displayValue.trim() === '' || displayValue.trim() === '(-)' || displayValue.trim() === '(0)') {
+    // If after formatting, it's still effectively no change, don't render
     return null;
   }
-
 
   return (
     <p className={cn("text-xs mt-1 flex items-center", color)}>
       <Icon className="h-4 w-4 mr-1" />
       {displayValue}
-      <span className="ml-1 text-muted-foreground">{comparisonLabel}</span>
+      {/* The comparisonLabel span has been removed */}
     </p>
   );
 };
 
 export function KpiCard({ kpi }: { kpi: Kpi }) {
   let valueClassName = "text-3xl font-bold font-headline text-primary";
-  let cardClassName = "shadow-lg transition-all hover:shadow-xl min-h-[180px]";
+  let cardClassName = "shadow-lg transition-all hover:shadow-xl min-h-[170px]"; // Adjusted min-height
 
   if (kpi.isRisk && !kpi.isOrangeRisk && !kpi.isBorderRisk) {
     valueClassName = cn(valueClassName, "text-red-600 font-bold");
@@ -84,14 +82,11 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
       </CardHeader>
       <CardContent>
         <div className={valueClassName}>{kpi.value}</div>
-
         <ChangeDisplay
-          comparisonLabel={kpi.comparisonLabel}
           change={kpi.comparisonChange}
           changeAbsolute={kpi.comparisonChangeAbsolute}
           changeType={kpi.comparisonChangeType}
         />
-
         {kpi.description && (
            <p className="text-xs text-muted-foreground mt-1">{kpi.description}</p>
          )}

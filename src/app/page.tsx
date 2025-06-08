@@ -280,10 +280,7 @@ export default function DashboardPage() {
         dataForCalculations,
         allV4Data.find(p => p.period_id === selectedPeriodKey)?.totals_for_period,
         analysisMode,
-        selectedBusinessTypes,
-        selectedPeriodKey,
-        selectedComparisonPeriodKey, 
-        periodOptions 
+        selectedBusinessTypes
       );
       setKpis(calculatedKpis);
 
@@ -509,19 +506,16 @@ export default function DashboardPage() {
     ));
 
     let grandTotalMetricValue = 0;
-    // For Share chart, the grand total should be based on ALL business types, regardless of current selection
     const grandTotalProcessedData = processDataForSelectedPeriod(allRawData, currentPeriodId, null, mode, []); 
     if (grandTotalProcessedData.length > 0 && grandTotalProcessedData[0].currentMetrics) {
         grandTotalMetricValue = (grandTotalProcessedData[0].currentMetrics[metricKey as CoreAggregatedMetricKey] as number) || 0;
     }
 
-    if (grandTotalMetricValue === 0) return []; // Avoid division by zero
+    if (grandTotalMetricValue === 0) return []; 
 
-    // Slices are based on selected business types, or all if none selected
     const typesForSlices = selBusinessTypes.length > 0 ? selBusinessTypes : allIndividualTypesInPeriod;
     
     const shareData: ShareChartDataItem[] = typesForSlices.map(businessType => {
-        // Get metrics for this specific business type
         const singleTypeProcessedArray = processDataForSelectedPeriod(allRawData, currentPeriodId, null, mode, [businessType]);
         if (singleTypeProcessedArray.length > 0 && singleTypeProcessedArray[0].currentMetrics) {
             const metrics = singleTypeProcessedArray[0].currentMetrics;
@@ -565,7 +559,7 @@ export default function DashboardPage() {
       if (singleTypeProcessedArray.length > 0 && singleTypeProcessedArray[0].currentMetrics) {
         const metrics = singleTypeProcessedArray[0].currentMetrics;
         const value = (metrics[metricKey as CoreAggregatedMetricKey] as number) || 0;
-        if (value > 0) { // Only include items with positive value for Pareto
+        if (value > 0) { 
             individualMetrics.push({
             name: singleTypeProcessedArray[0].businessLineName,
             value: value,
@@ -578,10 +572,10 @@ export default function DashboardPage() {
 
     if (individualMetrics.length === 0) return [];
 
-    individualMetrics.sort((a, b) => b.value - a.value); // Sort descending by value
+    individualMetrics.sort((a, b) => b.value - a.value); 
 
     const grandTotal = individualMetrics.reduce((sum, item) => sum + item.value, 0);
-    if (grandTotal === 0) return []; // Avoid division by zero
+    if (grandTotal === 0) return []; 
 
     let cumulativeValue = 0;
     const paretoData: ParetoChartDataItem[] = individualMetrics.map(item => {
@@ -600,21 +594,32 @@ export default function DashboardPage() {
 
 
   const getCommonAiFilters = () => {
-    let comparisonPeriodInfo = "默认环比 (对比上一周期)";
-    if (selectedComparisonPeriodKey) {
-        const selectedCompLabel = periodOptions.find(p => p.value === selectedComparisonPeriodKey)?.label;
-        if (selectedCompLabel) {
-            comparisonPeriodInfo = `对比周期: ${selectedCompLabel}`;
-        } else {
-            comparisonPeriodInfo = "对比所选周期";
+    let comparisonPeriodInfo = "默认对比 (上一周期)"; // Default if no specific selection or mom
+    let comparisonPeriodIdForLabel = selectedComparisonPeriodKey;
+
+    if (!comparisonPeriodIdForLabel) { // If no direct selection, try to find MoM for current period
+        const currentPeriodEntry = allV4Data.find(p => p.period_id === selectedPeriodKey);
+        if (currentPeriodEntry?.comparison_period_id_mom) {
+            comparisonPeriodIdForLabel = currentPeriodEntry.comparison_period_id_mom;
         }
     }
+
+    if (comparisonPeriodIdForLabel) {
+        const selectedCompLabel = periodOptions.find(p => p.value === comparisonPeriodIdForLabel)?.label;
+        if (selectedCompLabel) {
+            comparisonPeriodInfo = `对比周期: ${selectedCompLabel}`;
+        } else if (selectedComparisonPeriodKey) { // If a key was selected but not found in options (shouldn't happen)
+            comparisonPeriodInfo = "对比所选周期 (标签未知)";
+        }
+    }
+
+
     return {
         analysisMode,
         period: currentPeriodLabel,
         comparison: comparisonPeriodInfo,
         selectedBusinessTypes: selectedBusinessTypes.length > 0 ? selectedBusinessTypes.join(', ') : '全部独立业务类型合计',
-        vcrColorRules: "颜色基于变动成本率(VCR)动态调整深浅：绿色(优秀, VCR < 88%，越小越深绿)，蓝色(健康, 88%-92%，越接近88%越深蓝)，红色(危险, VCR >= 92%，越大越深红)。"
+        vcrColorRules: "颜色基于变动成本率(VCR)动态调整深浅：绿色(优秀, 变动成本率 < 88%，越小越深绿)，蓝色(健康, 88%-92%，越接近88%越深蓝)，红色(危险, 变动成本率 >= 92%，越大越深红)。"
     };
 };
 
@@ -632,29 +637,36 @@ export default function DashboardPage() {
       
       const relevantMetricsToDisplay = (metrics: AggregatedBusinessMetrics, comparisonMetrics?: AggregatedBusinessMetrics | null, compLabel?: string) => {
         let changeInfo = 'N/A';
-        if (metrics?.premium_written !== undefined && comparisonMetrics?.premium_written !== undefined) {
+        if (metrics?.premium_written !== undefined && comparisonMetrics?.premium_written !== undefined && comparisonMetrics?.premium_written !== null ) { // Ensure comparison is not null
             const absChange = metrics.premium_written - comparisonMetrics.premium_written;
             const pctChange = comparisonMetrics.premium_written !== 0 ? (absChange / Math.abs(comparisonMetrics.premium_written)) * 100 : (metrics.premium_written !== 0 ? Infinity : 0);
             let pctChangeStr = isFinite(pctChange) ? `${pctChange > 0 ? '+' : ''}${pctChange.toFixed(1)}%` : (pctChange > 0 ? '+∞%' : '-∞%');
             if (pctChange === 0 && absChange === 0) pctChangeStr = '0.0%';
             
-            changeInfo = `${absChange >= 0 ? '+' : ''}${absChange.toFixed(2)} (${pctChangeStr}, ${compLabel || '对比'})`;
+            changeInfo = `${absChange >= 0 ? '+' : ''}${absChange.toFixed(0)} (${pctChangeStr}, ${compLabel || '对比'})`;
         } else if (metrics?.premium_written !== undefined) {
-            changeInfo = `+${metrics.premium_written.toFixed(2)} (无对比数据)`;
+            changeInfo = `${metrics.premium_written.toFixed(0)} (无对比数据)`;
         }
 
         return {
-            premiumWritten: `${metrics.premium_written?.toFixed(2) || 'N/A'} 万元`,
-            lossRatio: `${metrics.loss_ratio?.toFixed(2) || 'N/A'}%`,
-            variableCostRatio: `${metrics.variable_cost_ratio?.toFixed(2) || 'N/A'}%`,
+            premiumWritten: `${metrics.premium_written?.toFixed(0) || 'N/A'} 万元`, //万元, 0 decimals
+            lossRatio: `${metrics.loss_ratio?.toFixed(1) || 'N/A'}%`,
+            variableCostRatio: `${metrics.variable_cost_ratio?.toFixed(1) || 'N/A'}%`,
             color: getDynamicColorByVCR(metrics.variable_cost_ratio),
             changeInPremiumWritten: changeInfo,
         };
       };
-
-      const comparisonLabelForAISummary = selectedComparisonPeriodKey 
-        ? (periodOptions.find(p => p.value === selectedComparisonPeriodKey)?.label || "所选周期")
-        : (periodOptions.find(p => p.value === allV4Data.find(pd => pd.period_id === selectedPeriodKey)?.comparison_period_id_mom)?.label || "上一周期");
+      
+      let comparisonLabelForAISummary = "上一周期";
+      let actualComparisonPeriodIdForAISummary = selectedComparisonPeriodKey;
+      if (!actualComparisonPeriodIdForAISummary) {
+          const currentPeriodEntry = allV4Data.find(p => p.period_id === selectedPeriodKey);
+          actualComparisonPeriodIdForAISummary = currentPeriodEntry?.comparison_period_id_mom || null;
+      }
+      if (actualComparisonPeriodIdForAISummary) {
+          const compLabel = periodOptions.find(p => p.value === actualComparisonPeriodIdForAISummary)?.label;
+          if (compLabel) comparisonLabelForAISummary = compLabel;
+      }
 
 
       if (currentContextData && currentContextData.currentMetrics) {
@@ -665,7 +677,7 @@ export default function DashboardPage() {
 
               topBusinessLinesData = individualLinesData
                 .sort((a, b) => (b.currentMetrics.premium_written || 0) - (a.currentMetrics.premium_written || 0))
-                .slice(0, 3)
+                .slice(0, 3) // Top 3 if available
                 .map(d => ({
                     name: d.businessLineName,
                     ...relevantMetricsToDisplay(d.currentMetrics, d.momMetrics, comparisonLabelForAISummary) 
@@ -681,12 +693,12 @@ export default function DashboardPage() {
        const aiInputData = {
         keyPerformanceIndicators: kpis.map(kpi => ({
             title: kpi.title,
-            value: kpi.value,
-            rawValue: kpi.rawValue,
-            comparisonLabel: kpi.comparisonLabel, 
+            value: kpi.value, // This is already formatted for display
+            rawValue: kpi.rawValue, // Pass raw value for AI to understand magnitude
+            // comparisonLabel is now handled by getCommonAiFilters()
             comparisonChangePercent: kpi.comparisonChange, 
             comparisonChangeAbsolute: kpi.comparisonChangeAbsolute, 
-            isRisk: kpi.isRisk || kpi.isBorderRisk || kpi.isOrangeRisk,
+            isRisk: kpi.isRisk || kpi.isBorderRisk || kpi.isOrangeRisk, // Combine risk flags
             description: kpi.description
         })),
         ...(topBusinessLinesData.length > 0 && { topBusinessLinesByPremiumWritten: topBusinessLinesData }),
@@ -799,15 +811,15 @@ export default function DashboardPage() {
     }
     setIsShareChartAiSummaryLoading(true);
     setShareChartAiSummary(null);
-    toast({ title: "AI占比图分析功能待实现" }); // TODO: Replace with actual AI call
+    toast({ title: "AI占比图分析功能待实现" }); 
     // try {
-    //   const input: GenerateShareChartAnalysisInput = { /* ... */ }; // Define this type and flow
-    //   const result = await generateShareChartAnalysis(input);
-    //   setShareChartAiSummary(result.summary);
+    //   // const input: GenerateShareChartAnalysisInput = { /* ... */ }; // Define this type and flow
+    //   // const result = await generateShareChartAnalysis(input);
+    //   // setShareChartAiSummary(result.summary);
     // } catch (error) {
-    //   setShareChartAiSummary("生成AI占比图分析时出错。");
+    //   // setShareChartAiSummary("生成AI占比图分析时出错。");
     // } finally {
-    //   setIsShareChartAiSummaryLoading(false);
+    //   // setIsShareChartAiSummaryLoading(false);
     // }
     setIsShareChartAiSummaryLoading(false); 
   };
@@ -885,7 +897,15 @@ export default function DashboardPage() {
 
         {!isGlobalLoading && allV4Data.length > 0 && selectedPeriodKey && (
           <>
-            {activeView === 'kpi' && <KpiDashboardSection kpis={kpis} />}
+            {activeView === 'kpi' && 
+              <KpiDashboardSection 
+                kpis={kpis} 
+                selectedPeriodKey={selectedPeriodKey}
+                selectedComparisonPeriodKey={selectedComparisonPeriodKey}
+                periodOptions={periodOptions}
+                allV4Data={allV4Data}
+              />
+            }
 
             {activeView === 'trend' && (
               <TrendAnalysisSection
@@ -960,5 +980,3 @@ export default function DashboardPage() {
     </AppLayout>
   );
 }
-
-    

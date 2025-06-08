@@ -2,7 +2,7 @@
 import type { LucideIcon as ActualLucideIcon } from 'lucide-react'; // Keep actual for other uses if any
 
 export type AnalysisMode = 'cumulative' | 'periodOverPeriod'; // 累计数据 | 当周发生额
-export type DashboardView = 'kpi' | 'trend' | 'bubble' | 'bar_rank' | 'share_chart' | 'pareto' | 'data_table'; // Added 'pareto'
+export type DashboardView = 'kpi' | 'trend' | 'bubble' | 'bar_rank' | 'share_chart' | 'pareto' | 'data_table';
 export type DataSourceType = 'json' | 'db';
 
 // V4.0 JSON Structure Types
@@ -98,7 +98,7 @@ export interface Kpi {
   isBorderRisk?: boolean;
   isOrangeRisk?: boolean;
 
-  comparisonLabel?: string;      
+  // comparisonLabel field removed, will be generated in KpiDashboardSection
   comparisonChange?: string;       
   comparisonChangeAbsolute?: string; 
   comparisonChangeType?: 'positive' | 'negative' | 'neutral';
@@ -107,7 +107,7 @@ export interface Kpi {
 export interface ChartDataItem {
   name: string;
   color?: string;
-  vcr?: number;
+  vcr?: number; // Changed from VCR to '变动成本率' in display, but data key remains
   [key: string]: number | string | undefined;
 }
 
@@ -118,7 +118,7 @@ export interface BubbleChartDataItem {
   y: number;
   z: number;
   color?: string;
-  vcr?: number;
+  vcr?: number; // Changed from VCR to '变动成本率' in display
 }
 
 export interface ShareChartDataItem {
@@ -126,7 +126,7 @@ export interface ShareChartDataItem {
   value: number; 
   percentage: number; 
   color?: string; 
-  vcr?: number;
+  vcr?: number; // Changed from VCR to '变动成本率' in display
 }
 
 export interface ParetoChartDataItem {
@@ -134,7 +134,7 @@ export interface ParetoChartDataItem {
   value: number; // Actual value for the selected metric
   cumulativePercentage: number; // Cumulative percentage
   color?: string; // VCR-based color for the bar
-  vcr?: number;
+  vcr?: number; // Changed from VCR to '变动成本率' in display
 }
 
 
@@ -166,7 +166,7 @@ export type ShareChartMetricKey =
   | 'policy_count_earned'
   | 'marginal_contribution_amount';
 
-export type ParetoChartMetricKey = ShareChartMetricKey; // Same metrics as Share Chart
+export type ParetoChartMetricKey = ShareChartMetricKey;
 
 export interface BusinessLineBasic {
   id: string;
