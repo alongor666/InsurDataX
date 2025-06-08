@@ -12,16 +12,16 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateTrendAnalysisInputSchema = z.object({
-  chartDataJson: z.string().describe('The trend chart data, in JSON format. Each item typically has a "name" (period label) and keys for different business lines or a total, with their values for the selected metric. Each data point for a line may also include a "color" field based on variable_cost_ratio.'),
-  selectedMetric: z.string().describe('The primary metric being trended (e.g., premium_written, loss_ratio).'),
-  analysisMode: z.string().describe('The analysis mode (e.g., cumulative, periodOverPeriod).'),
+  chartDataJson: z.string().describe('The trend chart data, in JSON format. Each item typically has a "name" (period label) and keys for different business lines or a total, with their values for the selected metric. Each data point for a line may also include a "color" field based on variable_cost_ratio and its "vcr" value.'),
+  selectedMetric: z.string().describe('The primary metric being trended (e.g., 跟单保费, 满期赔付率).'),
+  analysisMode: z.string().describe('The analysis mode (e.g., cumulative, periodOverPeriod). "periodOverPeriod" shows the change from the previous period.'),
   currentPeriodLabel: z.string().describe('The label for the most recent period in the trend (e.g., "2025年第22周").'),
-  filtersJson: z.string().describe('Additional filters applied, like selected business types, in JSON format. This includes VCR color rules if applicable to the line color.')
+  filtersJson: z.string().describe('Additional filters applied, like selected business types, in JSON format. This includes vcrColorRules which explains how variable_cost_ratio (变动成本率) maps to colors and business implications (green: good, blue: healthy, red: warning).')
 });
 export type GenerateTrendAnalysisInput = z.infer<typeof GenerateTrendAnalysisInputSchema>;
 
 const GenerateTrendAnalysisOutputSchema = z.object({
-  summary: z.string().describe('A structured and concise analysis of the trend chart in Chinese. It should highlight key trends, inflection points, and potential insights relevant to the car insurance business, considering the selected metric, analysis mode, and VCR-based line colors.'),
+  summary: z.string().describe('A structured and concise analysis of the trend chart in Chinese. It should highlight key trends, inflection points, and potential insights relevant to the car insurance business, considering the selected metric, analysis mode, and variable_cost_ratio-based line colors and their business implications.'),
 });
 export type GenerateTrendAnalysisOutput = z.infer<typeof GenerateTrendAnalysisOutputSchema>;
 
@@ -33,44 +33,46 @@ const trendAnalysisPrompt = ai.definePrompt({
   name: 'trendAnalysisPrompt',
   input: {schema: GenerateTrendAnalysisInputSchema},
   output: {schema: GenerateTrendAnalysisOutputSchema},
-  prompt: `You are a data analyst specializing in car insurance business performance.
-Analyze the provided trend chart data for the metric: **{{{selectedMetric}}}**.
+  prompt: `您是麦肯锡的资深车险行业分析专家，请基于以下趋势图数据，对指标 **{{{selectedMetric}}}** 的走势进行深度解读。
+您的分析需结合车险业务的运营规律，并关注“变动成本率”的动态变化及其对业务健康度的指示。
 
-**Context:**
-- Analysis Mode: {{{analysisMode}}}
-- Data ends at period: {{{currentPeriodLabel}}}
-- Selected Business Types (if applicable in filters): {{filtersJson.selectedBusinessTypes}}
-- Line Color Logic: Colors are dynamically determined by variable_cost_ratio (VCR). {{{filtersJson.vcrColorRules}}}
+**当前分析背景：**
+- 分析模式: {{{analysisMode}}} (其中 'periodOverPeriod' 表示环比变化值)
+- 最新数据截至周期: {{{currentPeriodLabel}}}
+- 筛选的业务类型 (若适用): {{filtersJson.selectedBusinessTypes}}
+- 变动成本率颜色规则解读: {{filtersJson.vcrColorRules}}
 
-**Chart Data (JSON):**
-(Each data point for a line may have a 'color' field reflecting its VCR at that point)
+**趋势图数据 (JSON格式):**
+(每个数据点可能包含基于“变动成本率”的 'color' 字段及其 'vcr' 数值)
 {{{chartDataJson}}}
 
-**Your Task:**
-Provide a structured and concise analysis of this trend chart in Chinese. Organize your response with clear sections:
+**您的任务：**
+请撰写一份结构清晰、层次分明的中文分析报告。报告应包含以下部分，并使用自然语言阐述，重点内容请使用Markdown加粗：
 
-**1. 整体趋势解读 (Overall Trend Interpretation):**
-   - Describe the main trend(s) for **{{{selectedMetric}}}** over the displayed periods. (e.g., consistent growth, decline, volatility, stability).
-   - If multiple lines are present (e.g., different business types or '合计'), compare their general trends.
+**一、整体趋势解读 (Overall Trend Interpretation):**
+   - 描述指标 **{{{selectedMetric}}}** 在所示周期内的**主要趋势形态**（例如，持续增长、震荡下行、平稳波动、先升后降等）。
+   - 如果图表展示了多条线（例如，不同业务类型或“合计”），请对比它们之间的主要趋势差异和共性。
 
-**2. 关键节点与变化 (Key Inflection Points & Changes):**
-   - Identify any significant turning points, sharp increases/decreases, or changes in the trend direction.
-   - Note the approximate period when these changes occurred.
+**二、关键节点与变化深度分析 (In-depth Analysis of Key Inflection Points & Changes):**
+   - 识别趋势中的任何**显著转折点、加速增长/下滑期、或趋势方向的根本性改变**。明确指出这些变化发生的大致周期。
+   - **探究变化原因**：结合 **{{{selectedMetric}}}** 的业务内涵，以及车险经营的常见影响因素（如市场竞争、政策调整、季节性因素、重大灾害、内部管理策略变动等），对观察到的显著变化提出**可能的解释**。例如，若 **{{{selectedMetric}}}** 为 **满期赔付率** 且出现急剧上升，可能的原因是什么？
 
-**3. 颜色与绩效关联 (Color & Performance Correlation - if applicable):**
-   - Comment on how the VCR-based line colors change over time for the trend(s).
-   - Does a shift in color (e.g., from blue to red) correlate with a change in the trend of **{{{selectedMetric}}}**? Explain.
+**三、变动成本率（颜色）与趋势关联解读 (Correlation Analysis: Trend & Variable Cost Ratio Color):**
+   - 详细分析趋势线（或柱状图的柱子）的颜色（由“变动成本率”决定）如何随时间演变。
+   - **{{{selectedMetric}}}** 的趋势变化与“变动成本率”所指示的业务健康度（颜色变化，例如从蓝色变为红色）之间是否存在**明显的关联性**？请详细阐述。例如，**{{{selectedMetric}}}** 的改善是否伴随着“变动成本率”的优化（颜色向绿色转变）？反之亦然？
 
-**4. 潜在洞察与建议 (Potential Insights & Suggestions):**
-   - Based on the trend, and considering the VCR implications from line colors, what are 1-2 potential insights or areas for further investigation for the car insurance business?
+**四、战略洞察与前瞻建议 (Strategic Insights & Forward-looking Recommendations):**
+   - 基于对 **{{{selectedMetric}}}** 趋势及其与“变动成本率”表现的综合分析，提炼1-2项具有**战略价值的洞察**。
+   - 针对观察到的趋势和潜在风险（如“变动成本率”恶化），提出具体的、可供管理层参考的**初步建议或关注方向**。
 
-**Important:**
-- The analysis MUST be in Chinese.
-- Focus specifically on the **{{{selectedMetric}}}**.
-- Be concise and directly reference the data patterns and color implications.
-- If the chart shows a single aggregated trend, focus on that. If it compares multiple lines, address both individual and comparative aspects.
+**重要输出要求：**
+- 分析报告**必须为中文自然语言**。
+- **结构清晰，层次分明**，严格按照上述四部分组织内容。
+- 语言**精炼专业，富有洞察力**。
+- 关键的指标名称、趋势描述、转折点、业务类型名称等，请使用**Markdown加粗**。
+- 深刻理解并运用“变动成本率”及其颜色指示作为核心分析工具。
 
-Analysis (in Chinese):`,
+请开始您的分析。`,
 });
 
 const trendAnalysisFlow = ai.defineFlow(

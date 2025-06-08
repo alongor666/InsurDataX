@@ -12,17 +12,17 @@ import {z} from 'genkit';
 
 // Define Input Schema for Pareto Analysis
 const GenerateParetoAnalysisInputSchema = z.object({
-  chartDataJson: z.string().describe('The Pareto chart data, in JSON format. Each item has "name" (business line), "value" for the ranked metric, "cumulativePercentage", and a "color" field based on variable_cost_ratio (VCR).'),
-  analyzedMetric: z.string().describe('The metric being analyzed in the Pareto chart (e.g., premium_written, total_loss_amount).'),
+  chartDataJson: z.string().describe('The Pareto chart data, in JSON format. Each item has "name" (business line), "value" for the ranked metric, "cumulativePercentage", and a "color" field based on variable_cost_ratio (变动成本率) and its "vcr" value.'),
+  analyzedMetric: z.string().describe('The metric being analyzed in the Pareto chart (e.g., 跟单保费, 总赔款).'),
   analysisMode: z.string().describe('The analysis mode (e.g., cumulative, periodOverPeriod).'),
   currentPeriodLabel: z.string().describe('The label for the current data period (e.g., "2025年第23周").'),
-  filtersJson: z.string().describe('Additional filters applied, like selected business types, in JSON format. This includes VCR color rules and their business implications.')
+  filtersJson: z.string().describe('Additional filters applied, like selected business types, in JSON format. This includes vcrColorRules which explains how variable_cost_ratio (变动成本率) maps to colors and their business implications (green: good, blue: healthy, red: warning).')
 });
 export type GenerateParetoAnalysisInput = z.infer<typeof GenerateParetoAnalysisInputSchema>;
 
 // Define Output Schema for Pareto Analysis
 const GenerateParetoAnalysisOutputSchema = z.object({
-  summary: z.string().describe('A structured and concise analysis of the Pareto chart in Chinese, using Markdown for emphasis. It should highlight key contributors (the "vital few" typically contributing to 80% of the total), their VCR implications, and any significant observations from the "trivial many".'),
+  summary: z.string().describe('A structured and concise analysis of the Pareto chart in Chinese, using Markdown for emphasis. It should highlight key contributors (the "vital few" typically contributing to 80% of the total), their variable_cost_ratio (变动成本率) implications, and any significant observations from the "trivial many," providing deep business insights.'),
 });
 export type GenerateParetoAnalysisOutput = z.infer<typeof GenerateParetoAnalysisOutputSchema>;
 
@@ -36,49 +36,50 @@ const paretoAnalysisPrompt = ai.definePrompt({
   name: 'paretoAnalysisPrompt',
   input: {schema: GenerateParetoAnalysisInputSchema},
   output: {schema: GenerateParetoAnalysisOutputSchema},
-  prompt: `You are a data analyst specializing in car insurance business performance, with expertise in Pareto analysis (80/20 rule).
-Analyze the provided Pareto chart data for car insurance business lines based on the metric: **{{{analyzedMetric}}}**.
+  prompt: `您是麦肯锡的资深车险业务结构与盈利性分析专家，请基于以下帕累托图数据，对指标 **{{{analyzedMetric}}}** 的贡献结构进行深度剖析。
+您的分析需运用帕累托法则（80/20原则）识别核心业务，并重点评估这些核心业务的“变动成本率”表现及其对整体盈利质量的影响。
 
-**Context:**
-- Analysis Mode: {{{analysisMode}}}
-- Data Period: {{{currentPeriodLabel}}}
-- Selected Business Types (if applicable in filters): {{filtersJson.selectedBusinessTypes}}
-- Bar Color Implication (VCR): Colors are dynamically determined by variable_cost_ratio (VCR). {{{filtersJson.vcrColorRules}}}
-    - Green shades imply **good operational efficiency / lower risk**.
-    - Blue shades imply **healthy operational efficiency / moderate risk**.
-    - Red/Orange shades imply **poor operational efficiency / higher risk**.
+**当前分析背景：**
+- 分析模式: {{{analysisMode}}}
+- 数据周期: {{{currentPeriodLabel}}}
+- 筛选的业务类型 (若适用): {{filtersJson.selectedBusinessTypes}}
+- 变动成本率颜色规则解读: {{filtersJson.vcrColorRules}} (柱状图颜色由“变动成本率”决定：绿色代表经营状况优秀/低风险，蓝色代表健康/中等风险，红色代表警告/高风险)
 
-**Chart Data (JSON):**
-(Each item includes name, value for the analyzed metric, cumulativePercentage, and a 'color' field based on VCR. Data is sorted by 'value' descending.)
+**帕累托图数据 (JSON格式):**
+(每个条目包含业务线名称 'name', 指标 **{{{analyzedMetric}}}** 的值 'value', 累计贡献百分比 'cumulativePercentage', 'vcr' (变动成本率)及其对应的 'color')
 {{{chartDataJson}}}
 
-**Your Task:**
-Provide a structured and concise analysis of this Pareto chart in Chinese, using Markdown for emphasis (e.g., **bold text** for key elements). Organize your response with clear sections:
+**您的任务：**
+请撰写一份结构清晰、层次分明的中文分析报告。报告应包含以下部分，并使用自然语言阐述，重点内容请使用Markdown加粗：
 
-**1. 核心贡献业务线 (关键少数 - The Vital Few):**
-   - Identify the top business lines that contribute to approximately **80%** of the total **{{{analyzedMetric}}}** (refer to \`cumulativePercentage\`).
-   - List these "vital few" business lines. For each, state its value for **{{{analyzedMetric}}}**, its individual percentage contribution (if easily calculable or implied), and its VCR-based color and the business implication (e.g., "**非营业客车旧车非过户** 贡献了 **XXX万元** 的保费, 占总额的 **YY%**, 其VCR表现为**健康(蓝色)**.").
-   - Summarize the collective contribution of this group.
+**一、核心贡献业务线 (关键少数 - The Vital Few) 及其盈利质量评估：**
+   - 识别出贡献了总 **{{{analyzedMetric}}}** 约 **80%** 的“**关键少数**”业务线（参考 \`cumulativePercentage\` 字段）。
+   - 逐一列出这些“**关键少数**”业务线。对于每一个：
+     - 清晰说明其贡献的 **{{{analyzedMetric}}}** 数值及其在整体中的大致占比。
+     - **核心评估**：详细分析其“变动成本率”的颜色指示及其深层业务含义。例如：“**非营业客车旧车非过户** 业务贡献了 **XXX万元** 的 **{{{analyzedMetric}}}**，是主要驱动力之一。其**变动成本率处于绿色健康状态**，表明该业务不仅贡献规模大，且**盈利能力强，风险可控**，是高质量的核心业务。” 或 “**某某货车业务** 虽贡献了显著的 **{{{analyzedMetric}}}**，但其**变动成本率呈红色警戒**，提示其高贡献的背后可能隐藏着**高成本或高风险**，对整体利润的**实际贡献质量有待提升**。”
+   - 总结这批“**关键少数**”业务线对整体 **{{{analyzedMetric}}}** 贡献的集中度，以及它们总体的**盈利画像**（例如，是普遍健康，还是喜忧参半？）。
 
-**2. 其余业务线概览 (次要多数 - The Trivial Many):**
-   - Briefly comment on the remaining business lines that contribute the other ~20%.
-   - Are there any notable VCR colors or patterns among this group?
+**二、其余业务线 (次要多数 - The Trivial Many) 概览与机会挖掘：**
+   - 简要评述剩余贡献约20%的“**次要多数**”业务线。
+   - 在这些业务线中，是否存在“**小而美**”的类型？即虽然其对 **{{{analyzedMetric}}}** 的整体贡献不大，但其“变动成本率”表现优异（呈绿色），显示出较高的运营效率和盈利潜力。这些业务是否值得投入更多资源以扩大规模？
+   - 同时，是否存在一些贡献小且“变动成本率”表现差（呈红色）的业务线，可能需要考虑优化或调整策略？
 
-**3. 帕累托分析洞察 (Pareto Insights):**
-   - Based on the 80/20 distribution for **{{{analyzedMetric}}}** and the VCR colors of the key contributors, what are the primary insights?
-   - For example, are the top contributors also the most operationally efficient (green/blue VCR)? Or are there high-volume, high-risk (red VCR) contributors?
+**三、帕累托结构洞察与战略启示 (Pareto Structure Insights & Strategic Implications):**
+   - 基于80/20分布以及“**关键少数**”的“变动成本率”综合表现，对当前业务结构在 **{{{analyzedMetric}}}** 指标上提出核心洞察。
+   - 例如，当前业务是否过度依赖少数几个高风险业务线？或者，盈利能力强的业务线是否已形成规模效应？
 
-**4. 战略建议方向 (Strategic Implications):**
-   - Based on your analysis, suggest 1-2 strategic considerations. For instance, should efforts be focused on optimizing the "vital few," or are there opportunities in the "trivial many" that are currently highly efficient?
+**四、战略聚焦与资源配置建议 (Strategic Focus & Resource Allocation Recommendations):**
+   - 基于您的帕累托分析，提出1-2项关于**战略聚焦**和**资源优化配置**的初步建议。
+   - 例如，是否应进一步巩固和扩大高效核心业务的优势？如何提升高贡献但高风险业务的盈利能力？对于“小而美”的业务，应采取何种培育策略？
 
-**Important:**
-- The analysis MUST be in Chinese.
-- Focus specifically on the Pareto distribution for **{{{analyzedMetric}}}**.
-- Clearly link VCR color implications to the business lines identified.
-- Use Markdown for emphasis on key terms, business line names, and significant figures.
-- Be concise and directly reference patterns in the chart data.
+**重要输出要求：**
+- 分析报告**必须为中文自然语言**。
+- **结构清晰，层次分明**，严格按照上述四部分组织内容。
+- 语言**精炼专业，富有洞察力**。
+- 关键的指标名称、业务线名称、数据点（如80%分界线）、结论性判断等，请使用**Markdown加粗**。
+- 深刻理解并运用“变动成本率”及其颜色指示作为核心分析工具，并清晰解释其业务含义，特别是在评估“贡献质量”时。
 
-Analysis (in Chinese Markdown):`,
+请开始您的分析。`,
 });
 
 // Define the Flow for Pareto Analysis
@@ -90,7 +91,6 @@ const paretoAnalysisFlow = ai.defineFlow(
   },
   async (input) => {
     const {output} = await paretoAnalysisPrompt(input);
-    // In a real scenario, you might add more logic here before or after the prompt call.
     return output!;
   }
 );

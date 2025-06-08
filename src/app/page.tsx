@@ -10,8 +10,8 @@ import { KpiDashboardSection } from '@/components/sections/kpi-dashboard-section
 import { TrendAnalysisSection } from '@/components/sections/trend-analysis-section';
 import { BubbleChartSection } from '@/components/sections/bubble-chart-section';
 import { BarChartRankingSection } from '@/components/sections/bar-chart-ranking-section';
-import { ShareChartSection } from '@/components/sections/share-chart-section';
-import { ParetoChartSection } from '@/components/sections/pareto-chart-section'; 
+import { ShareChartSection } from '@/components/sections/share-chart-section'; 
+import { ParetoChartSection } from '@/components/sections/pareto-chart-section.tsx'; 
 import { DataTableSection } from '@/components/sections/data-table-section';
 import { AiSummarySection } from '@/components/sections/ai-summary-section';
 
@@ -19,7 +19,7 @@ import { generateBusinessSummary, type GenerateBusinessSummaryInput } from '@/ai
 import { generateTrendAnalysis, type GenerateTrendAnalysisInput } from '@/ai/flows/generate-trend-analysis-flow';
 import { generateBubbleChartAnalysis, type GenerateBubbleChartAnalysisInput } from '@/ai/flows/generate-bubble-chart-analysis-flow';
 import { generateBarRankingAnalysis, type GenerateBarRankingAnalysisInput } from '@/ai/flows/generate-bar-ranking-analysis-flow';
-// import { generateShareChartAnalysis, type GenerateShareChartAnalysisInput } from '@/ai/flows/generate-share-chart-analysis-flow'; // TODO: Add when flow is created
+import { generateShareChartAnalysis, type GenerateShareChartAnalysisInput } from '@/ai/flows/generate-share-chart-analysis-flow';
 import { generateParetoAnalysis, type GenerateParetoAnalysisInput } from '@/ai/flows/generate-pareto-analysis-flow';
 
 
@@ -280,7 +280,10 @@ export default function DashboardPage() {
         dataForCalculations,
         allV4Data.find(p => p.period_id === selectedPeriodKey)?.totals_for_period,
         analysisMode,
-        selectedBusinessTypes
+        selectedBusinessTypes,
+        selectedPeriodKey, 
+        selectedComparisonPeriodKey, 
+        periodOptions 
       );
       setKpis(calculatedKpis);
 
@@ -594,21 +597,21 @@ export default function DashboardPage() {
 
 
   const getCommonAiFilters = () => {
-    let comparisonPeriodInfo = "默认对比 (上一周期)"; // Default if no specific selection or mom
-    let comparisonPeriodIdForLabel = selectedComparisonPeriodKey;
+    let comparisonPeriodInfo = "默认对比 (上一周期)"; 
+    let actualComparisonPeriodId = selectedComparisonPeriodKey;
 
-    if (!comparisonPeriodIdForLabel) { // If no direct selection, try to find MoM for current period
+    if (!actualComparisonPeriodId) { 
         const currentPeriodEntry = allV4Data.find(p => p.period_id === selectedPeriodKey);
         if (currentPeriodEntry?.comparison_period_id_mom) {
-            comparisonPeriodIdForLabel = currentPeriodEntry.comparison_period_id_mom;
+            actualComparisonPeriodId = currentPeriodEntry.comparison_period_id_mom;
         }
     }
 
-    if (comparisonPeriodIdForLabel) {
-        const selectedCompLabel = periodOptions.find(p => p.value === comparisonPeriodIdForLabel)?.label;
+    if (actualComparisonPeriodId) {
+        const selectedCompLabel = periodOptions.find(p => p.value === actualComparisonPeriodId)?.label;
         if (selectedCompLabel) {
             comparisonPeriodInfo = `对比周期: ${selectedCompLabel}`;
-        } else if (selectedComparisonPeriodKey) { // If a key was selected but not found in options (shouldn't happen)
+        } else if (selectedComparisonPeriodKey) { 
             comparisonPeriodInfo = "对比所选周期 (标签未知)";
         }
     }
@@ -619,7 +622,7 @@ export default function DashboardPage() {
         period: currentPeriodLabel,
         comparison: comparisonPeriodInfo,
         selectedBusinessTypes: selectedBusinessTypes.length > 0 ? selectedBusinessTypes.join(', ') : '全部独立业务类型合计',
-        vcrColorRules: "颜色基于变动成本率(VCR)动态调整深浅：绿色(优秀, 变动成本率 < 88%，越小越深绿)，蓝色(健康, 88%-92%，越接近88%越深蓝)，红色(危险, 变动成本率 >= 92%，越大越深红)。"
+        vcrColorRules: "颜色基于变动成本率动态调整深浅：绿色(优秀, 变动成本率 < 88%，越小越深绿)，蓝色(健康, 88%-92%，越接近88%越深蓝)，红色(危险, 变动成本率 >= 92%，越大越深红)。"
     };
 };
 
@@ -637,7 +640,7 @@ export default function DashboardPage() {
       
       const relevantMetricsToDisplay = (metrics: AggregatedBusinessMetrics, comparisonMetrics?: AggregatedBusinessMetrics | null, compLabel?: string) => {
         let changeInfo = 'N/A';
-        if (metrics?.premium_written !== undefined && comparisonMetrics?.premium_written !== undefined && comparisonMetrics?.premium_written !== null ) { // Ensure comparison is not null
+        if (metrics?.premium_written !== undefined && comparisonMetrics?.premium_written !== undefined && comparisonMetrics?.premium_written !== null ) { 
             const absChange = metrics.premium_written - comparisonMetrics.premium_written;
             const pctChange = comparisonMetrics.premium_written !== 0 ? (absChange / Math.abs(comparisonMetrics.premium_written)) * 100 : (metrics.premium_written !== 0 ? Infinity : 0);
             let pctChangeStr = isFinite(pctChange) ? `${pctChange > 0 ? '+' : ''}${pctChange.toFixed(1)}%` : (pctChange > 0 ? '+∞%' : '-∞%');
@@ -649,7 +652,7 @@ export default function DashboardPage() {
         }
 
         return {
-            premiumWritten: `${metrics.premium_written?.toFixed(0) || 'N/A'} 万元`, //万元, 0 decimals
+            premiumWritten: `${metrics.premium_written?.toFixed(0) || 'N/A'} 万元`, 
             lossRatio: `${metrics.loss_ratio?.toFixed(1) || 'N/A'}%`,
             variableCostRatio: `${metrics.variable_cost_ratio?.toFixed(1) || 'N/A'}%`,
             color: getDynamicColorByVCR(metrics.variable_cost_ratio),
@@ -677,7 +680,7 @@ export default function DashboardPage() {
 
               topBusinessLinesData = individualLinesData
                 .sort((a, b) => (b.currentMetrics.premium_written || 0) - (a.currentMetrics.premium_written || 0))
-                .slice(0, 3) // Top 3 if available
+                .slice(0, 3) 
                 .map(d => ({
                     name: d.businessLineName,
                     ...relevantMetricsToDisplay(d.currentMetrics, d.momMetrics, comparisonLabelForAISummary) 
@@ -693,12 +696,11 @@ export default function DashboardPage() {
        const aiInputData = {
         keyPerformanceIndicators: kpis.map(kpi => ({
             title: kpi.title,
-            value: kpi.value, // This is already formatted for display
-            rawValue: kpi.rawValue, // Pass raw value for AI to understand magnitude
-            // comparisonLabel is now handled by getCommonAiFilters()
+            value: kpi.value, 
+            rawValue: kpi.rawValue, 
             comparisonChangePercent: kpi.comparisonChange, 
             comparisonChangeAbsolute: kpi.comparisonChangeAbsolute, 
-            isRisk: kpi.isRisk || kpi.isBorderRisk || kpi.isOrangeRisk, // Combine risk flags
+            isRisk: kpi.isRisk || kpi.isBorderRisk || kpi.isOrangeRisk, 
             description: kpi.description
         })),
         ...(topBusinessLinesData.length > 0 && { topBusinessLinesByPremiumWritten: topBusinessLinesData }),
@@ -811,17 +813,24 @@ export default function DashboardPage() {
     }
     setIsShareChartAiSummaryLoading(true);
     setShareChartAiSummary(null);
-    toast({ title: "AI占比图分析功能待实现" }); 
-    // try {
-    //   // const input: GenerateShareChartAnalysisInput = { /* ... */ }; // Define this type and flow
-    //   // const result = await generateShareChartAnalysis(input);
-    //   // setShareChartAiSummary(result.summary);
-    // } catch (error) {
-    //   // setShareChartAiSummary("生成AI占比图分析时出错。");
-    // } finally {
-    //   // setIsShareChartAiSummaryLoading(false);
-    // }
-    setIsShareChartAiSummaryLoading(false); 
+    try {
+      const input: GenerateShareChartAnalysisInput = { 
+        chartDataJson: JSON.stringify(shareChartData),
+        analyzedMetric: availableShareChartMetrics.find(m => m.value === selectedShareChartMetric)?.label || selectedShareChartMetric,
+        analysisMode,
+        currentPeriodLabel,
+        filtersJson: JSON.stringify(getCommonAiFilters())
+      };
+      const result = await generateShareChartAnalysis(input);
+      setShareChartAiSummary(result.summary);
+      toast({ title: "AI占比图分析已生成" });
+    } catch (error) {
+      console.error("Error generating share chart AI summary:", error);
+      setShareChartAiSummary("生成AI占比图分析时出错。");
+      toast({ variant: "destructive", title: "AI占比图分析失败", description: `错误: ${error instanceof Error ? error.message : String(error)}` });
+    } finally {
+      setIsShareChartAiSummaryLoading(false);
+    }
   };
 
   const handleGenerateParetoAiSummary = async () => {
