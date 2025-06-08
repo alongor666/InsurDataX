@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import type { AnalysisMode, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod, V4PeriodData, PeriodOption, DashboardView, TrendMetricKey, RankingMetricKey, BubbleMetricKey, AggregatedBusinessMetrics, DataSourceType, CoreAggregatedMetricKey, ShareChartMetricKey, ShareChartDataItem } from '@/data/types'; // Added ShareChart types
+import type { AnalysisMode, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod, V4PeriodData, PeriodOption, DashboardView, TrendMetricKey, RankingMetricKey, BubbleMetricKey, AggregatedBusinessMetrics, DataSourceType, CoreAggregatedMetricKey, ShareChartMetricKey, ShareChartDataItem, ParetoChartMetricKey, ParetoChartDataItem } from '@/data/types';
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { AppHeader } from '@/components/layout/header';
@@ -10,7 +10,8 @@ import { KpiDashboardSection } from '@/components/sections/kpi-dashboard-section
 import { TrendAnalysisSection } from '@/components/sections/trend-analysis-section';
 import { BubbleChartSection } from '@/components/sections/bubble-chart-section';
 import { BarChartRankingSection } from '@/components/sections/bar-chart-ranking-section';
-import { ShareChartSection } from '@/components/sections/share-chart-section'; // New
+import { ShareChartSection } from '@/components/sections/share-chart-section';
+import { ParetoChartSection } from '@/components/sections/pareto-chart-section'; // New
 import { DataTableSection } from '@/components/sections/data-table-section';
 import { AiSummarySection } from '@/components/sections/ai-summary-section';
 
@@ -19,6 +20,8 @@ import { generateTrendAnalysis, type GenerateTrendAnalysisInput } from '@/ai/flo
 import { generateBubbleChartAnalysis, type GenerateBubbleChartAnalysisInput } from '@/ai/flows/generate-bubble-chart-analysis-flow';
 import { generateBarRankingAnalysis, type GenerateBarRankingAnalysisInput } from '@/ai/flows/generate-bar-ranking-analysis-flow';
 // import { generateShareChartAnalysis, type GenerateShareChartAnalysisInput } from '@/ai/flows/generate-share-chart-analysis-flow'; // TODO: Add when flow is created
+// import { generateParetoAnalysis, type GenerateParetoAnalysisInput } from '@/ai/flows/generate-pareto-analysis-flow'; // TODO: Add when flow is created
+
 
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -91,6 +94,8 @@ const availableShareChartMetrics: { value: ShareChartMetricKey, label: string}[]
     { value: 'marginal_contribution_amount', label: '边贡额 (万元)'},
 ];
 
+const availableParetoMetrics: { value: ParetoChartMetricKey, label: string}[] = availableShareChartMetrics; // Same metrics as share chart
+
 
 export default function DashboardPage() {
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('cumulative');
@@ -119,8 +124,11 @@ export default function DashboardPage() {
   const [selectedRankingMetric, setSelectedRankingMetric] = useState<RankingMetricKey>('premium_written');
   const [barRankData, setBarRankData] = useState<ChartDataItem[]>([]);
 
-  const [selectedShareChartMetric, setSelectedShareChartMetric] = useState<ShareChartMetricKey>('premium_written'); // New
-  const [shareChartData, setShareChartData] = useState<ShareChartDataItem[]>([]); // New
+  const [selectedShareChartMetric, setSelectedShareChartMetric] = useState<ShareChartMetricKey>('premium_written'); 
+  const [shareChartData, setShareChartData] = useState<ShareChartDataItem[]>([]); 
+
+  const [selectedParetoMetric, setSelectedParetoMetric] = useState<ParetoChartMetricKey>('premium_written'); // New
+  const [paretoChartData, setParetoChartData] = useState<ParetoChartDataItem[]>([]); // New
 
 
   const [overallAiSummary, setOverallAiSummary] = useState<string | null>(null);
@@ -132,8 +140,10 @@ export default function DashboardPage() {
   const [isBubbleAiSummaryLoading, setIsBubbleAiSummaryLoading] = useState(false);
   const [barRankAiSummary, setBarRankAiSummary] = useState<string | null>(null);
   const [isBarRankAiSummaryLoading, setIsBarRankAiSummaryLoading] = useState(false);
-  const [shareChartAiSummary, setShareChartAiSummary] = useState<string | null>(null); // New
-  const [isShareChartAiSummaryLoading, setIsShareChartAiSummaryLoading] = useState(false); // New
+  const [shareChartAiSummary, setShareChartAiSummary] = useState<string | null>(null); 
+  const [isShareChartAiSummaryLoading, setIsShareChartAiSummaryLoading] = useState(false); 
+  const [paretoAiSummary, setParetoAiSummary] = useState<string | null>(null); // New
+  const [isParetoAiSummaryLoading, setIsParetoAiSummaryLoading] = useState(false); // New
 
 
   const [isGlobalLoading, setIsGlobalLoading] = useState(true);
@@ -152,6 +162,7 @@ export default function DashboardPage() {
       setBubbleAiSummary(null);
       setBarRankAiSummary(null);
       setShareChartAiSummary(null);
+      setParetoAiSummary(null); // New
       try {
         let data: V4PeriodData[] = [];
         if (dataSource === 'json') {
@@ -244,7 +255,8 @@ export default function DashboardPage() {
       setTrendChartData([]);
       setBubbleChartData([]);
       setBarRankData([]);
-      setShareChartData([]); // New
+      setShareChartData([]);
+      setParetoChartData([]); // New
       return;
     }
     
@@ -284,21 +296,26 @@ export default function DashboardPage() {
       const rankData = prepareBarRankData_V4(allV4Data, selectedRankingMetric, selectedPeriodKey, analysisMode, selectedBusinessTypes);
       setBarRankData(rankData);
 
-      const shareData = prepareShareChartData_V4(allV4Data, selectedPeriodKey, analysisMode, selectedBusinessTypes, selectedShareChartMetric); // New
-      setShareChartData(shareData); // New
+      const shareData = prepareShareChartData_V4(allV4Data, selectedPeriodKey, analysisMode, selectedBusinessTypes, selectedShareChartMetric); 
+      setShareChartData(shareData); 
+
+      const paretoData = prepareParetoChartData_V4(allV4Data, selectedPeriodKey, analysisMode, selectedBusinessTypes, selectedParetoMetric); // New
+      setParetoChartData(paretoData); // New
     } else {
       setKpis([]);
       setTrendChartData([]);
       setBubbleChartData([]);
       setBarRankData([]);
-      setShareChartData([]); // New
+      setShareChartData([]);
+      setParetoChartData([]); // New
     }
     setTrendAiSummary(null);
     setBubbleAiSummary(null);
     setBarRankAiSummary(null);
-    setShareChartAiSummary(null); // New
+    setShareChartAiSummary(null);
+    setParetoAiSummary(null); // New
 
-  }, [isGlobalLoading, analysisMode, selectedPeriodKey, selectedComparisonPeriodKey, allV4Data, selectedBusinessTypes, selectedTrendMetric, selectedRankingMetric, selectedBubbleXAxisMetric, selectedBubbleYAxisMetric, selectedBubbleSizeMetric, selectedShareChartMetric, periodOptions, toast]); // Added selectedShareChartMetric
+  }, [isGlobalLoading, analysisMode, selectedPeriodKey, selectedComparisonPeriodKey, allV4Data, selectedBusinessTypes, selectedTrendMetric, selectedRankingMetric, selectedBubbleXAxisMetric, selectedBubbleYAxisMetric, selectedBubbleSizeMetric, selectedShareChartMetric, selectedParetoMetric, periodOptions, toast]); // Added selectedParetoMetric
 
 
  const prepareTrendData_V4 = (
@@ -323,14 +340,14 @@ export default function DashboardPage() {
       for (const periodP of periodsForTrendRange) {
         const periodPIndex = sortedPeriods.findIndex(p => p.period_id === periodP.period_id);
   
-        if (periodPIndex === 0 && periodsForTrendRange.length > 1) { // Skip if it's the very first period in the sorted dataset AND not the only period in range
+        if (periodPIndex === 0 && periodsForTrendRange.length > 1) { 
           continue; 
-        } else if (periodsForTrendRange.length === 1) { // If only one period in range, cannot calculate PoP
+        } else if (periodsForTrendRange.length === 1) { 
             continue;
         }
   
         const periodPMinus1 = sortedPeriods[periodPIndex - 1];
-        if (!periodPMinus1) continue; // Should not happen if previous checks are correct
+        if (!periodPMinus1) continue; 
   
         const processedP_YTD_Data = processDataForSelectedPeriod(
           allData, periodP.period_id, null, 'cumulative', selBusinessTypes
@@ -485,7 +502,6 @@ export default function DashboardPage() {
     const currentRawPeriod = allRawData.find(p => p.period_id === currentPeriodId);
     if (!currentRawPeriod) return [];
 
-    // Calculate total for the metric across ALL individual business lines
     const allIndividualTypesInPeriod = Array.from(new Set(
         (currentRawPeriod.business_data || [])
         .map(bd => bd.business_type)
@@ -493,14 +509,13 @@ export default function DashboardPage() {
     ));
 
     let grandTotalMetricValue = 0;
-    const grandTotalProcessedData = processDataForSelectedPeriod(allRawData, currentPeriodId, null, mode, []); // Empty array for all types
+    const grandTotalProcessedData = processDataForSelectedPeriod(allRawData, currentPeriodId, null, mode, []); 
     if (grandTotalProcessedData.length > 0 && grandTotalProcessedData[0].currentMetrics) {
         grandTotalMetricValue = (grandTotalProcessedData[0].currentMetrics[metricKey as CoreAggregatedMetricKey] as number) || 0;
     }
 
-    if (grandTotalMetricValue === 0) return []; // Avoid division by zero if total is 0
+    if (grandTotalMetricValue === 0) return [];
 
-    // Determine which business types to show as slices
     const typesForSlices = selBusinessTypes.length > 0 ? selBusinessTypes : allIndividualTypesInPeriod;
     
     const shareData: ShareChartDataItem[] = typesForSlices.map(businessType => {
@@ -518,9 +533,21 @@ export default function DashboardPage() {
             };
         }
         return null;
-    }).filter(item => item !== null && item.value > 0) as ShareChartDataItem[]; // Filter out nulls and zero-value items
+    }).filter(item => item !== null && item.value > 0) as ShareChartDataItem[]; 
 
-    return shareData.sort((a,b) => b.value - a.value); // Sort by value descending
+    return shareData.sort((a,b) => b.value - a.value); 
+  };
+
+  const prepareParetoChartData_V4 = ( // New
+    allRawData: V4PeriodData[],
+    currentPeriodId: string,
+    mode: AnalysisMode,
+    selBusinessTypes: string[],
+    metricKey: ParetoChartMetricKey
+  ): ParetoChartDataItem[] => {
+    // Placeholder - to be implemented
+    console.log("prepareParetoChartData_V4 called with:", metricKey);
+    return [];
   };
 
 
@@ -579,13 +606,12 @@ export default function DashboardPage() {
 
       const comparisonLabelForAISummary = selectedComparisonPeriodKey 
         ? (periodOptions.find(p => p.value === selectedComparisonPeriodKey)?.label || "所选周期")
-        : "上一周期";
+        : (periodOptions.find(p => p.value === allV4Data.find(pd => pd.period_id === selectedPeriodKey)?.comparison_period_id_mom)?.label || "上一周期");
 
 
       if (currentContextData && currentContextData.currentMetrics) {
           if (currentContextData.businessLineId === '合计' || currentContextData.businessLineId === '自定义合计' || selectedBusinessTypes.length === 0) {
               const individualLinesData = allBusinessTypes.map(bt => {
-                // For AI summary, comparison data should also be based on the selected global comparison period or default MoM
                 return processDataForSelectedPeriod(allV4Data, selectedPeriodKey, selectedComparisonPeriodKey, analysisMode, [bt])[0];
               }).filter(d => d && d.currentMetrics && d.businessLineId !== '合计' && d.businessLineId !== '自定义合计');
 
@@ -596,9 +622,9 @@ export default function DashboardPage() {
                     name: d.businessLineName,
                     ...relevantMetricsToDisplay(d.currentMetrics, d.momMetrics, comparisonLabelForAISummary) 
                 }));
-          } else { // Single or multiple selected business types (but not all)
+          } else { 
             topBusinessLinesData = [{
-                name: currentContextData.businessLineName, // Will be '自定义合计' if multiple selected
+                name: currentContextData.businessLineName, 
                 ...relevantMetricsToDisplay(currentContextData.currentMetrics, currentContextData.momMetrics, comparisonLabelForAISummary)
             }];
           }
@@ -609,9 +635,9 @@ export default function DashboardPage() {
             title: kpi.title,
             value: kpi.value,
             rawValue: kpi.rawValue,
-            comparisonLabel: kpi.comparisonLabel, // Updated label
-            comparisonChangePercent: kpi.comparisonChange, // Updated field
-            comparisonChangeAbsolute: kpi.comparisonChangeAbsolute, // Updated field
+            comparisonLabel: kpi.comparisonLabel, 
+            comparisonChangePercent: kpi.comparisonChange, 
+            comparisonChangeAbsolute: kpi.comparisonChangeAbsolute, 
             isRisk: kpi.isRisk || kpi.isBorderRisk || kpi.isOrangeRisk,
             description: kpi.description
         })),
@@ -719,16 +745,15 @@ export default function DashboardPage() {
   };
 
   const handleGenerateShareChartAiSummary = async () => {
-    // TODO: Implement this when the AI flow for share chart is ready
     if (isGlobalLoading || !shareChartData.length) {
         toast({ variant: "default", title: "无占比图数据", description: "无法为当前选择生成AI占比图分析。" });
         return;
     }
     setIsShareChartAiSummaryLoading(true);
     setShareChartAiSummary(null);
-    toast({ title: "AI占比图分析功能待实现" });
+    toast({ title: "AI占比图分析功能待实现" }); // TODO: Replace with actual AI call
     // try {
-    //   const input: GenerateShareChartAnalysisInput = { /* ... */ };
+    //   const input: GenerateShareChartAnalysisInput = { /* ... */ }; // Define this type and flow
     //   const result = await generateShareChartAnalysis(input);
     //   setShareChartAiSummary(result.summary);
     // } catch (error) {
@@ -736,7 +761,27 @@ export default function DashboardPage() {
     // } finally {
     //   setIsShareChartAiSummaryLoading(false);
     // }
-    setIsShareChartAiSummaryLoading(false); // Placeholder
+    setIsShareChartAiSummaryLoading(false); 
+  };
+
+  const handleGenerateParetoAiSummary = async () => { // New
+    if (isGlobalLoading || !paretoChartData.length) {
+        toast({ variant: "default", title: "无帕累托图数据", description: "无法为当前选择生成AI帕累托图分析。" });
+        return;
+    }
+    setIsParetoAiSummaryLoading(true);
+    setParetoAiSummary(null);
+    toast({ title: "AI帕累托图分析功能待实现" }); // TODO: Replace with actual AI call
+    // try {
+    //   const input: GenerateParetoAnalysisInput = { /* ... */ }; // Define this type and flow
+    //   const result = await generateParetoAnalysis(input);
+    //   setParetoAiSummary(result.summary);
+    // } catch (error) {
+    //   setParetoAiSummary("生成AI帕累托图分析时出错。");
+    // } finally {
+    //   setIsParetoAiSummaryLoading(false);
+    // }
+    setIsParetoAiSummaryLoading(false);
   };
 
 
@@ -829,7 +874,7 @@ export default function DashboardPage() {
                 key={`barrank-${dataSource}-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedRankingMetric}-${selectedPeriodKey}-${selectedComparisonPeriodKey}`}
               />
             )}
-             {activeView === 'share_chart' && ( // New Share Chart Section
+             {activeView === 'share_chart' && ( 
               <ShareChartSection
                 data={shareChartData}
                 availableMetrics={availableShareChartMetrics}
@@ -839,6 +884,18 @@ export default function DashboardPage() {
                 isAiSummaryLoading={isShareChartAiSummaryLoading}
                 onGenerateAiSummary={handleGenerateShareChartAiSummary}
                 key={`sharechart-${dataSource}-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedShareChartMetric}-${selectedPeriodKey}-${selectedComparisonPeriodKey}`}
+              />
+            )}
+            {activeView === 'pareto' && ( // New
+              <ParetoChartSection
+                data={paretoChartData}
+                availableMetrics={availableParetoMetrics}
+                selectedMetric={selectedParetoMetric}
+                onMetricChange={setSelectedParetoMetric}
+                aiSummary={paretoAiSummary}
+                isAiSummaryLoading={isParetoAiSummaryLoading}
+                onGenerateAiSummary={handleGenerateParetoAiSummary}
+                key={`paretochart-${dataSource}-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedParetoMetric}-${selectedPeriodKey}-${selectedComparisonPeriodKey}`}
               />
             )}
             {activeView === 'data_table' && <DataTableSection data={processedData} analysisMode={analysisMode} selectedComparisonPeriodKey={selectedComparisonPeriodKey} periodOptions={periodOptions} activePeriodId={selectedPeriodKey} />}

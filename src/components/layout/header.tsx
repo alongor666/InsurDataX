@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
 import type { AnalysisMode, PeriodOption, DashboardView, DataSourceType } from '@/data/types';
-import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon } from 'lucide-react'; // Added PieChartIcon
+import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon, AreaChart } from 'lucide-react'; // Added AreaChart for Pareto
 import {
   Select,
   SelectContent,
@@ -69,7 +69,8 @@ export function AppHeader({
     { label: "趋势图", value: "trend", icon: LineChart },
     { label: "气泡图", value: "bubble", icon: ScanLine },
     { label: "排名图", value: "bar_rank", icon: BarChartHorizontal },
-    { label: "占比图", value: "share_chart", icon: PieChartIcon }, // New
+    { label: "占比图", value: "share_chart", icon: PieChartIcon },
+    { label: "帕累托图", value: "pareto", icon: AreaChart }, // New Pareto Chart view
     { label: "数据表", value: "data_table", icon: Rows3 },
   ];
 
@@ -139,7 +140,7 @@ export function AppHeader({
           <div className="flex items-center space-x-1 md:space-x-2 relative">
             <GitCompareArrows className="h-5 w-5 text-muted-foreground hidden md:block" />
             <Select
-              value={selectedComparisonPeriod || "default"} // "default" represents MoM or no specific selection
+              value={selectedComparisonPeriod || "default"} 
               onValueChange={(value) => onComparisonPeriodChange(value === "default" ? null : value)}
               disabled={periodOptions.length === 0 || !selectedPeriod}
             >
@@ -162,7 +163,7 @@ export function AppHeader({
                       variant="ghost"
                       size="icon"
                       className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
-                      onClick={() => onComparisonPeriodChange(null)} // Clear specific comparison
+                      onClick={() => onComparisonPeriodChange(null)} 
                     >
                       <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                     </Button>
