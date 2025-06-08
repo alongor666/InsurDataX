@@ -1,3 +1,4 @@
+
 # 问题与解决日志
 
 本文档用于记录在“车险经营分析周报”项目开发过程中遇到的主要问题及其解决方案。
@@ -140,6 +141,7 @@
         *   实现 `getMetricChartType` 辅助函数，根据 `METRIC_FORMAT_RULES_FOR_CHARTS` 判断指标类型。
         *   基于判断结果，条件渲染 `<RechartsLineChart>` 或 `<RechartsBarChart>`。
         *   确保VCR驱动的动态颜色逻辑（折线图数据点、柱状图柱子）在两种图表上均正确应用。
+        *   为柱状图添加了数据标签。
 - **状态**: 已解决
 - **备注**: 此功能增强了数据可视化的灵活性和表达力。
 
@@ -163,4 +165,33 @@
 - **状态**: 已解决
 - **备注**: 此调整确保了趋势图在环比模式下的计算逻辑与用户最新要求一致，同时不影响KPI看板和数据表的环比计算。
 
+---
+### 10. 模块未找到错误 (ShareChartSection)
+- **问题描述**: `src/app/page.tsx` 尝试导入 `ShareChartSection` 组件，但该文件尚未创建，导致 `Module not found` 错误。
+- **发生时间**: 2024-05-27
+- **影响范围**: 应用编译和运行。
+- **解决方案**:
+    1.  创建了 `src/components/sections/share-chart-section.tsx` 文件，并包含了一个基本的占位符组件结构。
+- **状态**: 已解决
+- **备注**: 这是在实现新功能模块过程中的一个预期步骤。
+
+---
+### 11. 帕累托图功能实现
+- **问题描述**: 需要实现帕累托图功能，包括数据准备、图表渲染和AI分析对接。
+- **发生时间**: 2024-05-27
+- **影响范围**: 应用的数据分析视图。
+- **解决方案**:
+    1.  **`src/app/page.tsx`**:
+        *   实现了 `prepareParetoChartData_V4` 函数，用于获取数据、按指标值降序排序、计算累计百分比，并赋予VCR颜色。
+        *   实现了 `handleGenerateParetoAiSummary` 函数，用于调用 `generateParetoAnalysis` AI Flow。
+    2.  **`src/components/sections/pareto-chart-section.tsx`**:
+        *   使用 `recharts` 的 `ComposedChart` 实现帕累托图。
+        *   主Y轴 (左) 使用 `<Bar>` 显示指标绝对值，颜色基于VCR。
+        *   次Y轴 (右) 使用 `<Line>` 显示累计百分比。
+        *   实现了自定义Tooltip、X轴（业务线名称）、双Y轴标签和图例。
+    3.  **`src/ai/flows/generate-pareto-analysis-flow.ts`**: AI Flow已定义，用于分析帕累托图数据。
+    4.  相关文档（PRD, README, ISSUES_LOG）已更新以包含帕累托图功能。
+- **状态**: 已解决
+- **备注**: 帕累托图为业务分析提供了新的重要视角。
 ```
+    
