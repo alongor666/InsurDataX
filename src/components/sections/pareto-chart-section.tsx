@@ -7,7 +7,7 @@ import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { AreaChart as AreaChartIcon, Palette } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChartContainer, ChartTooltip, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
-import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, ResponsiveContainer, Cell, LabelList } from 'recharts';
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'; // Removed Legend import as we use ChartLegend
 import type { TooltipProps } from 'recharts';
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import { formatDisplayValue } from '@/lib/data-utils';
@@ -37,7 +37,7 @@ const METRIC_FORMAT_RULES_FOR_CHARTS: Record<string, { type: string, originalUni
 const CustomTooltipContent = ({ active, payload, label, selectedMetricKey, availableMetricsList }: TooltipProps<ValueType, NameType> & { selectedMetricKey?: ParetoChartMetricKey, availableMetricsList?: { value: ParetoChartMetricKey, label: string }[] }) => {
   if (active && payload && payload.length && selectedMetricKey && availableMetricsList) {
     const dataPoint = payload[0]?.payload as ParetoChartDataItem; // Bar data
-    const lineDataPoint = payload.find(p => p.dataKey === 'cumulativePercentage')?.payload as ParetoChartDataItem; // Line data
+    // const lineDataPoint = payload.find(p => p.dataKey === 'cumulativePercentage')?.payload as ParetoChartDataItem; // Line data, not strictly needed if dataPoint has all
 
     const metricConfig = availableMetricsList.find(m => m.value === selectedMetricKey);
 
@@ -56,7 +56,7 @@ const CustomTooltipContent = ({ active, payload, label, selectedMetricKey, avail
         ))}
         {dataPoint.vcr !== undefined && 
           <p className="text-xs mt-1" style={{color: dataPoint.color}}>
-              VCR: {formatDisplayValue(dataPoint.vcr, 'variable_cost_ratio')}
+              变动成本率: {formatDisplayValue(dataPoint.vcr, 'variable_cost_ratio')}
           </p>
         }
       </div>
@@ -102,7 +102,7 @@ export function ParetoChartSection({
   const hasData = data && data.length > 0;
   const selectedMetricConfig = availableMetrics.find(m => m.value === selectedMetric);
   const chartConfig = {
-      [selectedMetric]: { label: selectedMetricConfig?.label || selectedMetric, color: "hsl(var(--chart-1))" },
+      value: { label: selectedMetricConfig?.label || selectedMetric, color: "hsl(var(--chart-1))" }, // Changed key to 'value' to match Bar dataKey
       cumulativePercentage: { label: "累计占比 (%)", color: "hsl(var(--chart-2))" }
   };
   
@@ -120,18 +120,18 @@ export function ParetoChartSection({
           选择指标以查看帕累托图数据，或当前条件下无数据。
         </p>
       ) : (
-        <div className="h-[400px] w-full"> {/* Increased height for better readability */}
+        <div className="h-[400px] w-full"> 
           <ChartContainer config={chartConfig} className="h-full w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 40 }}> {/* Adjusted margins */}
+              <ComposedChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 50 }}> {/* Increased bottom margin */}
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis 
                     dataKey="name" 
-                    tick={{ fontSize: 10 }} 
-                    angle={-30} // Angle labels for better fit
-                    textAnchor="end" // Anchor angled labels correctly
-                    height={60} // Increase height for XAxis angled labels
-                    interval={0} // Show all labels
+                    tick={{ fontSize: 11 }} // Slightly smaller font for horizontal display
+                    // angle={0} // Ensure horizontal
+                    // textAnchor="middle" // Anchor horizontal labels correctly
+                    height={70} // Increased height for XAxis horizontal labels
+                    interval={0} 
                 />
                 <YAxis 
                     yAxisId="left" 
@@ -153,7 +153,7 @@ export function ParetoChartSection({
                     cursor={{ fill: 'hsl(var(--muted))' }}
                 />
                 <ChartLegend content={<ChartLegendContent />} verticalAlign="top" wrapperStyle={{paddingBottom: '20px'}} />
-                <Bar dataKey="value" yAxisId="left" name={chartConfig[selectedMetric]?.label || selectedMetric} barSize={20}>
+                <Bar dataKey="value" yAxisId="left" name={chartConfig.value?.label || selectedMetric} barSize={20}>
                   {data.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color || 'hsl(var(--chart-1))'} />
                   ))}
@@ -189,5 +189,3 @@ export function ParetoChartSection({
     </SectionWrapper>
   );
 }
-
-    

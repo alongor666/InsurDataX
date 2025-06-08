@@ -38,13 +38,38 @@ const CustomTooltipContent = ({ active, payload, coordinate, selectedMetricKey, 
         </p>
         {dataItem.vcr !== undefined && 
           <p className="text-xs" style={{color: dataItem.color}}>
-              VCR: {formatDisplayValue(dataItem.vcr, 'variable_cost_ratio')}
+              变动成本率: {formatDisplayValue(dataItem.vcr, 'variable_cost_ratio')}
           </p>
         }
       </div>
     );
   }
   return null;
+};
+
+const RADIAN = Math.PI / 180;
+const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value, percentage }: any) => {
+  if (percentage < 3) return null; // Only show label if percentage is >= 3%
+
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  // Increase label radius to position labels further outside the pie, adjust multiplier as needed
+  const labelRadius = outerRadius * 1.15; 
+  const x = cx + labelRadius * Math.cos(-midAngle * RADIAN);
+  const y = cy + labelRadius * Math.sin(-midAngle * RADIAN);
+  const percentageDisplay = (percent * 100).toFixed(1);
+
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="hsl(var(--foreground))"
+      textAnchor={x > cx ? 'start' : 'end'}
+      dominantBaseline="central"
+      className="text-xs"
+    >
+      {`${name} (${percentageDisplay}%)`}
+    </text>
+  );
 };
 
 
@@ -75,10 +100,9 @@ export function ShareChartSection({
   );
 
   const hasData = data && data.length > 0;
-  const chartConfig = {}; // PieChart doesn't use chartConfig in the same way line/bar does for lines/bars
+  const chartConfig = {}; 
 
-  // Outer radius for the pie chart
-  const outerRadius = 120;
+  const outerRadius = hasData ? Math.min(150, (Math.min(window.innerWidth, window.innerHeight) * 0.3)) : 120;
 
 
   return (
@@ -88,10 +112,10 @@ export function ShareChartSection({
           选择指标以查看占比数据，或当前条件下无数据。
         </p>
       ) : (
-        <div className="h-[350px] w-full">
+        <div className="h-[400px] w-full"> {/* Increased height for labels */}
           <ChartContainer config={chartConfig} className="h-full w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+              <PieChart margin={{ top: 30, right: 50, bottom: 30, left: 50 }}> {/* Added more margin for labels */}
                 <RechartsTooltip 
                     content={<CustomTooltipContent selectedMetricKey={selectedMetric} availableMetricsList={availableMetrics} />} 
                     cursor={{ strokeDasharray: '3 3' }} 
@@ -100,39 +124,27 @@ export function ShareChartSection({
                   data={data}
                   cx="50%"
                   cy="50%"
-                  labelLine={false}
-                  outerRadius={outerRadius}
+                  labelLine={true} // Show label lines for outside labels
+                  label={renderCustomizedLabel}
+                  outerRadius={outerRadius * 0.7} // Make pie smaller to leave room for labels
                   fill="#8884d8"
-                  dataKey="percentage" // Value for pie slice size
-                  nameKey="name"      // Value for legend and tooltip name
-                  label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }) => {
-                    const RADIAN = Math.PI / 180;
-                    const radius = innerRadius + (outerRadius - innerRadius) * 0.5 + 25; // Position label outside
-                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                    const percentageDisplay = (percent * 100).toFixed(1);
-                    // Only display label if percentage is significant enough
-                    if (parseFloat(percentageDisplay) < 3) return null; 
-
-                    return (
-                      <text x={x} y={y} fill="hsl(var(--foreground))" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs">
-                        {`${name} (${percentageDisplay}%)`}
-                      </text>
-                    );
-                  }}
+                  dataKey="percentage" 
+                  nameKey="name"      
                 >
                   {data.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color || `hsl(var(--chart-${(index % 5) + 1}))`} />
                   ))}
                 </Pie>
                 <RechartsLegend 
-                    wrapperStyle={{fontSize: '12px', paddingTop: '20px'}} 
+                    wrapperStyle={{fontSize: '12px', paddingTop: '10px', paddingBottom: '10px'}} 
                     iconSize={10}
+                    align="center"
+                    verticalAlign="bottom"
                     formatter={(value, entry) => {
                         const { color } = entry;
                         const dataEntry = data.find(d => d.name === value);
                         const percentage = dataEntry ? dataEntry.percentage.toFixed(1) : '0.0';
-                        return <span style={{ color }}>{value} ({percentage}%)</span>;
+                        return <span style={{ color: color || 'hsl(var(--foreground))' }} className="truncate max-w-[150px] inline-block">{value} ({percentage}%)</span>;
                     }}
                 />
               </PieChart>
@@ -150,3 +162,4 @@ export function ShareChartSection({
     </SectionWrapper>
   );
 }
+
