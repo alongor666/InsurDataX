@@ -3,7 +3,7 @@ import type { ProcessedDataForPeriod, AnalysisMode, PeriodOption } from '@/data/
 import { SectionWrapper } from '@/components/shared/section-wrapper';
 import { TableCellsSplit, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { formatDisplayValue, calculateChangeAndType } from '@/lib/data-utils'; // Import calculateChangeAndType
+import { formatDisplayValue, calculateChangeAndType } from '@/lib/data-utils'; 
 import { cn } from '@/lib/utils';
 
 interface DataTableSectionProps {
@@ -11,6 +11,7 @@ interface DataTableSectionProps {
   analysisMode: AnalysisMode;
   selectedComparisonPeriodKey: string | null;
   periodOptions: PeriodOption[];
+  activePeriodId: string; // Added to get correct default MoM label
 }
 
 const ChangeIndicator = ({ 
@@ -34,10 +35,10 @@ const ChangeIndicator = ({
   const changeDetails = calculateChangeAndType(currentValue, comparisonValue, higherIsBetter);
   let displayValue = "";
 
-  if (isRate) { // For rates, show absolute change in pp
-      displayValue = changeDetails.absolute !== undefined ? `${changeDetails.absolute.toFixed(1)} pp` : "-";
-  } else if (changeDetails.percent !== undefined && isFinite(changeDetails.percent)) { // For others, show percentage change
-      displayValue = `${changeDetails.percent.toFixed(1)}%`;
+  if (isRate) { 
+      displayValue = changeDetails.absolute !== undefined ? `${changeDetails.absolute > 0 ? '+' : ''}${changeDetails.absolute.toFixed(1)} pp` : "-";
+  } else if (changeDetails.percent !== undefined && isFinite(changeDetails.percent)) { 
+      displayValue = `${changeDetails.percent > 0 ? '+' : ''}${changeDetails.percent.toFixed(1)}%`;
   } else if (changeDetails.percent === Infinity) {
       displayValue = "+∞%";
   } else if (changeDetails.percent === -Infinity) {
@@ -47,7 +48,6 @@ const ChangeIndicator = ({
   }
   
   let changeTypeColorClass = 'text-muted-foreground';
-  // Color based on the 'type' from calculateChangeAndType which already considers higherIsBetter
   if (changeDetails.type === 'positive') {
     changeTypeColorClass = 'text-green-600';
   } else if (changeDetails.type === 'negative') {
@@ -65,7 +65,7 @@ const ChangeIndicator = ({
 };
 
 
-export function DataTableSection({ data, analysisMode, selectedComparisonPeriodKey, periodOptions }: DataTableSectionProps) {
+export function DataTableSection({ data, analysisMode, selectedComparisonPeriodKey, periodOptions, activePeriodId }: DataTableSectionProps) {
   if (!data || data.length === 0) {
     return (
       <SectionWrapper title="数据表显示" icon={TableCellsSplit}>
@@ -74,11 +74,18 @@ export function DataTableSection({ data, analysisMode, selectedComparisonPeriodK
     );
   }
 
-  let comparisonColumnLabelSuffix = "环比";
+  let comparisonColumnLabelSuffix = "环比"; // Default to MoM
   if (selectedComparisonPeriodKey) {
       const compPeriod = periodOptions.find(p => p.value === selectedComparisonPeriodKey);
       if (compPeriod) comparisonColumnLabelSuffix = `对比 ${compPeriod.label}`;
       else comparisonColumnLabelSuffix = "对比所选周期";
+  } else {
+      // If no specific comparison key, check if there's a default MoM period for the active one
+      const currentPeriodEntry = (globalThis as any).allV4DataForKpiWorkaround?.find((p: V4PeriodData) => p.period_id === activePeriodId);
+      if (currentPeriodEntry?.comparison_period_id_mom) {
+          const momLabel = periodOptions.find(p => p.value === currentPeriodEntry.comparison_period_id_mom)?.label;
+          if (momLabel) comparisonColumnLabelSuffix = `对比 ${momLabel}`;
+      }
   }
 
 

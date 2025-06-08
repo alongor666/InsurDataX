@@ -2,41 +2,51 @@
 import type { Kpi } from '@/data/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Minus, DollarSign, FileText, Percent, Briefcase, Zap, Activity, ShieldCheck, ShieldAlert, Landmark, Users, Ratio, Search, Icon as LucideIconType } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, DollarSign, FileText, Percent, Briefcase, Zap, Activity, ShieldCheck, ShieldAlert, Landmark, Users, Ratio, Search, Icon as LucideIconType, PieChart } from 'lucide-react';
 
 const iconMap: { [key: string]: LucideIconType } = {
-  DollarSign, FileText, Percent, Briefcase, Zap, Activity, ShieldCheck, ShieldAlert, Landmark, Users, Ratio, Search,
-  // Add any other icons that might be used by default for rates/coefficients
+  DollarSign, FileText, Percent, Briefcase, Zap, Activity, ShieldCheck, ShieldAlert, Landmark, Users, Ratio, Search, PieChart
 };
 
 const ChangeDisplay = ({
   comparisonLabel,
-  change,
-  changeAbsolute,
+  change, // Percentage or pp string
+  changeAbsolute, // Absolute change string
   changeType,
 }: {
   comparisonLabel?: string;
   change?: string;
   changeAbsolute?: string;
-  changeType?: Kpi['primaryChangeType'];
+  changeType?: Kpi['comparisonChangeType'];
 }) => {
   if (!comparisonLabel || (!change && !changeAbsolute)) return null;
+  if (change === '-' && changeAbsolute === '-') return null; // Don't display if both are explicitly '-'
 
   const Icon = changeType === 'positive' ? TrendingUp : changeType === 'negative' ? TrendingDown : Minus;
   const color = changeType === 'positive' ? 'text-green-600' : changeType === 'negative' ? 'text-red-600' : 'text-muted-foreground';
 
   let displayValue = "";
-  if (change && changeAbsolute) {
-    if (changeAbsolute.includes('pp')) {
-        displayValue = `${changeAbsolute} (${change})`;
-    } else { 
-        displayValue = `${change} (${changeAbsolute})`;
+  // Prefer absolute change for rates (pp), percentage for others.
+  // If absolute is 'pp', it already includes the unit.
+  if (changeAbsolute && changeAbsolute.includes('pp')) {
+    displayValue = changeAbsolute; // e.g., "+2.1 pp"
+    if (change && change !== '-') { // Optionally add percentage in brackets if available and not just "-"
+        displayValue += ` (${change})`; // e.g. "+2.1 pp (+5.0%)"
     }
-  } else if (change) {
-    displayValue = change;
-  } else if (changeAbsolute) {
-    displayValue = changeAbsolute;
+  } else if (change && change !== '-') {
+    displayValue = change; // e.g., "+5.0%"
+    if (changeAbsolute && changeAbsolute !== '-') {
+        displayValue += ` (${changeAbsolute})`; // e.g. "+5.0% (+100万元)"
+    }
+  } else if (changeAbsolute && changeAbsolute !== '-') {
+    displayValue = changeAbsolute; // Only absolute is available
   }
+
+
+  if (!displayValue || displayValue.trim() === '' || displayValue.trim() === '(-)') { // Handle cases where only "-" might be formed
+    return null;
+  }
+
 
   return (
     <p className={cn("text-xs mt-1 flex items-center", color)}>
@@ -59,8 +69,6 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
 
   if (kpi.isBorderRisk) {
      cardClassName = cn(cardClassName, "border-destructive border-2");
-  } else if (kpi.isRisk && !kpi.isOrangeRisk) { // Only border-destructive if not orange risk (orange has its own value color)
-     // cardClassName = cn(cardClassName, "border-destructive"); // Let's not add red border for just value being red, only for VCR border risk
   }
 
   const IconComponent = kpi.icon && iconMap[kpi.icon] ? iconMap[kpi.icon] : null;
@@ -79,19 +87,12 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
         <div className={valueClassName}>{kpi.value}</div>
 
         <ChangeDisplay
-          comparisonLabel={kpi.primaryComparisonLabel}
-          change={kpi.primaryChange}
-          changeAbsolute={kpi.primaryChangeAbsolute}
-          changeType={kpi.primaryChangeType}
+          comparisonLabel={kpi.comparisonLabel}
+          change={kpi.comparisonChange}
+          changeAbsolute={kpi.comparisonChangeAbsolute}
+          changeType={kpi.comparisonChangeType}
         />
-        {kpi.secondaryComparisonLabel && ( 
-          <ChangeDisplay
-            comparisonLabel={kpi.secondaryComparisonLabel}
-            change={kpi.secondaryChange}
-            changeAbsolute={kpi.secondaryChangeAbsolute}
-            changeType={kpi.secondaryChangeType}
-          />
-        )}
+        {/* Secondary comparison is removed based on new requirements */}
 
         {kpi.description && (
            <p className="text-xs text-muted-foreground mt-1">{kpi.description}</p>

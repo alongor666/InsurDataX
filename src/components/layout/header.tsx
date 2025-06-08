@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
 import type { AnalysisMode, PeriodOption, DashboardView, DataSourceType } from '@/data/types';
-import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle } from 'lucide-react';
+import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon } from 'lucide-react'; // Added PieChartIcon
 import {
   Select,
   SelectContent,
@@ -30,8 +30,8 @@ interface AppHeaderProps {
   onAiSummaryClick: () => void;
   selectedPeriod: string;
   onPeriodChange: (period: string) => void;
-  selectedComparisonPeriod: string | null; // New
-  onComparisonPeriodChange: (periodKey: string | null) => void; // New
+  selectedComparisonPeriod: string | null; 
+  onComparisonPeriodChange: (periodKey: string | null) => void; 
   isAiSummaryLoading: boolean;
   periodOptions: PeriodOption[];
   activeView: DashboardView;
@@ -50,8 +50,8 @@ export function AppHeader({
   onAiSummaryClick,
   selectedPeriod,
   onPeriodChange,
-  selectedComparisonPeriod, // New
-  onComparisonPeriodChange, // New
+  selectedComparisonPeriod, 
+  onComparisonPeriodChange, 
   isAiSummaryLoading,
   periodOptions,
   activeView,
@@ -69,6 +69,7 @@ export function AppHeader({
     { label: "趋势图", value: "trend", icon: LineChart },
     { label: "气泡图", value: "bubble", icon: ScanLine },
     { label: "排名图", value: "bar_rank", icon: BarChartHorizontal },
+    { label: "占比图", value: "share_chart", icon: PieChartIcon }, // New
     { label: "数据表", value: "data_table", icon: Rows3 },
   ];
 
@@ -138,7 +139,7 @@ export function AppHeader({
           <div className="flex items-center space-x-1 md:space-x-2 relative">
             <GitCompareArrows className="h-5 w-5 text-muted-foreground hidden md:block" />
             <Select
-              value={selectedComparisonPeriod || "default"}
+              value={selectedComparisonPeriod || "default"} // "default" represents MoM or no specific selection
               onValueChange={(value) => onComparisonPeriodChange(value === "default" ? null : value)}
               disabled={periodOptions.length === 0 || !selectedPeriod}
             >
@@ -146,7 +147,7 @@ export function AppHeader({
                 <SelectValue placeholder={periodOptions.length > 0 ? "选择对比周期" : "选择当前期"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="default" className="text-xs md:text-sm">默认对比 (智能环比/同比)</SelectItem>
+                <SelectItem value="default" className="text-xs md:text-sm">默认对比 (智能环比)</SelectItem>
                 <Separator />
                 {comparisonPeriodOptions.map(option => (
                   <SelectItem key={option.value} value={option.value} className="text-xs md:text-sm">{option.label}</SelectItem>
@@ -161,13 +162,13 @@ export function AppHeader({
                       variant="ghost"
                       size="icon"
                       className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
-                      onClick={() => onComparisonPeriodChange(null)}
+                      onClick={() => onComparisonPeriodChange(null)} // Clear specific comparison
                     >
                       <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>清除自定义对比周期</p>
+                    <p>清除自定义对比周期 (恢复智能环比)</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
