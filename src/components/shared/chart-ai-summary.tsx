@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sparkles } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 interface ChartAiSummaryProps {
   summary: string | null;
@@ -36,9 +37,9 @@ export function ChartAiSummary({ summary, isLoading, onGenerateSummary, hasData,
         </div>
       )}
       {!isLoading && summary && (
-        <div className="prose prose-sm max-w-none dark:prose-invert text-foreground whitespace-pre-wrap text-xs p-3 bg-secondary/50 rounded-md">
+        <ReactMarkdown className="prose prose-sm max-w-none dark:prose-invert text-foreground whitespace-pre-wrap text-xs p-3 bg-secondary/50 rounded-md">
           {summary}
-        </div>
+        </ReactMarkdown>
       )}
       {!isLoading && !summary && !hasData && (
         <p className="text-xs text-muted-foreground text-center py-2">图表无数据，无法生成AI分析。</p>

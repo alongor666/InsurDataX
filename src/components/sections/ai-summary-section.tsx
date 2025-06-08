@@ -1,6 +1,7 @@
 import { SectionWrapper } from '@/components/shared/section-wrapper';
 import { Sparkles } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import ReactMarkdown from 'react-markdown';
 
 interface AiSummarySectionProps {
   summary: string | null;
@@ -18,9 +19,9 @@ export function AiSummarySection({ summary, isLoading }: AiSummarySectionProps) 
         </div>
       )}
       {!isLoading && summary && (
-        <div className="prose prose-sm max-w-none dark:prose-invert text-foreground whitespace-pre-wrap">
+        <ReactMarkdown className="prose prose-sm max-w-none dark:prose-invert text-foreground whitespace-pre-wrap">
           {summary}
-        </div>
+        </ReactMarkdown>
       )}
       {!isLoading && !summary && (
         <p className="text-muted-foreground">点击上方 "AI智能业务摘要" 按钮生成分析报告。</p>
