@@ -48,14 +48,13 @@ const CustomTooltipContent = ({ active, payload, coordinate, selectedMetricKey, 
 };
 
 const CustomShareChartLegend = (props: any) => {
-  const { payload } = props; // payload is an array of legend items
+  const { payload } = props; 
   if (!payload || payload.length === 0) return null;
 
   const itemsPerColumn = 5;
   const numColumns = 3;
   const columns: Array<Array<any>> = Array.from({ length: numColumns }, () => []);
 
-  // Data is already sorted by percentage from prepareShareChartData_V4
   payload.forEach((entry: any, index: number) => {
     const columnIndex = Math.floor(index / itemsPerColumn);
     if (columnIndex < numColumns && columns[columnIndex].length < itemsPerColumn) {
@@ -123,11 +122,11 @@ export function ShareChartSection({
   return (
     <SectionWrapper title="占比分析图" icon={PieChartIconLucide} actionButton={metricSelector}>
       {!hasData ? (
-        <p className="text-muted-foreground h-[350px] flex items-center justify-center">
+        <p className="text-muted-foreground h-[450px] flex items-center justify-center">
           选择指标以查看占比数据，或当前条件下无数据。
         </p>
       ) : (
-        <div className="h-[400px] w-full"> 
+        <div className="h-[450px] w-full"> 
           <ChartContainer config={chartConfig} className="h-full w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart margin={{ top: 10, right: 20, bottom: 5, left: 20 }}> 
@@ -138,9 +137,9 @@ export function ShareChartSection({
                 <Pie
                   data={data}
                   cx="50%"
-                  cy="45%" // Adjusted cy to make space for legend at bottom
-                  labelLine={false} // Remove label lines
-                  label={false} // Remove labels from pie slices
+                  cy="45%" 
+                  labelLine={false} 
+                  label={false} 
                   outerRadius={outerRadiusResponsive} 
                   innerRadius={outerRadiusResponsive * 0.4}
                   fill="#8884d8"
