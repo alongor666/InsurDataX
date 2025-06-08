@@ -59,39 +59,42 @@ export const formatDisplayValue = (
   }
 };
 
-export const getDynamicColorByVCR = (vcr: number | undefined | null): string => { // Parameter name remains vcr for internal consistency for now
+export const getDynamicColorByVCR = (vcr: number | undefined | null): string => {
   if (vcr === undefined || vcr === null || isNaN(vcr)) return 'hsl(var(--muted))';
 
   const greenHue = 130, greenSat = 60;
   const blueHue = 205, blueSat = 70;
   const redHue = 0, redSat = 75;
 
-  const L_deep = 35;
-  const L_light = 60;
+  const L_deep = 35; 
+  const L_light = 60; 
 
   let hue, sat, light;
 
-  if (vcr < 88) {
+  if (vcr < 88) { // Green zone: < 88%. "越小越深绿" (Smaller VCR -> Deeper Green -> Lower Lightness)
     hue = greenHue; sat = greenSat;
-    const vcr_green_lower_bound = 60;
+    const vcr_green_lower_bound = 60; // Assuming a practical lower VCR limit for color scaling
     const vcr_green_upper_bound = 87.99;
+    // normalizedVcr: 0 if vcr is at lower_bound, 1 if vcr is at upper_bound
     const normalizedVcr = Math.max(0, Math.min(1, (vcr - vcr_green_lower_bound) / (vcr_green_upper_bound - vcr_green_lower_bound)));
-    light = L_deep + (1 - normalizedVcr) * (L_light - L_deep);
-  } else if (vcr >= 88 && vcr < 92) {
+    light = L_deep + normalizedVcr * (L_light - L_deep); // Small VCR (norm=0) -> L_deep. Large VCR (norm=1) -> L_light.
+  } else if (vcr >= 88 && vcr < 92) { // Blue zone: 88% to < 92%. "越接近88%越深蓝" (VCR near 88 -> Deeper Blue -> Lower Lightness)
     hue = blueHue; sat = blueSat;
     const vcr_blue_lower_bound = 88;
     const vcr_blue_upper_bound = 91.99;
+    // normalizedVcr: 0 if vcr is 88, 1 if vcr is 91.99
     const normalizedVcr = Math.max(0, Math.min(1, (vcr - vcr_blue_lower_bound) / (vcr_blue_upper_bound - vcr_blue_lower_bound)));
-    light = L_deep + (1-normalizedVcr) * (L_light - L_deep);
-  } else {
+    light = L_deep + normalizedVcr * (L_light - L_deep); // VCR near 88 (norm=0) -> L_deep. VCR near 91.99 (norm=1) -> L_light.
+  } else { // Red zone: >= 92%. "越大越深红" (Larger VCR -> Deeper Red -> Lower Lightness)
     hue = redHue; sat = redSat;
     const vcr_red_lower_bound = 92;
-    const vcr_red_upper_bound = 130;
+    const vcr_red_upper_bound = 130; // Assuming a practical upper VCR limit for color scaling
+    // normalizedVcr: 0 if vcr is 92, 1 if vcr is at upper_bound
     const normalizedVcr = Math.max(0, Math.min(1, (vcr - vcr_red_lower_bound) / (vcr_red_upper_bound - vcr_red_lower_bound)));
-    light = L_deep + normalizedVcr * (L_light - L_deep);
+    light = L_light - normalizedVcr * (L_light - L_deep); // VCR at 92 (norm=0) -> L_light. VCR at upper_bound (norm=1) -> L_deep.
   }
 
-  light = Math.round(Math.max(L_deep - 5, Math.min(L_light + 5, light)));
+  light = Math.round(Math.max(L_deep - 5, Math.min(L_light + 5, light))); // Clamp lightness to avoid extremes
 
   return `hsl(${hue}, ${sat}%, ${light}%)`;
 };
@@ -155,7 +158,7 @@ export const aggregateAndCalculateMetrics = (
                                     ? Number(singleEntryJson.avg_loss_per_case)
                                     : (metrics.claim_count && metrics.claim_count !== 0 && metrics.total_loss_amount ? (metrics.total_loss_amount * 10000) / metrics.claim_count : 0);
 
-      metrics.avg_commercial_index = singleEntryJson.avg_commercial_index ?? undefined; // Use undefined for consistency if '-' is desired display
+      metrics.avg_commercial_index = singleEntryJson.avg_commercial_index ?? undefined; 
 
       metrics.expense_ratio = (singleEntryJson.expense_ratio !== null && singleEntryJson.expense_ratio !== undefined && !isNaN(Number(singleEntryJson.expense_ratio)))
                                 ? Number(singleEntryJson.expense_ratio)
@@ -192,7 +195,7 @@ export const aggregateAndCalculateMetrics = (
 
     const sums = dataToSum.reduce((acc, entry) => {
         baseSummableJsonFields.forEach(key => {
-          if (key !== 'policy_count_earned') { // policy_count_earned is derived, not directly summed if PoP or aggregate.
+          if (key !== 'policy_count_earned') { 
             const val = entry[key];
             if (typeof val === 'number' && !isNaN(val)) {
               acc[key] = (acc[key] || 0) + val;
@@ -212,10 +215,10 @@ export const aggregateAndCalculateMetrics = (
     metrics.expense_ratio = metrics.premium_written !== 0 ? (expense_amount_raw_agg / metrics.premium_written) * 100 : 0;
     metrics.loss_ratio = metrics.premium_earned !== 0 ? (metrics.total_loss_amount / metrics.premium_earned) * 100 : 0;
     metrics.variable_cost_ratio = (metrics.expense_ratio || 0) + (metrics.loss_ratio || 0);
-    metrics.avg_commercial_index = undefined; // avg_commercial_index is '-' for aggregated or PoP.
+    metrics.avg_commercial_index = undefined; 
   }
 
-  // --- Derive all other metrics based on the core values determined above ---
+  
   const current_premium_written = Number(metrics.premium_written) || 0;
   const current_premium_earned = Number(metrics.premium_earned) || 0;
   const current_total_loss_amount = Number(metrics.total_loss_amount) || 0;
@@ -224,11 +227,11 @@ export const aggregateAndCalculateMetrics = (
 
   let current_avg_premium_per_policy_base: number | undefined | null;
 
-  // Logic for policy_count and avg_premium_per_policy base for different modes
+  
   if (isSingleTypeCumulative) {
-      current_avg_premium_per_policy_base = metrics.avg_premium_per_policy; // from JSON if available
+      current_avg_premium_per_policy_base = metrics.avg_premium_per_policy; 
   } else { 
-      // For aggregate or PoP, recalculate based on summed premium_written and derived policy_count
+      
       let totalDerivedPolicyCountForAvgCalc = 0;
       const entriesForPolicyDerivation = (analysisMode === 'periodOverPeriod') ? originalYtdEntriesForPeriod : periodBusinessDataEntries;
       
@@ -238,9 +241,9 @@ export const aggregateAndCalculateMetrics = (
             const app_ytd = currentYtdEntryOriginal.avg_premium_per_policy;
             return sum + (app_ytd && app_ytd !== 0 && pw_diff ? Math.round((pw_diff * 10000) / app_ytd) : 0);
           }, 0);
-      } else { // Cumulative aggregate
+      } else { 
           totalDerivedPolicyCountForAvgCalc = entriesForPolicyDerivation.reduce((sum, entry) => {
-            const app_ytd = entry.avg_premium_per_policy; // Use the avg_premium_per_policy from original YTD for each line
+            const app_ytd = entry.avg_premium_per_policy; 
             return sum + (app_ytd && app_ytd !== 0 && entry.premium_written ? Math.round((entry.premium_written * 10000) / app_ytd) : 0);
           }, 0);
       }
@@ -256,7 +259,7 @@ export const aggregateAndCalculateMetrics = (
                                 : 0;
 
 
-  // Remaining derivations
+  
   metrics.premium_earned_ratio = current_premium_written !== 0
     ? (current_premium_earned / current_premium_written) * 100
     : 0;
@@ -272,7 +275,7 @@ export const aggregateAndCalculateMetrics = (
                             : (isSingleTypeCumulative && metrics.avg_loss_per_case !== undefined ? metrics.avg_loss_per_case : 0);
 
 
-  // Re-apply expense_ratio, loss_ratio, variable_cost_ratio based on possibly derived values if not single type cumulative
+  
   if (!isSingleTypeCumulative) {
     metrics.expense_ratio = current_premium_written !== 0 ? (current_expense_amount_raw / current_premium_written) * 100 : 0;
     metrics.loss_ratio = current_premium_earned !== 0 ? (current_total_loss_amount / current_premium_earned) * 100 : 0;
@@ -345,7 +348,7 @@ export const processDataForSelectedPeriod = (
   const momAggregatedMetrics = comparisonPeriodDataForKpi
     ? aggregateAndCalculateMetrics(
         filterRawBusinessData(comparisonPeriodDataForKpi, selectedBusinessTypes),
-        'cumulative', // Comparison is always based on cumulative values of the comparison period
+        'cumulative', 
         (comparisonPeriodDataForKpi.business_data || []).filter(bd => bd.business_type && bd.business_type.toLowerCase() !== '合计' && bd.business_type.toLowerCase() !== 'total')
       )
     : null;
@@ -422,7 +425,7 @@ export function calculateChangeAndType (current?: number | null, previous?: numb
   }
 
   let type: Kpi['comparisonChangeType'] = 'neutral';
-  const epsilon = 0.00001; // A small number to handle floating point comparisons for non-zero absolute change
+  const epsilon = 0.00001; 
   if (absolute > epsilon) type = higherIsBetter ? 'positive' : 'negative';
   if (absolute < -epsilon) type = higherIsBetter ? 'negative' : 'positive';
 
@@ -443,7 +446,7 @@ const formatKpiChangeValues = (
         changePercentStr = "+∞%";
     } else if (changeResult.percent === -Infinity) {
         changePercentStr = "-∞%";
-    } else if (changeResult.percent === 0 && changeResult.absolute === 0) { // Explicitly handle 0% for 0 absolute change
+    } else if (changeResult.percent === 0 && changeResult.absolute === 0) { 
         changePercentStr = "0.0%";
     }
 
@@ -455,12 +458,12 @@ const formatKpiChangeValues = (
             const formattedAbs = formatDisplayValue(Math.abs(changeResult.absolute), metricIdForAbsFormat);
             if (changeResult.absolute > 0.00001) changeAbsStr = `+${formattedAbs}`;
             else if (changeResult.absolute < -0.00001) changeAbsStr = `-${formattedAbs}`;
-            else changeAbsStr = formattedAbs; // handles 0
+            else changeAbsStr = formattedAbs; 
         }
     }
 
     let effectiveChangeType = changeResult.type;
-    // Ensure 'neutral' type if absolute change is effectively zero for non-rates, or very small for rates
+    
     if (changeResult.absolute !== undefined && Math.abs(changeResult.absolute) < 0.00001 && !isRateChange) {
         effectiveChangeType = 'neutral';
     }
@@ -474,16 +477,16 @@ const formatKpiChangeValues = (
 
 export const calculateKpis = (
   processedData: ProcessedDataForPeriod[],
-  overallTotalsForPeriod: V4PeriodTotals | undefined | null, // Kept for potential future use (e.g. premium_share on KPI card if needed)
-  analysisMode: AnalysisMode, // Kept for context if kpi logic needs to differ by mode in future
-  selectedBusinessTypes: string[] // Kept for context
+  overallTotalsForPeriod: V4PeriodTotals | undefined | null, 
+  analysisMode: AnalysisMode, 
+  selectedBusinessTypes: string[] 
 ): Kpi[] => {
 
   if (!processedData || processedData.length === 0) return [];
 
   const data = processedData[0];
   const current = data.currentMetrics;
-  const comparisonMetrics = data.momMetrics; // This is the single comparison source
+  const comparisonMetrics = data.momMetrics; 
 
   if (!current) return [];
 
@@ -497,11 +500,11 @@ export const calculateKpis = (
 
     if (metricId === 'avg_commercial_index') {
         const currentDisplayValue = formatDisplayValue(currentValue, metricId);
-        if (currentDisplayValue === '-') { // avg_commercial_index displays '-' for non-applicable cases
+        if (currentDisplayValue === '-') { 
              return { comparisonChange: '-', comparisonChangeAbsolute: '-', comparisonChangeType: 'neutral' };
         }
     }
-    if (compValue === undefined || compValue === null) { // If no comparison data, changes are '-'
+    if (compValue === undefined || compValue === null) { 
          return { comparisonChange: '-', comparisonChangeAbsolute: '-', comparisonChangeType: 'neutral' };
     }
 
@@ -528,7 +531,7 @@ export const calculateKpis = (
       id: 'variable_cost_ratio', title: '变动成本率',
       value: formatDisplayValue(current.variable_cost_ratio, 'variable_cost_ratio'),
       rawValue: current.variable_cost_ratio, icon: 'Zap',
-      isBorderRisk: current.variable_cost_ratio !== undefined && current.variable_cost_ratio >= 90, // Consistent with PRD for color
+      isBorderRisk: current.variable_cost_ratio !== undefined && current.variable_cost_ratio >= 90, 
       ...createKpiComparisonFields(current.variable_cost_ratio, comparisonMetrics?.variable_cost_ratio, 'variable_cost_ratio', false, true),
     },
     {
@@ -595,10 +598,10 @@ export const calculateKpis = (
       ...createKpiComparisonFields(current.policy_count, comparisonMetrics?.policy_count, 'policy_count', true, false),
     },
     { 
-      id: 'premium_share', title: '保费占比', // Overall premium share
+      id: 'premium_share', title: '保费占比', 
       value: formatDisplayValue(data.premium_share, 'premium_share'),
       rawValue: data.premium_share, icon: 'PieChart',
-      comparisonChange: '-', comparisonChangeAbsolute: '-', comparisonChangeType: 'neutral', // Premium share comparison might not be typical PoP
+      comparisonChange: '-', comparisonChangeAbsolute: '-', comparisonChangeType: 'neutral', 
     },
     { 
       id: 'claim_frequency', title: '满期出险率',
@@ -616,17 +619,16 @@ export const calculateKpis = (
       id: 'claim_count', title: '已报件数',
       value: formatDisplayValue(current.claim_count, 'claim_count'),
       rawValue: current.claim_count, unit: METRIC_FORMAT_RULES['claim_count'].unitLabel,
-      ...createKpiComparisonFields(current.claim_count, comparisonMetrics?.claim_count, 'claim_count', true, false), // Assuming higher claim_count is not "better" for risk, but for activity can be "true"
+      ...createKpiComparisonFields(current.claim_count, comparisonMetrics?.claim_count, 'claim_count', true, false), 
     },
   ];
   return kpis.map(kpi => ({
       ...kpi,
-      icon: kpi.unit ? undefined : (kpi.icon || 'ShieldCheck') // Ensure icon logic from previous step is preserved/re-applied
+      icon: kpi.unit ? undefined : (kpi.icon || 'ShieldCheck') 
   }));
 };
 
 
-// Global variable for allV4Data workaround, used by KpiDashboardSection and exportToCSV
 (globalThis as any).allV4DataForKpiWorkaround = [];
 export function setGlobalV4DataForKpiWorkaround(allV4Data: V4PeriodData[]) {
   (globalThis as any).allV4DataForKpiWorkaround = allV4Data;
@@ -718,7 +720,7 @@ export function exportToCSV(
             premWrittenChange.percent, premWrittenChange.absolute,
             tlaChange.percent, tlaChange.absolute,
             policyCntChange.percent, policyCntChange.absolute,
-            erChange.absolute, // For rates, typically only absolute (pp) is shown or primary
+            erChange.absolute, 
             lrChange.absolute,
             vcrChange.absolute,
             mcrChange.absolute
@@ -737,17 +739,17 @@ export function exportToCSV(
     const rowDataStrings = rowData.map(val => {
         if (val === undefined || val === null || (typeof val === 'number' && isNaN(val))) return "";
         if (typeof val === 'number') {
-            if (val % 1 !== 0) { // If it's a float
-                if (Math.abs(val) < 0.00001 && Math.abs(val) !== 0) return val.toExponential(4); // very small numbers to exponential
-                const isLikelyRate = String(val).includes('.') && (Math.abs(val) < 200 || Math.abs(val) > -200) ; // Heuristic for rates/percentages
-                return isLikelyRate ? val.toFixed(4) : val.toFixed(2); // More precision for rates, standard for others
+            if (val % 1 !== 0) { 
+                if (Math.abs(val) < 0.00001 && Math.abs(val) !== 0) return val.toExponential(4); 
+                const isLikelyRate = String(val).includes('.') && (Math.abs(val) < 200 || Math.abs(val) > -200) ; 
+                return isLikelyRate ? val.toFixed(4) : val.toFixed(2); 
             }
-            return val.toString(); // Integer
+            return val.toString(); 
         }
-        return String(val).replace(/,/g, ';'); // Escape commas for CSV
+        return String(val).replace(/,/g, ';'); 
     });
 
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" // \uFEFF for BOM to ensure Excel opens UTF-8 correctly
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
         + csvHeaders.join(",") + "\n"
         + rowDataStrings.join(",");
 
@@ -759,3 +761,6 @@ export function exportToCSV(
     link.click();
     document.body.removeChild(link);
 }
+
+
+    
