@@ -33,11 +33,11 @@ const KPI_LAYOUT_CONFIG: { column: number; id: string; title: string }[] = [
   { column: 3, id: 'premium_earned_ratio', title: '保费满期率' },
   { column: 3, id: 'avg_premium_per_policy', title: '单均保费' },
   { column: 3, id: 'policy_count', title: '保单件数' },
-  // Column 4
+  // Column 4 - Updated
   { column: 4, id: 'premium_share', title: '保费占比' },
-  { column: 4, id: 'avg_commercial_index', title: '自主系数' },
   { column: 4, id: 'claim_frequency', title: '满期出险率' },
   { column: 4, id: 'avg_loss_per_case', title: '案均赔款' },
+  { column: 4, id: 'claim_count', title: '已报件数' }, // Replaces '自主系数'
 ];
 
 
@@ -58,6 +58,8 @@ export function KpiDashboardSection({ kpis }: KpiDashboardSectionProps) {
           return <KpiCard key={kpi.id} kpi={kpi} />;
         }
         // Render a placeholder or log an error if a configured KPI is not found
+        // For "自主系数", which is intentionally removed, we don't need to render a placeholder.
+        if (configItem.id === 'avg_commercial_index') return null;
         return <div key={configItem.id} className="p-4 border rounded-lg shadow-sm bg-card text-card-foreground min-h-[180px]">KPI: {configItem.title} (数据待处理)</div>;
       });
   };

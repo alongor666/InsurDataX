@@ -16,17 +16,17 @@
 ## 记录
 
 ### 1. ReferenceError: ShieldAlert is not defined / selectedPeriodId is not defined
-- **问题描述**: 
+- **问题描述**:
     - 应用在加载时因 `ShieldAlert is not defined` 报错，后续修复为 `selectedPeriodId is not defined`。
     - 根本原因是在数据处理层 (`src/lib/data-utils.ts` 的 `calculateKpis` 函数) 中直接引用了React组件或未正确传递/使用变量。
 - **发生时间**: 2024-05-23 (根据对话记录估算)
 - **影响范围**: KPI看板的数据加载和显示。
-- **解决方案**: 
-    1.  **图标问题 (`ShieldAlert is not defined`)**: 
+- **解决方案**:
+    1.  **图标问题 (`ShieldAlert is not defined`)**:
         *   将 `Kpi.icon` 类型从直接存储Lucide组件改为存储图标的字符串名称 (e.g., `'ShieldAlert'`)。
         *   在 `KpiCard` 组件中创建一个 `iconMap`，将字符串名称映射到实际的Lucide图标组件进行渲染。
         *   这确保了数据处理逻辑与UI展示逻辑的分离。
-    2.  **变量未定义问题 (`selectedPeriodId is not defined`)**: 
+    2.  **变量未定义问题 (`selectedPeriodId is not defined`)**:
         *   修改 `calculateKpis` 函数签名，使其接收 `activePeriodId` (或类似名称)作为必需参数。
         *   在 `src/app/page.tsx` 中调用 `calculateKpis` 时，确保传递了当前选中的周期ID (`selectedPeriodKey`)。
         *   这确保了函数能访问到其依赖的关键ID。
@@ -36,12 +36,12 @@
 ---
 
 ### 2. AI分析输出非结构化且未充分利用上下文；条形图颜色未按精细化规则更新；聚合变动成本率计算不一致
-- **问题描述**: 
+- **问题描述**:
     1. AI生成的分析（总体摘要、图表解读）缺乏结构，通用性强，未能充分根据用户当前的筛选（指标、业务类型）和图表特性（如VCR颜色）进行定制。未能使用Markdown等方式突出重点。
     2. 水平条形图（排名图）未能正确应用基于VCR的精细化动态颜色规则（红/蓝/绿，且颜色深浅根据VCR值变化）。
     3. 在“全部业务”聚合视图下，KPI看板显示的“变动成本率”未严格等于独立显示的“费用率”与“满期赔付率”之和，与最新的全局计算规则不符。
 - **发生时间**: 2024-05-24 - 2024-05-25
-- **影响范围**: 
+- **影响范围**:
     1. AI智能分析模块 (`src/ai/flows/*`) 的用户体验和实用性。
     2. 水平条形图排名 (`src/components/sections/bar-chart-ranking-section.tsx`) 的视觉呈现。
     3. KPI看板 (`src/components/sections/kpi-dashboard-section.tsx`) 中聚合指标的准确性。
@@ -92,14 +92,14 @@
 
 ---
 ### 5. 数据源文件覆盖导致历史数据丢失及后续恢复
-- **问题描述**: 在一次数据更新操作中，仅使用了最新提供的几周数据覆盖了 `public/data/insurance_data_v4.json` 文件，导致之前已存在的 W21 和 W22 数据丢失。
+- **问题描述**: 在一次数据更新操作中，仅使用了最新提供的几周数据覆盖了 `public/data/insurance_data_v4.json` 文件，导致之前已存在的 W21 和 W22 数据丢失。之后通过用户重新提供数据进行了修复。
 - **发生时间**: 2024-05-26
 - **影响范围**: 应用无法访问W21和W22的数据，影响了数据完整性和历史趋势分析。
 - **解决方案**:
     1.  用户重新提供了W21和W22的数据。
-    2.  将用户提供的所有数据周期（W18, W19, W20, W21, W22）进行了统一解析、格式转换（包括推算`expense_amount_raw`和`policy_count_earned`，处理`null`/`NaN`值）并构建为 `V4PeriodData` 对象。
+    2.  将用户提供的所有数据周期（W18, W19, W20, W21, W22, W23）进行了统一解析、格式转换（包括推算`expense_amount_raw`和`policy_count_earned`，处理`null`/`NaN`值）并构建为 `V4PeriodData` 对象。
     3.  所有周期的对象被合并到一个数组中，并按 `period_id` 升序排列。
-    4.  使用包含所有五周完整数据的数组内容，重新生成并替换了 `public/data/insurance_data_v4.json` 文件。
+    4.  使用包含所有六周完整数据的数组内容，重新生成并替换了 `public/data/insurance_data_v4.json` 文件。
 - **状态**: 已解决
 - **备注**: 此问题强调了数据文件更新操作的谨慎性，应采取合并或在明确指示下替换的策略，避免无意的数据丢失。
 
@@ -110,13 +110,13 @@
 - **影响范围**: 用户在筛选业务类型时的体验，可能导致困惑。
 - **解决方案**:
     1.  检查发现问题源于 `public/data/insurance_data_v4.json` 文件中，不同数据周期间，这些业务类型的字符串名称存在微小差异（例如，多一个或少一个空格，如 "2 - 9吨营业货车" vs "2-9吨营业货车"）。
-    2.  在重新生成包含W18-W22完整数据的 `public/data/insurance_data_v4.json` 文件时，对所有业务类型的名称进行了标准化处理，确保在所有周中，逻辑上相同的业务类型使用完全一致的字符串名称。
+    2.  在重新生成包含W18-W23完整数据的 `public/data/insurance_data_v4.json` 文件时，对所有业务类型的名称进行了标准化处理，确保在所有周中，逻辑上相同的业务类型使用完全一致的字符串名称。
 - **状态**: 已解决
 - **备注**: 数据源中原始数据的一致性对前端处理至关重要。
 
 ---
 ### 7. 趋势图AI分析功能未完全实现 & 图表AI分析UI一致性
-- **问题描述**: 
+- **问题描述**:
     1. 趋势分析图表部分的AI摘要生成功能未完全实现或未正确集成。
     2. 各图表（趋势、气泡、排名）的AI分析功能按钮和内容显示区域的UI布局和位置不统一。
 - **发生时间**: 2024-05-26
@@ -126,8 +126,7 @@
         *   在 `src/app/page.tsx` 中，确保 `trendAiSummary` 和 `isTrendAiSummaryLoading` state 正确管理。
         *   确保 `handleGenerateTrendAiSummary` 函数正确构造 `GenerateTrendAnalysisInput` 并调用 `generateTrendAnalysis` AI flow，然后更新相关state。
     2.  **UI一致性**:
-        *   修改 `src/components/sections/trend-analysis-section.tsx`，确保 `ChartAiSummary` 组件（包含按钮和内容显示）被正确引入并放置在图表下方。
-        *   所有图表分析区域（趋势、气泡、排名）现在都使用统一的 `ChartAiSummary` 组件，并确保其位置在图表下方。
+        *   修改 `src/components/sections/trend-analysis-section.tsx`, `src/components/sections/bubble-chart-section.tsx`, `src/components/sections/bar-chart-ranking-section.tsx`, `src/components/sections/share-chart-section.tsx`, `src/components/sections/pareto-chart-section.tsx`，确保 `ChartAiSummary` 组件（包含按钮和内容显示）被正确引入并统一放置在对应图表的下方。
 - **状态**: 已解决
 - **备注**: 统一UI组件和交互模式能提升用户体验。
 
@@ -166,32 +165,43 @@
 - **备注**: 此调整确保了趋势图在环比模式下的计算逻辑与用户最新要求一致，同时不影响KPI看板和数据表的环比计算。
 
 ---
-### 10. 模块未找到错误 (ShareChartSection)
-- **问题描述**: `src/app/page.tsx` 尝试导入 `ShareChartSection` 组件，但该文件尚未创建，导致 `Module not found` 错误。
+### 10. 模块未找到错误 (ShareChartSection, ParetoChartSection)
+- **问题描述**: `src/app/page.tsx` 尝试导入 `ShareChartSection` 和 `ParetoChartSection` 组件，但这些文件在初始阶段尚未创建，导致 `Module not found` 错误。
 - **发生时间**: 2024-05-27
 - **影响范围**: 应用编译和运行。
 - **解决方案**:
-    1.  创建了 `src/components/sections/share-chart-section.tsx` 文件，并包含了一个基本的占位符组件结构。
+    1.  分阶段创建了 `src/components/sections/share-chart-section.tsx` 和 `src/components/sections/pareto-chart-section.tsx` 文件，并包含基本的占位符组件结构，后续逐步实现功能。
 - **状态**: 已解决
 - **备注**: 这是在实现新功能模块过程中的一个预期步骤。
 
 ---
-### 11. 帕累托图功能实现
-- **问题描述**: 需要实现帕累托图功能，包括数据准备、图表渲染和AI分析对接。
+### 11. 占比图与帕累托图功能实现
+- **问题描述**: 需要实现占比图和帕累托图功能，包括数据准备、图表渲染和AI分析对接。
 - **发生时间**: 2024-05-27
 - **影响范围**: 应用的数据分析视图。
 - **解决方案**:
     1.  **`src/app/page.tsx`**:
-        *   实现了 `prepareParetoChartData_V4` 函数，用于获取数据、按指标值降序排序、计算累计百分比，并赋予VCR颜色。
-        *   实现了 `handleGenerateParetoAiSummary` 函数，用于调用 `generateParetoAnalysis` AI Flow。
-    2.  **`src/components/sections/pareto-chart-section.tsx`**:
-        *   使用 `recharts` 的 `ComposedChart` 实现帕累托图。
-        *   主Y轴 (左) 使用 `<Bar>` 显示指标绝对值，颜色基于VCR。
-        *   次Y轴 (右) 使用 `<Line>` 显示累计百分比。
-        *   实现了自定义Tooltip、X轴（业务线名称）、双Y轴标签和图例。
-    3.  **`src/ai/flows/generate-pareto-analysis-flow.ts`**: AI Flow已定义，用于分析帕累托图数据。
-    4.  相关文档（PRD, README, ISSUES_LOG）已更新以包含帕累托图功能。
+        *   实现了 `prepareShareChartData_V4` 和 `prepareParetoChartData_V4` 函数，用于数据处理。
+        *   实现了 `handleGenerateShareChartAiSummary` (待AI Flow对接) 和 `handleGenerateParetoAiSummary` 函数。
+    2.  **`src/components/sections/share-chart-section.tsx`**: 使用 `recharts` 的 `PieChart` 实现占比图。
+    3.  **`src/components/sections/pareto-chart-section.tsx`**: 使用 `recharts` 的 `ComposedChart` 实现帕累托图。
+    4.  **AI Flows**: `generate-pareto-analysis-flow.ts` 已创建，`generate-share-chart-analysis-flow.ts` 待创建。
+    5.  相关文档（PRD, README, ISSUES_LOG）已更新。
 - **状态**: 已解决
-- **备注**: 帕累托图为业务分析提供了新的重要视角。
-```
-    
+- **备注**: 新增图表为业务分析提供了新视角。
+
+---
+### 12. KPI看板显示逻辑优化
+- **问题描述**:
+    1.  KPI卡片的对比标签固定显示“环比”，不准确。
+    2.  KPI看板第四列的“自主系数”在聚合时无意义，应替换。
+    3.  率/占比类KPI卡片图标不够直观。
+- **发生时间**: 2024-05-28
+- **影响范围**: KPI看板 (`src/components/sections/kpi-dashboard-section.tsx`, `src/components/shared/kpi-card.tsx`) 的准确性和用户体验。核心数据处理 (`src/lib/data-utils.ts`)。
+- **解决方案**:
+    1.  **对比标签优化**: 在 `src/lib/data-utils.ts` 的 `calculateKpis` 函数中，修改 `comparisonLabel` 的生成逻辑，使其根据用户选择的对比周期或默认的上一周期动态显示为“对比 \[周期名称]”或“对比上一期”。
+    2.  **KPI布局调整**: 在 `src/components/sections/kpi-dashboard-section.tsx` 的 `KPI_LAYOUT_CONFIG` 中，将第四列的“自主系数”替换为“已报件数”。
+    3.  **图标优化**: 在 `src/lib/data-utils.ts` 的 `calculateKpis` 函数中，为率值和占比类指标的 `Kpi` 对象分配更具体的 `icon` 字符串名称 (如 'Percent', 'PieChart', 'Activity', 'Ratio', 'Zap', 'ShieldAlert')。`src/components/shared/kpi-card.tsx` 中的 `iconMap` 会映射这些名称到Lucide图标。
+    4.  **文档更新**: `PRODUCT_REQUIREMENTS_DOCUMENT.md`, `README.md`, `FIELD_DICTIONARY_V4.md` 已同步更新相关描述。
+- **状态**: 已解决
+- **备注**: 这些调整提升了KPI看板的准确性和信息的直观性。

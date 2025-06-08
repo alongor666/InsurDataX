@@ -2,10 +2,10 @@
 import type { Kpi } from '@/data/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Minus, DollarSign, FileText, Percent, Briefcase, Zap, Activity, ShieldCheck, ShieldAlert, Landmark, Users, Ratio, Search, Icon as LucideIconType, PieChart } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, DollarSign, FileText, Percent, Briefcase, Zap, Activity, ShieldCheck, ShieldAlert, Landmark, Users, Ratio, Search, Icon as LucideIconType, PieChart, ListOrdered } from 'lucide-react';
 
 const iconMap: { [key: string]: LucideIconType } = {
-  DollarSign, FileText, Percent, Briefcase, Zap, Activity, ShieldCheck, ShieldAlert, Landmark, Users, Ratio, Search, PieChart
+  DollarSign, FileText, Percent, Briefcase, Zap, Activity, ShieldCheck, ShieldAlert, Landmark, Users, Ratio, Search, PieChart, ListOrdered
 };
 
 const ChangeDisplay = ({
@@ -26,24 +26,22 @@ const ChangeDisplay = ({
   const color = changeType === 'positive' ? 'text-green-600' : changeType === 'negative' ? 'text-red-600' : 'text-muted-foreground';
 
   let displayValue = "";
-  // Prefer absolute change for rates (pp), percentage for others.
-  // If absolute is 'pp', it already includes the unit.
   if (changeAbsolute && changeAbsolute.includes('pp')) {
-    displayValue = changeAbsolute; // e.g., "+2.1 pp"
-    if (change && change !== '-') { // Optionally add percentage in brackets if available and not just "-"
-        displayValue += ` (${change})`; // e.g. "+2.1 pp (+5.0%)"
+    displayValue = changeAbsolute;
+    if (change && change !== '-') {
+        displayValue += ` (${change})`;
     }
   } else if (change && change !== '-') {
-    displayValue = change; // e.g., "+5.0%"
+    displayValue = change;
     if (changeAbsolute && changeAbsolute !== '-') {
-        displayValue += ` (${changeAbsolute})`; // e.g. "+5.0% (+100万元)"
+        displayValue += ` (${changeAbsolute})`;
     }
   } else if (changeAbsolute && changeAbsolute !== '-') {
-    displayValue = changeAbsolute; // Only absolute is available
+    displayValue = changeAbsolute;
   }
 
 
-  if (!displayValue || displayValue.trim() === '' || displayValue.trim() === '(-)') { // Handle cases where only "-" might be formed
+  if (!displayValue || displayValue.trim() === '' || displayValue.trim() === '(-)') {
     return null;
   }
 
@@ -71,7 +69,8 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
      cardClassName = cn(cardClassName, "border-destructive border-2");
   }
 
-  const IconComponent = kpi.icon && iconMap[kpi.icon] ? iconMap[kpi.icon] : null;
+  const IconComponent = kpi.icon && iconMap[kpi.icon] ? iconMap[kpi.icon] : (kpi.unit ? null : iconMap['ShieldCheck']);
+
 
   return (
     <Card className={cardClassName}>
@@ -92,7 +91,6 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
           changeAbsolute={kpi.comparisonChangeAbsolute}
           changeType={kpi.comparisonChangeType}
         />
-        {/* Secondary comparison is removed based on new requirements */}
 
         {kpi.description && (
            <p className="text-xs text-muted-foreground mt-1">{kpi.description}</p>
