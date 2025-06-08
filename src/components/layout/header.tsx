@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
 import type { AnalysisMode, PeriodOption, DashboardView, DataSourceType } from '@/data/types';
-import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon, AreaChart } from 'lucide-react'; // Added AreaChart for Pareto
+import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon, AreaChart } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -70,7 +70,7 @@ export function AppHeader({
     { label: "气泡图", value: "bubble", icon: ScanLine },
     { label: "排名图", value: "bar_rank", icon: BarChartHorizontal },
     { label: "占比图", value: "share_chart", icon: PieChartIcon },
-    { label: "帕累托图", value: "pareto", icon: AreaChart }, // New Pareto Chart view
+    { label: "帕累托图", value: "pareto", icon: AreaChart },
     { label: "数据表", value: "data_table", icon: Rows3 },
   ];
 
@@ -99,15 +99,17 @@ export function AppHeader({
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-auto md:h-16 items-center justify-between flex-wrap gap-y-2 py-2 md:py-0">
-        <Link href="/" className="mr-6 flex items-center space-x-2">
+      {/* Top row for global context and actions */}
+      <div className="container flex flex-col md:flex-row h-auto items-center justify-between gap-y-2 py-3 md:py-0 md:h-16">
+        <Link href="/" className="mr-6 flex items-center space-x-2 self-start md:self-center">
           <span className="font-headline text-xl font-bold text-primary">车险经营分析周报</span>
         </Link>
 
-        <div className="flex items-center space-x-1 md:space-x-2 flex-wrap gap-y-1">
-          <div className="flex items-center space-x-1 md:space-x-2">
+        <div className="flex flex-wrap items-center justify-start md:justify-end flex-grow gap-x-2.5 gap-y-2 md:gap-x-3">
+          {/* Data Configuration Group */}
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 md:gap-x-3">
             <Select value={currentDataSource} onValueChange={(value) => onDataSourceChange(value as DataSourceType)}>
-                <SelectTrigger className="w-[120px] md:w-[150px] h-9 text-xs md:text-sm">
+                <SelectTrigger className="w-auto md:w-[130px] h-9 text-xs md:text-sm">
                     <SelectValue placeholder="选择数据源"/>
                 </SelectTrigger>
                 <SelectContent>
@@ -121,12 +123,9 @@ export function AppHeader({
                     ))}
                 </SelectContent>
             </Select>
-          </div>
-
-          <div className="flex items-center space-x-1 md:space-x-2">
-            <Settings2 className="h-5 w-5 text-muted-foreground hidden md:block" />
+            
             <Select value={selectedPeriod} onValueChange={onPeriodChange} disabled={periodOptions.length === 0}>
-              <SelectTrigger className="w-[130px] md:w-[170px] h-9 text-xs md:text-sm">
+              <SelectTrigger className="w-auto md:w-[160px] h-9 text-xs md:text-sm">
                 <SelectValue placeholder={periodOptions.length > 0 ? "选择当前周期" : "加载周期中..."} />
               </SelectTrigger>
               <SelectContent>
@@ -135,108 +134,115 @@ export function AppHeader({
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          
+            <div className="relative flex items-center">
+              <Select
+                value={selectedComparisonPeriod || "default"} 
+                onValueChange={(value) => onComparisonPeriodChange(value === "default" ? null : value)}
+                disabled={periodOptions.length === 0 || !selectedPeriod}
+              >
+                <SelectTrigger className="w-auto md:w-[170px] h-9 text-xs md:text-sm pr-8">
+                  <SelectValue placeholder={periodOptions.length > 0 ? "选择对比周期" : "选择当前期"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default" className="text-xs md:text-sm">默认对比 (智能环比)</SelectItem>
+                  <Separator />
+                  {comparisonPeriodOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value} className="text-xs md:text-sm">{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedComparisonPeriod && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0.5 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                        onClick={() => onComparisonPeriodChange(null)} 
+                      >
+                        <XCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>清除对比周期 (恢复智能环比)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
 
-          <div className="flex items-center space-x-1 md:space-x-2 relative">
-            <GitCompareArrows className="h-5 w-5 text-muted-foreground hidden md:block" />
-            <Select
-              value={selectedComparisonPeriod || "default"} 
-              onValueChange={(value) => onComparisonPeriodChange(value === "default" ? null : value)}
-              disabled={periodOptions.length === 0 || !selectedPeriod}
-            >
-              <SelectTrigger className="w-[130px] md:w-[170px] h-9 text-xs md:text-sm pr-8">
-                <SelectValue placeholder={periodOptions.length > 0 ? "选择对比周期" : "选择当前期"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default" className="text-xs md:text-sm">默认对比 (智能环比)</SelectItem>
-                <Separator />
-                {comparisonPeriodOptions.map(option => (
-                  <SelectItem key={option.value} value={option.value} className="text-xs md:text-sm">{option.label}</SelectItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-9 text-xs md:text-sm px-2.5 md:px-3">
+                  <ListFilter className="mr-1 md:mr-1.5 h-4 w-4" />
+                  {selectedBusinessTypes.length === 0 && "全部业务"}
+                  {selectedBusinessTypes.length === 1 && (selectedBusinessTypes[0].length > 5 ? selectedBusinessTypes[0].substring(0,4) + "..." : selectedBusinessTypes[0])}
+                  {selectedBusinessTypes.length > 1 && `${selectedBusinessTypes.length}项业务`}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-60 max-h-96 overflow-y-auto">
+                <DropdownMenuLabel className="text-xs md:text-sm">选择业务类型</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={handleSelectAllBusinessTypes} className="text-xs md:text-sm cursor-pointer">
+                  {selectedBusinessTypes.length === allBusinessTypes.length && allBusinessTypes.length > 0 ? "清除选择" : "全选"}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleInvertBusinessTypesSelection} className="text-xs md:text-sm cursor-pointer">
+                  反选
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {allBusinessTypes.map((type) => (
+                  <DropdownMenuCheckboxItem
+                    key={type}
+                    checked={selectedBusinessTypes.includes(type)}
+                    onCheckedChange={(checked) => {
+                      const newSelection = checked
+                        ? [...selectedBusinessTypes, type]
+                        : selectedBusinessTypes.filter(t => t !== type);
+                      onSelectedBusinessTypesChange(newSelection.sort((a,b) => a.localeCompare(b)));
+                    }}
+                    className="text-xs md:text-sm"
+                  >
+                    {type}
+                  </DropdownMenuCheckboxItem>
                 ))}
-              </SelectContent>
-            </Select>
-            {selectedComparisonPeriod && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
-                      onClick={() => onComparisonPeriodChange(null)} 
-                    >
-                      <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>清除自定义对比周期 (恢复智能环比)</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <AnalysisModeToggle currentMode={analysisMode} onModeChange={onAnalysisModeChange} />
           </div>
 
+          {/* Vertical Separator for medium screens and up */}
+          <Separator orientation="vertical" className="h-6 hidden md:inline-flex mx-1 md:mx-2 self-center" />
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="h-9 text-xs md:text-sm px-2 md:px-3">
-                <ListFilter className="mr-1 md:mr-2 h-4 w-4" />
-                {selectedBusinessTypes.length === 0 && "全部业务"}
-                {selectedBusinessTypes.length === 1 && (selectedBusinessTypes[0].length > 5 ? selectedBusinessTypes[0].substring(0,4) + "..." : selectedBusinessTypes[0])}
-                {selectedBusinessTypes.length > 1 && `${selectedBusinessTypes.length}项业务`}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-60 max-h-96 overflow-y-auto">
-              <DropdownMenuLabel className="text-xs md:text-sm">选择业务类型</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={handleSelectAllBusinessTypes} className="text-xs md:text-sm cursor-pointer">
-                {selectedBusinessTypes.length === allBusinessTypes.length && allBusinessTypes.length > 0 ? "清除选择" : "全选"}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={handleInvertBusinessTypesSelection} className="text-xs md:text-sm cursor-pointer">
-                反选
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {allBusinessTypes.map((type) => (
-                <DropdownMenuCheckboxItem
-                  key={type}
-                  checked={selectedBusinessTypes.includes(type)}
-                  onCheckedChange={(checked) => {
-                    const newSelection = checked
-                      ? [...selectedBusinessTypes, type]
-                      : selectedBusinessTypes.filter(t => t !== type);
-                    onSelectedBusinessTypesChange(newSelection.sort((a,b) => a.localeCompare(b)));
-                  }}
-                  className="text-xs md:text-sm"
-                >
-                  {type}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <AnalysisModeToggle currentMode={analysisMode} onModeChange={onAnalysisModeChange} />
-
-          <Button onClick={onAiSummaryClick} variant="outline" size="sm" disabled={isAiSummaryLoading} className="h-9 text-xs md:text-sm">
-            <Sparkles className={`mr-1 md:mr-2 h-4 w-4 ${isAiSummaryLoading ? 'animate-spin' : ''}`} />
-            {isAiSummaryLoading ? '生成中...' : 'AI摘要'}
-          </Button>
-           <Button onClick={onExportClick} variant="outline" size="sm" className="h-9 text-xs md:text-sm">
-            <Download className="mr-1 md:mr-2 h-4 w-4" />
-            导出
-          </Button>
+          {/* Global Actions Group */}
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 md:gap-x-3">
+            <Button onClick={onAiSummaryClick} variant="outline" size="sm" disabled={isAiSummaryLoading} className="h-9 text-xs md:text-sm">
+              <Sparkles className={`mr-1 md:mr-1.5 h-4 w-4 ${isAiSummaryLoading ? 'animate-spin' : ''}`} />
+              {isAiSummaryLoading ? '生成中...' : 'AI摘要'}
+            </Button>
+             <Button onClick={onExportClick} variant="outline" size="sm" className="h-9 text-xs md:text-sm">
+              <Download className="mr-1 md:mr-1.5 h-4 w-4" />
+              导出
+            </Button>
+          </div>
         </div>
       </div>
+      
       <Separator />
+
+      {/* Second row for view navigation */}
       <div className="container flex h-12 items-center justify-center space-x-1 md:space-x-2 overflow-x-auto">
         {viewOptions.map(option => (
           <Button
             key={option.value}
-            variant={activeView === option.value ? "default" : "outline"}
+            variant={activeView === option.value ? "secondary" : "ghost"} // Using ghost and secondary for better contrast
             size="sm"
             onClick={() => onViewChange(option.value)}
-            className="h-8 text-xs md:text-sm shrink-0 px-2 md:px-3"
+            className="h-8 text-xs md:text-sm shrink-0 px-2.5 md:px-3"
           >
-            <option.icon className="mr-1 md:mr-2 h-4 w-4" />
+            <option.icon className="mr-1 md:mr-1.5 h-4 w-4" />
             {option.label}
           </Button>
         ))}
@@ -244,3 +250,4 @@ export function AppHeader({
     </header>
   );
 }
+
