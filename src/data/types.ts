@@ -98,16 +98,16 @@ export interface Kpi {
   isBorderRisk?: boolean;
   isOrangeRisk?: boolean;
 
-  // comparisonLabel field removed, will be generated in KpiDashboardSection
   comparisonChange?: string;       
   comparisonChangeAbsolute?: string; 
+  comparisonChangeAbsoluteRaw?: number; // Added for raw numerical change
   comparisonChangeType?: 'positive' | 'negative' | 'neutral';
 }
 
 export interface ChartDataItem {
   name: string;
   color?: string;
-  vcr?: number; // Changed from VCR to '变动成本率' in display, but data key remains
+  vcr?: number; 
   [key: string]: number | string | undefined;
 }
 
@@ -118,7 +118,7 @@ export interface BubbleChartDataItem {
   y: number;
   z: number;
   color?: string;
-  vcr?: number; // Changed from VCR to '变动成本率' in display
+  vcr?: number; 
 }
 
 export interface ShareChartDataItem {
@@ -126,15 +126,15 @@ export interface ShareChartDataItem {
   value: number; 
   percentage: number; 
   color?: string; 
-  vcr?: number; // Changed from VCR to '变动成本率' in display
+  vcr?: number; 
 }
 
 export interface ParetoChartDataItem {
-  name: string; // Business line name
-  value: number; // Actual value for the selected metric
-  cumulativePercentage: number; // Cumulative percentage
-  color?: string; // VCR-based color for the bar
-  vcr?: number; // Changed from VCR to '变动成本率' in display
+  name: string; 
+  value: number; 
+  cumulativePercentage: number; 
+  color?: string; 
+  vcr?: number; 
 }
 
 

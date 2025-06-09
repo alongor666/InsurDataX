@@ -71,30 +71,27 @@ export const getDynamicColorByVCR = (vcr: number | undefined | null): string => 
 
   let hue, sat, light;
 
-  if (vcr < 88) { // Green zone: < 88%. "越小越深绿" (Smaller VCR -> Deeper Green -> Lower Lightness)
+  if (vcr < 88) { 
     hue = greenHue; sat = greenSat;
-    const vcr_green_lower_bound = 60; // Assuming a practical lower VCR limit for color scaling
+    const vcr_green_lower_bound = 60; 
     const vcr_green_upper_bound = 87.99;
-    // normalizedVcr: 0 if vcr is at lower_bound, 1 if vcr is at upper_bound
     const normalizedVcr = Math.max(0, Math.min(1, (vcr - vcr_green_lower_bound) / (vcr_green_upper_bound - vcr_green_lower_bound)));
-    light = L_deep + normalizedVcr * (L_light - L_deep); // Small VCR (norm=0) -> L_deep. Large VCR (norm=1) -> L_light.
-  } else if (vcr >= 88 && vcr < 92) { // Blue zone: 88% to < 92%. "越接近88%越深蓝" (VCR near 88 -> Deeper Blue -> Lower Lightness)
+    light = L_deep + normalizedVcr * (L_light - L_deep); 
+  } else if (vcr >= 88 && vcr < 92) { 
     hue = blueHue; sat = blueSat;
     const vcr_blue_lower_bound = 88;
     const vcr_blue_upper_bound = 91.99;
-    // normalizedVcr: 0 if vcr is 88, 1 if vcr is 91.99
     const normalizedVcr = Math.max(0, Math.min(1, (vcr - vcr_blue_lower_bound) / (vcr_blue_upper_bound - vcr_blue_lower_bound)));
-    light = L_deep + normalizedVcr * (L_light - L_deep); // VCR near 88 (norm=0) -> L_deep. VCR near 91.99 (norm=1) -> L_light.
-  } else { // Red zone: >= 92%. "越大越深红" (Larger VCR -> Deeper Red -> Lower Lightness)
+    light = L_deep + normalizedVcr * (L_light - L_deep); 
+  } else { 
     hue = redHue; sat = redSat;
     const vcr_red_lower_bound = 92;
-    const vcr_red_upper_bound = 130; // Assuming a practical upper VCR limit for color scaling
-    // normalizedVcr: 0 if vcr is 92, 1 if vcr is at upper_bound
+    const vcr_red_upper_bound = 130; 
     const normalizedVcr = Math.max(0, Math.min(1, (vcr - vcr_red_lower_bound) / (vcr_red_upper_bound - vcr_red_lower_bound)));
-    light = L_light - normalizedVcr * (L_light - L_deep); // VCR at 92 (norm=0) -> L_light. VCR at upper_bound (norm=1) -> L_deep.
+    light = L_light - normalizedVcr * (L_light - L_deep); 
   }
 
-  light = Math.round(Math.max(L_deep - 5, Math.min(L_light + 5, light))); // Clamp lightness to avoid extremes
+  light = Math.round(Math.max(L_deep - 5, Math.min(L_light + 5, light))); 
 
   return `hsl(${hue}, ${sat}%, ${light}%)`;
 };
@@ -471,7 +468,7 @@ const formatKpiChangeValues = (
          effectiveChangeType = 'neutral';
     }
     
-    return { change: changePercentStr, changeAbsolute: changeAbsStr, type: effectiveChangeType };
+    return { change: changePercentStr, changeAbsolute: changeAbsStr, type: effectiveChangeType, changeAbsoluteRaw: changeResult.absolute };
 };
 
 
@@ -496,7 +493,7 @@ export const calculateKpis = (
     metricId: string,
     valueHigherIsBetter: boolean,
     isRateMetric: boolean
-  ): { comparisonChange?: string; comparisonChangeAbsolute?: string; comparisonChangeType: Kpi['comparisonChangeType'] } => {
+  ): { comparisonChange?: string; comparisonChangeAbsolute?: string; comparisonChangeAbsoluteRaw?: number; comparisonChangeType: Kpi['comparisonChangeType'] } => {
 
     if (metricId === 'avg_commercial_index') {
         const currentDisplayValue = formatDisplayValue(currentValue, metricId);
@@ -510,7 +507,12 @@ export const calculateKpis = (
 
     const changeDetails = calculateChangeAndType(currentValue, compValue, valueHigherIsBetter);
     const formattedChanges = formatKpiChangeValues(changeDetails, metricId, isRateMetric);
-    return { comparisonChange: formattedChanges.change, comparisonChangeAbsolute: formattedChanges.changeAbsolute, comparisonChangeType: formattedChanges.type };
+    return { 
+      comparisonChange: formattedChanges.change, 
+      comparisonChangeAbsolute: formattedChanges.changeAbsolute, 
+      comparisonChangeAbsoluteRaw: formattedChanges.changeAbsoluteRaw,
+      comparisonChangeType: formattedChanges.type 
+    };
   };
 
   let premWrittenIsGrowthGoodForColor = true;
@@ -559,7 +561,10 @@ export const calculateKpis = (
       id: 'premium_written', title: '保费',
       value: formatDisplayValue(current.premium_written, 'premium_written'),
       rawValue: current.premium_written, unit: METRIC_FORMAT_RULES['premium_written'].unitLabel,
-      comparisonChange: premWrittenChanges.comparisonChange, comparisonChangeAbsolute: premWrittenChanges.comparisonChangeAbsolute, comparisonChangeType: premWrittenChanges.comparisonChangeType,
+      comparisonChange: premWrittenChanges.comparisonChange, 
+      comparisonChangeAbsolute: premWrittenChanges.comparisonChangeAbsolute, 
+      comparisonChangeAbsoluteRaw: premWrittenChanges.comparisonChangeAbsoluteRaw,
+      comparisonChangeType: premWrittenChanges.comparisonChangeType,
     },
     {
       id: 'expense_amount', title: '费用',

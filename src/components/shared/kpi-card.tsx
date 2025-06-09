@@ -8,39 +8,50 @@ const iconMap: { [key: string]: LucideIconType } = {
   DollarSign, FileText, Percent, Briefcase, Zap, Activity, ShieldCheck, ShieldAlert, Landmark, Users, Ratio, Search, PieChart, ListOrdered
 };
 
+// Helper to get the correct icon based on absolute change
+const getChangeIcon = (absoluteChange?: number) => {
+  const epsilon = 0.00001; // Small threshold for floating point comparisons
+  if (absoluteChange === undefined || absoluteChange === null || isNaN(absoluteChange) || Math.abs(absoluteChange) < epsilon) {
+    return Minus;
+  }
+  if (absoluteChange > epsilon) {
+    return TrendingUp;
+  }
+  return TrendingDown;
+};
+
 const ChangeDisplay = ({
   change,
   changeAbsolute,
+  changeAbsoluteRaw, // Pass the raw absolute change for icon determination
   changeType,
 }: {
   change?: string;
   changeAbsolute?: string;
+  changeAbsoluteRaw?: number; // Raw numerical absolute change
   changeType?: Kpi['comparisonChangeType'];
 }) => {
-  // No comparisonLabel prop needed/rendered here anymore
   if ((!change || change === '-') && (!changeAbsolute || changeAbsolute === '-')) return null;
 
-  const Icon = changeType === 'positive' ? TrendingUp : changeType === 'negative' ? TrendingDown : Minus;
+  const Icon = getChangeIcon(changeAbsoluteRaw);
   const color = changeType === 'positive' ? 'text-green-600' : changeType === 'negative' ? 'text-red-600' : 'text-muted-foreground';
 
   let displayValue = "";
-  if (changeAbsolute && changeAbsolute.includes('pp')) { // Prioritize 'pp' for rates
+  if (changeAbsolute && changeAbsolute.includes('pp')) {
     displayValue = changeAbsolute;
-    if (change && change !== '-' && change !== '0.0%') { // Add percent if meaningful
+    if (change && change !== '-' && change !== '0.0%') {
         displayValue += ` (${change})`;
     }
   } else if (change && change !== '-') {
     displayValue = change;
-    if (changeAbsolute && changeAbsolute !== '-' && changeAbsolute !== '0') { // Add absolute if meaningful
+    if (changeAbsolute && changeAbsolute !== '-' && changeAbsolute !== '0') {
         displayValue += ` (${changeAbsolute})`;
     }
   } else if (changeAbsolute && changeAbsolute !== '-') {
     displayValue = changeAbsolute;
   }
 
-
   if (!displayValue || displayValue.trim() === '' || displayValue.trim() === '(-)' || displayValue.trim() === '(0)') {
-    // If after formatting, it's still effectively no change, don't render
     return null;
   }
 
@@ -48,14 +59,13 @@ const ChangeDisplay = ({
     <p className={cn("text-xs mt-1 flex items-center", color)}>
       <Icon className="h-4 w-4 mr-1" />
       {displayValue}
-      {/* The comparisonLabel span has been removed */}
     </p>
   );
 };
 
 export function KpiCard({ kpi }: { kpi: Kpi }) {
   let valueClassName = "text-3xl font-bold font-headline text-primary";
-  let cardClassName = "shadow-lg transition-all hover:shadow-xl min-h-[170px]"; // Adjusted min-height
+  let cardClassName = "shadow-lg transition-all hover:shadow-xl min-h-[170px]";
 
   if (kpi.isRisk && !kpi.isOrangeRisk && !kpi.isBorderRisk) {
     valueClassName = cn(valueClassName, "text-red-600 font-bold");
@@ -68,7 +78,6 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
   }
 
   const IconComponent = kpi.icon && iconMap[kpi.icon] ? iconMap[kpi.icon] : (kpi.unit ? null : iconMap['ShieldCheck']);
-
 
   return (
     <Card className={cardClassName}>
@@ -85,6 +94,7 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
         <ChangeDisplay
           change={kpi.comparisonChange}
           changeAbsolute={kpi.comparisonChangeAbsolute}
+          changeAbsoluteRaw={kpi.comparisonChangeAbsoluteRaw} // Pass raw value here
           changeType={kpi.comparisonChangeType}
         />
         {kpi.description && (
