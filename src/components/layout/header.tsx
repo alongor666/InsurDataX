@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
 import type { AnalysisMode, PeriodOption, DashboardView, DataSourceType } from '@/data/types';
-import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon, AreaChart } from 'lucide-react';
+import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon, AreaChart, Check } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -19,6 +19,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu"
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -193,19 +197,33 @@ export function AppHeader({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {allBusinessTypes.map((type) => (
-                  <DropdownMenuCheckboxItem
-                    key={type}
-                    checked={selectedBusinessTypes.includes(type)}
-                    onCheckedChange={(checked) => {
-                      const newSelection = checked
-                        ? [...selectedBusinessTypes, type]
-                        : selectedBusinessTypes.filter(t => t !== type);
-                      onSelectedBusinessTypesChange(newSelection.sort((a,b) => a.localeCompare(b)));
-                    }}
-                    className="text-xs md:text-sm"
-                  >
-                    {type}
-                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuSub key={type}>
+                    <DropdownMenuSubTrigger asChild>
+                      <DropdownMenuCheckboxItem
+                        checked={selectedBusinessTypes.includes(type)}
+                        onCheckedChange={(checked) => {
+                          const newSelection = checked
+                            ? [...selectedBusinessTypes, type]
+                            : selectedBusinessTypes.filter(t => t !== type);
+                          onSelectedBusinessTypesChange(newSelection.sort((a,b) => a.localeCompare(b)));
+                        }}
+                        className="text-xs md:text-sm"
+                        // onSelect={(e) => e.preventDefault()} // Prevent default close behavior IF it closes on check
+                      >
+                        {type}
+                      </DropdownMenuCheckboxItem>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent className="w-48 text-xs md:text-sm">
+                        <DropdownMenuItem onSelect={() => { onSelectedBusinessTypesChange([type]); }}>
+                          只选此项 (清空其他)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => { onSelectedBusinessTypesChange(allBusinessTypes.filter(bt => bt !== type)); }}>
+                          勾选所有其他项
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
@@ -237,7 +255,7 @@ export function AppHeader({
         {viewOptions.map(option => (
           <Button
             key={option.value}
-            variant={activeView === option.value ? "secondary" : "ghost"} // Using ghost and secondary for better contrast
+            variant={activeView === option.value ? "secondary" : "ghost"} 
             size="sm"
             onClick={() => onViewChange(option.value)}
             className="h-8 text-xs md:text-sm shrink-0 px-2.5 md:px-3"
@@ -250,4 +268,3 @@ export function AppHeader({
     </header>
   );
 }
-

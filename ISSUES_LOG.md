@@ -184,7 +184,7 @@
     1.  **`src/app/page.tsx`**:
         *   实现了 `prepareShareChartData_V4` 和 `prepareParetoChartData_V4` 函数，用于数据处理。
         *   实现了 `handleGenerateShareChartAiSummary` 和 `handleGenerateParetoAiSummary` 函数。
-    2.  **`src/components/sections/share-chart-section.tsx`**: 使用 `recharts` 的 `PieChart` 实现占比图。
+    2.  **`src/components/sections/share-chart-section.tsx`**: 使用 `recharts` 的 `PieChart` 实现占比图。图表高度增加到 `h-[450px]`。
     3.  **`src/components/sections/pareto-chart-section.tsx`**: 使用 `recharts` 的 `ComposedChart` 实现帕累托图。
     4.  **AI Flows**: `generate-pareto-analysis-flow.ts` 和 `generate-share-chart-analysis-flow.ts` 已创建并对接。
     5.  相关文档（PRD, README, ISSUES_LOG）已更新。
@@ -234,7 +234,7 @@
 - **备注**: 提升了头部的视觉组织和操作便捷性。
 
 ---
-### 15. KPI看板对比信息及UI优化；图表UI及AI分析内容优化
+### 15. KPI看板对比信息及UI优化；图表UI及AI分析内容优化；动态颜色逻辑修正
 - **问题描述**:
     1. 术语 "VCR" 未在UI和AI分析中统一为 "变动成本率"。
     2. KPI卡片内独立的对比周期标签导致信息冗余，应统一显示。
@@ -244,17 +244,102 @@
     6. AI分析内容未强制全中文。
     7. AI分析Markdown未正确渲染。
     8. AI分析字体大小不一致。
+    9. 动态颜色逻辑 (getDynamicColorByVCR) 与期望的深浅变化规则不完全一致。
+    10. KPI卡片变化箭头方向与数值增减物理方向不一致。
 - **发生时间**: 2024-05-28
-- **影响范围**: 整个应用UI，特别是KPI看板、各图表区、AI分析输出。
+- **影响范围**: 整个应用UI，特别是KPI看板、各图表区、AI分析输出、核心数据处理 (`data-utils.ts`)。
 - **解决方案**:
     1.  **术语统一**: 全局替换 "VCR" 为 "变动成本率" (UI, AI Prompts, 文档)。
     2.  **KPI对比信息**: 移除卡片内对比标签，在看板下方统一显示周期对比信息。`Kpi` 类型不再包含 `comparisonLabel`。
-    3.  **KPI视觉**: 调整 `KpiCard` 的 `min-h` 为 `170px`。
-    4.  **占比图优化**: 移除扇区数据标签；自定义图例为3列，每列最多5项，按占比降序排列，显示业务类型缩写和百分比。
+    3.  **KPI视觉**: 调整 `KpiCard` 的 `min-h` 为 `170px` (后因压缩需求改为 `min-h-[115px]`)。
+    4.  **占比图优化**: 移除扇区数据标签；自定义图例为3列，每列最多5项，按占比降序排列，显示业务类型缩写和百分比。图表高度增加到 `h-[450px]`。
     5.  **帕累托图优化**: X轴业务类型标签改为横向显示，调整图表边距。
     6.  **AI内容全中文**: 在所有AI Flow Prompt中加入强制中文输出的指令。
     7.  **Markdown渲染**: 为 `AiSummarySection` 和 `ChartAiSummary` 组件集成 `react-markdown`。
     8.  **AI字体一致**: 确保 `ChartAiSummary` 的字体大小与 `AiSummarySection` (通过 `prose-sm`) 一致。
-    9.  **文档更新**: `PRODUCT_REQUIREMENTS_DOCUMENT.md`, `README.md`, `FIELD_DICTIONARY_V4.md`, `ISSUES_LOG.md` 同步所有变更。
+    9.  **动态颜色修正**: 修改 `src/lib/data-utils.ts` 中的 `getDynamicColorByVCR`，确保VCR<88%（绿色）时值越小颜色越深，88%-92%（蓝色）时值越接近88%颜色越深，>=92%（红色）时值越大颜色越深。
+    10. **KPI箭头修正**: 修改 `src/components/shared/kpi-card.tsx`，确保箭头物理方向（上/下）仅由数值增/减决定，颜色（红/绿）由业务含义（更高更好/更低更好）决定。
+    11. **文档更新**: `PRODUCT_REQUIREMENTS_DOCUMENT.md`, `README.md`, `FIELD_DICTIONARY_V4.md`, `ISSUES_LOG.md` 同步所有变更。
 - **状态**: 已解决
 - **备注**: 综合性UI和逻辑优化，提升了信息呈现质量和用户体验。
+
+---
+### 16. AI Prompt中反引号转义问题
+- **问题描述**: `src/ai/flows/generate-trend-analysis-flow.ts` 中，Prompt字符串内使用了未转义的反引号 (`)` 围绕 `vcrColorRules`，导致ECMAScript解析错误。
+- **发生时间**: 2024-05-28
+- **影响范围**: 趋势分析AI Flow的加载和执行。
+- **解决方案**:
+    1.  在 `src/ai/flows/generate-trend-analysis-flow.ts` 的Prompt字符串中，将 `\`vcrColorRules\`` 修改为 `\\\`vcrColorRules\\\`` (使用 `\\` 来转义反引号)。
+- **状态**: 已解决
+- **备注**: 模板字符串内的特殊字符需正确转义。
+
+---
+### 17. 全局规则实施：视觉层去英文、AI分析内容与交互优化
+- **问题描述**:
+    1. 视觉层仍存在少量英文硬编码。
+    2. AI分析Prompt需要进一步强化，确保不使用颜色描述问题，而是使用业务状态，并确保全中文输出。
+    3. AI分析输入数据中不应包含颜色字段，迫使其依赖VCR值和规则。
+- **发生时间**: 2024-05-28
+- **影响范围**: 整体应用UI（页脚、部分提示），所有AI分析Flows，`page.tsx`中AI数据准备逻辑。
+- **解决方案**:
+    1.  **`src/components/layout/app-layout.tsx`**: 页脚修改为中文。
+    2.  **`src/components/shared/chart-ai-summary.tsx`**: 内部提示文本中文化。
+    3.  **`src/app/page.tsx`**:
+        *   修改所有图表AI分析函数 (`handleGenerate...AiSummary`)，在构造传递给AI的 `chartDataJson` 时，明确移除 `color` 字段。
+        *   更新 `getCommonAiFilters` 中 `vcrColorRules` 的描述文本，使其更清晰地将VCR值、颜色（AI不直接用）和业务状态关联起来。
+        *   部分加载提示文本中文化。
+    4.  **所有AI Flow Prompts (`src/ai/flows/*.ts`)**:
+        *   再次强化了“严禁描述颜色，必须使用业务状态”的核心指令，并提供了正反示例。
+        *   再次强调输出必须为全中文。
+- **状态**: 已解决
+- **备注**: 提升了应用的专业性和本地化程度，增强了AI分析的准确性和一致性。
+
+---
+### 18. KPI看板尺寸压缩与布局调整
+- **问题描述**: 需要将KPI看板整体尺寸（高度和宽度）压缩约1/3，同时保持字体大小不变，并确保内容不溢出。
+- **发生时间**: 2024-05-28
+- **影响范围**: `src/components/shared/kpi-card.tsx`, `src/components/sections/kpi-dashboard-section.tsx`。
+- **解决方案**:
+    1.  **`src/components/shared/kpi-card.tsx`**:
+        *   `min-h` 从 `170px` 减至 `115px`。
+        *   主要数值字体大小从 `text-3xl` 调整为 `text-2xl` 作为折中。
+        *   大幅减少 `CardHeader` 和 `CardContent` 的内边距。
+        *   微调对比信息区域的图标大小和间距。
+        *   为标题和描述添加 `leading-tight`。
+    2.  **`src/components/sections/kpi-dashboard-section.tsx`**:
+        *   网格 `gap` 从 `gap-4` 减至 `gap-3`。
+        *   列内 `space-y` 从 `space-y-4` 减至 `space-y-3`。
+        *   调整了看板底部周期信息的边距和字体大小。
+- **状态**: 已解决
+- **备注**: 在保持字体基本不变的前提下进行了显著压缩，可能需要根据实际显示效果微调。
+
+---
+### 19. JSX解析错误 `Unexpected token Card`
+- **问题描述**: `src/components/shared/kpi-card.tsx` 报JSX解析错误 "Unexpected token `Card`. Expected jsx identifier"，即使导入看起来正确。
+- **发生时间**: 2024-05-28
+- **影响范围**: KPI卡片渲染。
+- **解决方案**:
+    1.  重新审视并确认 `src/components/shared/kpi-card.tsx` 文件中 `Card`, `CardHeader`, `CardContent`, `CardTitle` 组件的导入语句 (`import { Card, ... } from '@/components/ui/card';`) 准确无误。
+    2.  仔细检查了 `KpiCard` 函数内部，特别是在 `return (...)` 语句之前的所有JavaScript逻辑，确保没有未闭合的括号、花括号或其它可能导致解析器状态混乱的语法错误。
+    3.  确保 `return` 语句及其包裹的JSX结构清晰且语法正确。
+    4.  通过重新生成文件内容的方式排除了不可见字符或细微语法遗漏的可能性。
+- **状态**: 已解决
+- **备注**: 此类错误通常与导入问题或JSX块之前的JS语法错误有关。
+
+---
+### 20. 业务类型筛选器功能增强
+- **问题描述**: 业务类型筛选器需要支持更便捷的单选和反选特定项的功能。
+- **发生时间**: 2024-05-28
+- **影响范围**: `src/components/layout/header.tsx`。
+- **解决方案**:
+    1.  在 `src/components/layout/header.tsx` 的业务类型筛选下拉菜单中：
+        *   将每个业务类型原先的 `DropdownMenuCheckboxItem` 包装在 `DropdownMenuSub` 和 `DropdownMenuSubTrigger` (使用 `asChild` 指向 `DropdownMenuCheckboxItem`) 中。
+        *   点击业务类型本身仍然切换其勾选状态。
+        *   同时，该操作会展开一个子菜单。
+        *   子菜单中提供两个选项：
+            *   "只选此项 (清空其他)": 点击后仅保留当前业务类型为选中状态。
+            *   "勾选所有其他项": 点击后选中除当前业务类型外的所有其他项。
+    2.  更新 `PRODUCT_REQUIREMENTS_DOCUMENT.md` 和 `README.md` 以反映此新功能。
+- **状态**: 已解决
+- **备注**: 提升了复杂筛选场景下的操作便捷性。
+
