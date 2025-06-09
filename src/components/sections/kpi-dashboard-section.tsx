@@ -9,7 +9,7 @@ interface KpiDashboardSectionProps {
   selectedPeriodKey: string;
   selectedComparisonPeriodKey: string | null;
   periodOptions: PeriodOption[];
-  allV4Data: V4PeriodData[]; // To get comparison_period_id_mom if needed
+  allV4Data: V4PeriodData[]; 
 }
 
 const findKpi = (kpis: Kpi[], id: string, title?: string): Kpi | undefined => {
@@ -63,7 +63,8 @@ export function KpiDashboardSection({
           return <KpiCard key={kpi.id} kpi={kpi} />;
         }
         if (configItem.id === 'avg_commercial_index') return null;
-        return <div key={configItem.id} className="p-4 border rounded-lg shadow-sm bg-card text-card-foreground min-h-[170px]">KPI: {configItem.title} (数据待处理)</div>;
+        // Fallback for missing KPI data, maintaining the reduced height
+        return <div key={configItem.id} className="p-3 border rounded-lg shadow-sm bg-card text-card-foreground min-h-[115px] flex items-center justify-center text-xs text-muted-foreground">KPI: {configItem.title} (数据待处理)</div>;
       });
   };
 
@@ -80,12 +81,12 @@ export function KpiDashboardSection({
       const comparisonLabel = periodOptions.find(p => p.value === actualComparisonPeriodId)?.label;
       if (comparisonLabel) {
           comparisonPeriodText = `对比 ${comparisonLabel}`;
-      } else if (selectedComparisonPeriodKey){ // A specific key was selected but not found (should not happen)
+      } else if (selectedComparisonPeriodKey){ 
           comparisonPeriodText = "对比所选周期 (标签未知)";
-      } else { // Defaulting to MoM but label not found (should not happen)
+      } else { 
           comparisonPeriodText = "对比上一期 (标签未知)";
       }
-  } else if (selectedComparisonPeriodKey === null) { // Explicitly no comparison selected, or no default MoM
+  } else if (selectedComparisonPeriodKey === null) { 
      const currentPeriodEntry = allV4Data.find(p => p.period_id === selectedPeriodKey);
      if (currentPeriodEntry && currentPeriodEntry.comparison_period_id_mom){
          const defaultMomLabel = periodOptions.find(p => p.value === currentPeriodEntry.comparison_period_id_mom)?.label;
@@ -98,18 +99,18 @@ export function KpiDashboardSection({
 
   return (
     <SectionWrapper title="KPI 看板" icon={LayoutDashboard}>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div className="space-y-4">{renderColumn(1)}</div>
-        <div className="space-y-4">{renderColumn(2)}</div>
-        <div className="space-y-4">{renderColumn(3)}</div>
-        <div className="space-y-4">{renderColumn(4)}</div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4"> {/* Reduced gap from gap-4 to gap-3 */}
+        <div className="space-y-3">{renderColumn(1)}</div> {/* Reduced space-y from space-y-4 to space-y-3 */}
+        <div className="space-y-3">{renderColumn(2)}</div>
+        <div className="space-y-3">{renderColumn(3)}</div>
+        <div className="space-y-3">{renderColumn(4)}</div>
       </div>
       {currentPeriodLabel && (
-        <div className="mt-4 pt-3 border-t text-sm text-muted-foreground text-center">
+        <div className="mt-3 pt-2 border-t text-xs text-muted-foreground text-center"> {/* Reduced margin/padding and font size */}
           当前数据周期：<span className="font-semibold text-foreground">{currentPeriodLabel}</span>
           {comparisonPeriodText !== "无对比期" && comparisonPeriodText !== "无默认对比期" && (
             <>
-              <span className="mx-2">|</span>
+              <span className="mx-1.5">|</span> {/* Reduced mx */}
               <span className="font-semibold text-foreground">{comparisonPeriodText}</span>
             </>
           )}

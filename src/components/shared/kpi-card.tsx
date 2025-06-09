@@ -8,9 +8,8 @@ const iconMap: { [key: string]: LucideIconType } = {
   DollarSign, FileText, Percent, Briefcase, Zap, Activity, ShieldCheck, ShieldAlert, Landmark, Users, Ratio, Search, PieChart, ListOrdered
 };
 
-// Helper to get the correct icon based on absolute change
 const getChangeIcon = (absoluteChange?: number) => {
-  const epsilon = 0.00001; // Small threshold for floating point comparisons
+  const epsilon = 0.00001;
   if (absoluteChange === undefined || absoluteChange === null || isNaN(absoluteChange) || Math.abs(absoluteChange) < epsilon) {
     return Minus;
   }
@@ -23,12 +22,12 @@ const getChangeIcon = (absoluteChange?: number) => {
 const ChangeDisplay = ({
   change,
   changeAbsolute,
-  changeAbsoluteRaw, // Pass the raw absolute change for icon determination
+  changeAbsoluteRaw,
   changeType,
 }: {
   change?: string;
   changeAbsolute?: string;
-  changeAbsoluteRaw?: number; // Raw numerical absolute change
+  changeAbsoluteRaw?: number;
   changeType?: Kpi['comparisonChangeType'];
 }) => {
   if ((!change || change === '-') && (!changeAbsolute || changeAbsolute === '-')) return null;
@@ -56,16 +55,16 @@ const ChangeDisplay = ({
   }
 
   return (
-    <p className={cn("text-xs mt-1 flex items-center", color)}>
-      <Icon className="h-4 w-4 mr-1" />
+    <p className={cn("text-xs mt-0.5 flex items-center", color)}> {/* Reduced mt-1 to mt-0.5 */}
+      <Icon className="h-3 w-3 mr-0.5" /> {/* Reduced icon size and margin */}
       {displayValue}
     </p>
   );
 };
 
 export function KpiCard({ kpi }: { kpi: Kpi }) {
-  let valueClassName = "text-3xl font-bold font-headline text-primary";
-  let cardClassName = "shadow-lg transition-all hover:shadow-xl min-h-[170px]";
+  let valueClassName = "text-2xl font-bold font-headline text-primary"; // Reduced font size from 3xl to 2xl
+  let cardClassName = "shadow-lg transition-all hover:shadow-xl min-h-[115px]"; // Reduced min-h from 170px to 115px
 
   if (kpi.isRisk && !kpi.isOrangeRisk && !kpi.isBorderRisk) {
     valueClassName = cn(valueClassName, "text-red-600 font-bold");
@@ -81,24 +80,24 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
 
   return (
     <Card className={cardClassName}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium font-body">{kpi.title}</CardTitle>
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-1 pt-3 px-4"> {/* Reduced padding */}
+        <CardTitle className="text-sm font-medium font-body leading-tight">{kpi.title}</CardTitle> {/* Added leading-tight */}
         {kpi.unit ? (
-          <span className="text-xs font-semibold text-muted-foreground">{kpi.unit}</span>
+          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">{kpi.unit}</span> {/* Added whitespace-nowrap */}
         ) : (
-          IconComponent && <IconComponent className={cn("h-5 w-5", kpi.isRisk || kpi.isBorderRisk ? "text-destructive" : (kpi.isOrangeRisk ? "text-orange-500" : "text-muted-foreground"))} />
+          IconComponent && <IconComponent className={cn("h-4 w-4", kpi.isRisk || kpi.isBorderRisk ? "text-destructive" : (kpi.isOrangeRisk ? "text-orange-500" : "text-muted-foreground"))} />
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0 pb-3 px-4"> {/* Reduced padding */}
         <div className={valueClassName}>{kpi.value}</div>
         <ChangeDisplay
           change={kpi.comparisonChange}
           changeAbsolute={kpi.comparisonChangeAbsolute}
-          changeAbsoluteRaw={kpi.comparisonChangeAbsoluteRaw} // Pass raw value here
+          changeAbsoluteRaw={kpi.comparisonChangeAbsoluteRaw}
           changeType={kpi.comparisonChangeType}
         />
         {kpi.description && (
-           <p className="text-xs text-muted-foreground mt-1">{kpi.description}</p>
+           <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{kpi.description}</p> {/* Reduced margin, added leading-tight */}
          )}
       </CardContent>
     </Card>
