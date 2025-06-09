@@ -9,7 +9,7 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z}from 'genkit';
 
 const GenerateTrendAnalysisInputSchema = z.object({
   chartDataJson: z.string().describe('The trend chart data, in JSON format. Each item typically has a "name" (period label) and keys for different business lines or a total, with their values for the selected metric. Each data point for a line may also include a "color" field based on variable_cost_ratio and its "vcr" value.'),
@@ -40,7 +40,7 @@ const trendAnalysisPrompt = ai.definePrompt({
 - 分析模式: {{{analysisMode}}} (其中 'periodOverPeriod' 表示环比变化值)
 - 最新数据截至周期: {{{currentPeriodLabel}}}
 - 筛选的业务类型 (若适用): {{filtersJson.selectedBusinessTypes}}
-- 变动成本率颜色规则解读: {{filtersJson.vcrColorRules}}
+- 变动成本率颜色规则解读: {{filtersJson.vcrColorRules}} (绿色代表优秀/低风险，蓝色代表健康/中等风险，红色代表警告/高风险)
 
 **趋势图数据 (JSON格式):**
 (每个数据点可能包含基于“变动成本率”的 'color' 字段及其 'vcr' 数值)
@@ -55,15 +55,18 @@ const trendAnalysisPrompt = ai.definePrompt({
 
 **二、关键节点与变化深度分析 (In-depth Analysis of Key Inflection Points & Changes):**
    - 识别趋势中的任何**显著转折点、加速增长/下滑期、或趋势方向的根本性改变**。明确指出这些变化发生的大致周期。
-   - **探究变化原因**：结合 **{{{selectedMetric}}}** 的业务内涵，以及车险经营的常见影响因素（如市场竞争、政策调整、季节性因素、重大灾害、内部管理策略变动等），对观察到的显著变化提出**可能的解释**。例如，若 **{{{selectedMetric}}}** 为 **满期赔付率** 且出现急剧上升，可能的原因是什么？
+   - **探究变化原因**：结合 **{{{selectedMetric}}}** 的业务内涵，以及车险经营的常见影响因素（例如，市场竞争激烈程度的变化、主要营销活动节点（如特定车展、电商节促销）、渠道合作策略调整（如与大型车商合作的增减）、核保政策的阶段性松紧（如对特定高风险车型的承保调整）、重大理赔事件（如区域性自然灾害导致的赔案集中）、季节性新车销售波动及续保节奏等），对观察到的显著变化提出**具体的、有逻辑支撑的可能解释**。
+   - 若趋势指标为 **{{{selectedMetric}}}** 且涉及到“跟单保费”，请结合车险经营逻辑，探讨其与（未直接显示的）“满期赔付率”可能的间接互动，例如：公司是否可能因历史高赔付率而主动收缩某些业务导致保费下降？或为追求规模而短期放宽核保导致保费上升但潜在赔付风险增加？
 
 **三、变动成本率（颜色）与趋势关联解读 (Correlation Analysis: Trend & Variable Cost Ratio Color):**
-   - 详细分析趋势线（或柱状图的柱子）的颜色（由“变动成本率”决定）如何随时间演变。
-   - **{{{selectedMetric}}}** 的趋势变化与“变动成本率”所指示的业务健康度（颜色变化，例如从蓝色变为红色）之间是否存在**明显的关联性**？请详细阐述。例如，**{{{selectedMetric}}}** 的改善是否伴随着“变动成本率”的优化（颜色向绿色转变）？反之亦然？
+   - **重要核心指令：当解读‘变动成本率’及其颜色时，您必须严格对照并运用输入数据中 \`filtersJson.vcrColorRules\` 提供的颜色与业务含义的映射规则（例如：绿色代表经营状况优秀/低风险，蓝色代表健康/中等风险，红色代表警告/高风险）。您的首要任务是根据此规则正确判断图表中各数据点‘变动成本率’的绝对水平所对应的业务健康状态，并清晰阐述。例如，若数据显示‘变动成本率’为80%，且规则定义绿色为优秀，您的分析必须明确指出‘变动成本率80%处于绿色健康区间，代表经营状况良好’，而不是仅仅描述颜色为‘绿色系’，或更严重地，错误地将其判断为‘偏高’。这是本次分析的基石和最重要校验点，任何偏离此规则的解读都是不可接受的。**
+   - 详细分析趋势线（或柱状图的柱子）的颜色（由“变动成本率”决定）如何随时间演变，并**明确指出其背后所代表的业务健康度的变化**（例如，从“经营健康”变为“高风险预警”）。
+   - **{{{selectedMetric}}}** 的趋势变化与“变动成本率”所指示的业务健康度之间是否存在**明显的关联性**？请详细阐述。例如，**{{{selectedMetric}}}** 的改善是否伴随着“变动成本率”的优化（业务健康度提升）？反之亦然？
+   - 即使 **{{{selectedMetric}}}** 趋势与“变动成本率”短期内未呈现强相关性，也请探讨可能存在的间接影响。例如，保费规模的急剧变化是否可能通过影响固定成本占比而间接作用于“费用率”，进而影响“变动成本率”？提示需要进一步分析哪些方面（如费用结构、赔付结构）？
 
 **四、战略洞察与前瞻建议 (Strategic Insights & Forward-looking Recommendations):**
-   - 基于对 **{{{selectedMetric}}}** 趋势及其与“变动成本率”表现的综合分析，提炼1-2项具有**战略价值的洞察**。
-   - 针对观察到的趋势和潜在风险（如“变动成本率”恶化），提出具体的、可供管理层参考的**初步建议或关注方向**。
+   - 基于对 **{{{selectedMetric}}}** 趋势及其与“变动成本率”表现的综合分析，提炼1-2项最具**车险行业特性和战略价值的洞察**。
+   - 针对观察到的趋势和潜在风险（如“变动成本率”恶化或特定业务趋势不佳），提出具体的、可供管理层参考的**初步行动建议或关注方向**，例如是否需要调整特定业务线的产品定价与组合、优化高成本渠道的效率、加强对某些高风险细分市场的风险筛选与核保、或通过科技手段改进理赔管理流程以控制赔付支出等。
 
 **重要输出要求：**
 - 分析报告**必须为中文自然语言**。
@@ -71,7 +74,7 @@ const trendAnalysisPrompt = ai.definePrompt({
 - **结构清晰，层次分明**，严格按照上述四部分组织内容。
 - 语言**精炼专业，富有洞察力**。
 - 关键的指标名称、趋势描述、转折点、业务类型名称等，请使用**Markdown加粗**。
-- 深刻理解并运用“变动成本率”及其颜色指示作为核心分析工具。
+- 深刻理解并运用“变动成本率”及其颜色指示（根据\\\`vcrColorRules\\\`）作为核心分析工具，准确评估业务健康度。
 
 请开始您的分析。`,
 });
@@ -87,3 +90,4 @@ const trendAnalysisFlow = ai.defineFlow(
     return output!;
   }
 );
+
