@@ -622,7 +622,7 @@ export default function DashboardPage() {
         period: currentPeriodLabel,
         comparison: comparisonPeriodInfo,
         selectedBusinessTypes: selectedBusinessTypes.length > 0 ? selectedBusinessTypes.join(', ') : '全部独立业务类型合计',
-        vcrColorRules: "颜色基于变动成本率动态调整深浅：绿色(优秀, 变动成本率 < 88%，越小越深绿)，蓝色(健康, 88%-92%，越接近88%越深蓝)，红色(危险, 变动成本率 >= 92%，越大越深红)。"
+        vcrColorRules: "变动成本率业务状态解读：<88% 代表“经营优秀，低风险”；88%-92% 代表“经营健康，中等风险”；>=92% 代表“经营告警，高风险”。颜色深浅也指示程度，例如在“经营优秀”状态下，值越低状态越好。"
     };
 };
 
@@ -639,7 +639,7 @@ export default function DashboardPage() {
       let topBusinessLinesData: any[] = [];
       
       const relevantMetricsToDisplay = (metrics: AggregatedBusinessMetrics, comparisonMetrics?: AggregatedBusinessMetrics | null, compLabel?: string) => {
-        let changeInfo = 'N/A';
+        let changeInfo = '无对比数据';
         if (metrics?.premium_written !== undefined && comparisonMetrics?.premium_written !== undefined && comparisonMetrics?.premium_written !== null ) { 
             const absChange = metrics.premium_written - comparisonMetrics.premium_written;
             const pctChange = comparisonMetrics.premium_written !== 0 ? (absChange / Math.abs(comparisonMetrics.premium_written)) * 100 : (metrics.premium_written !== 0 ? Infinity : 0);
@@ -648,14 +648,14 @@ export default function DashboardPage() {
             
             changeInfo = `${absChange >= 0 ? '+' : ''}${absChange.toFixed(0)} (${pctChangeStr}, ${compLabel || '对比'})`;
         } else if (metrics?.premium_written !== undefined) {
-            changeInfo = `${metrics.premium_written.toFixed(0)} (无对比数据)`;
+            changeInfo = `(${metrics.premium_written.toFixed(0)}, 无对比数据)`;
         }
 
         return {
             premiumWritten: `${metrics.premium_written?.toFixed(0) || 'N/A'} 万元`, 
             lossRatio: `${metrics.loss_ratio?.toFixed(1) || 'N/A'}%`,
             variableCostRatio: `${metrics.variable_cost_ratio?.toFixed(1) || 'N/A'}%`,
-            color: getDynamicColorByVCR(metrics.variable_cost_ratio),
+            // color field removed, AI should use vcrColorRules from filters
             changeInPremiumWritten: changeInfo,
         };
       };
@@ -732,7 +732,7 @@ export default function DashboardPage() {
     setTrendAiSummary(null);
     try {
       const input: GenerateTrendAnalysisInput = {
-        chartDataJson: JSON.stringify(trendChartData),
+        chartDataJson: JSON.stringify(trendChartData.map(({color, ...rest}) => rest)), // Remove color before sending
         selectedMetric: availableTrendMetrics.find(m => m.value === selectedTrendMetric)?.label || selectedTrendMetric,
         analysisMode,
         currentPeriodLabel, 
@@ -759,7 +759,7 @@ export default function DashboardPage() {
     setBubbleAiSummary(null);
     try {
       const input: GenerateBubbleChartAnalysisInput = {
-        chartDataJson: JSON.stringify(bubbleChartData),
+        chartDataJson: JSON.stringify(bubbleChartData.map(({color, ...rest}) => rest)), // Remove color
         xAxisMetric: availableBubbleMetrics.find(m => m.value === selectedBubbleXAxisMetric)?.label || selectedBubbleXAxisMetric,
         yAxisMetric: availableBubbleMetrics.find(m => m.value === selectedBubbleYAxisMetric)?.label || selectedBubbleYAxisMetric,
         bubbleSizeMetric: availableBubbleMetrics.find(m => m.value === selectedBubbleSizeMetric)?.label || selectedBubbleSizeMetric,
@@ -788,7 +788,7 @@ export default function DashboardPage() {
     setBarRankAiSummary(null);
     try {
       const input: GenerateBarRankingAnalysisInput = {
-        chartDataJson: JSON.stringify(barRankData),
+        chartDataJson: JSON.stringify(barRankData.map(({color, ...rest}) => rest)), // Remove color
         rankedMetric: availableRankingMetrics.find(m => m.value === selectedRankingMetric)?.label || selectedRankingMetric,
         analysisMode,
         currentPeriodLabel,
@@ -815,7 +815,7 @@ export default function DashboardPage() {
     setShareChartAiSummary(null);
     try {
       const input: GenerateShareChartAnalysisInput = { 
-        chartDataJson: JSON.stringify(shareChartData),
+        chartDataJson: JSON.stringify(shareChartData.map(({color, ...rest}) => rest)), // Remove color
         analyzedMetric: availableShareChartMetrics.find(m => m.value === selectedShareChartMetric)?.label || selectedShareChartMetric,
         analysisMode,
         currentPeriodLabel,
@@ -842,7 +842,7 @@ export default function DashboardPage() {
     setParetoAiSummary(null);
     try {
       const input: GenerateParetoAnalysisInput = {
-        chartDataJson: JSON.stringify(paretoChartData),
+        chartDataJson: JSON.stringify(paretoChartData.map(({color, ...rest}) => rest)), // Remove color
         analyzedMetric: availableParetoMetrics.find(m => m.value === selectedParetoMetric)?.label || selectedParetoMetric,
         analysisMode,
         currentPeriodLabel,
@@ -898,8 +898,8 @@ export default function DashboardPage() {
       <div className="space-y-6 md:space-y-8">
         <AiSummarySection summary={overallAiSummary} isLoading={isOverallAiSummaryLoading} />
 
-        {isGlobalLoading && <p className="text-center text-muted-foreground py-8">正在加载数据，请稍候...</p>}
-        {!isGlobalLoading && allV4Data.length === 0 && dataSource === 'db' && <p className="text-center text-destructive py-8">无法从数据库加载数据或数据库为空。请检查您的数据库连接配置和数据表。您可以尝试切换回JSON数据源。</p>}
+        {isGlobalLoading && <p className="text-center text-muted-foreground py-8">数据加载中，请稍候...</p>}
+        {!isGlobalLoading && allV4Data.length === 0 && dataSource === 'db' && <p className="text-center text-destructive py-8">无法从数据库加载数据或数据库为空。请检查数据库连接配置和数据表。您可以尝试切换回JSON数据源。</p>}
         {!isGlobalLoading && allV4Data.length === 0 && dataSource === 'json' && <p className="text-center text-destructive py-8">JSON数据文件为空或加载失败。请检查 public/data/insurance_data_v4.json 文件。</p>}
         {!isGlobalLoading && allV4Data.length > 0 && !selectedPeriodKey && <p className="text-center text-muted-foreground py-8">请选择一个数据周期以开始分析。</p>}
 
@@ -989,3 +989,4 @@ export default function DashboardPage() {
     </AppLayout>
   );
 }
+

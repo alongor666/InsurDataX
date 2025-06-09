@@ -43,11 +43,12 @@ export function ChartAiSummary({ summary, isLoading, onGenerateSummary, hasData,
         </ReactMarkdown>
       )}
       {!isLoading && !summary && !hasData && (
-        <p className="text-xs text-muted-foreground text-center py-2">图表无数据，无法生成AI分析。</p>
+        <p className="text-muted-foreground text-center py-2 text-xs">图表无数据，无法生成AI分析。</p>
       )}
       {!isLoading && !summary && hasData && (
-        <p className="text-xs text-muted-foreground text-center py-2">点击按钮生成此图表的AI分析。</p>
+        <p className="text-muted-foreground text-center py-2 text-xs">点击按钮生成此图表的AI分析。</p>
       )}
     </div>
   );
 }
+

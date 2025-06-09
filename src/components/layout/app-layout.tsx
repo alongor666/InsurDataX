@@ -1,3 +1,4 @@
+
 import type React from 'react';
 
 interface AppLayoutProps {
@@ -13,8 +14,9 @@ export function AppLayout({ header, children }: AppLayoutProps) {
         {children}
       </main>
       <footer className="py-4 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} 车险经营分析周报
+        © {new Date().getFullYear()} 车险经营分析周报应用
       </footer>
     </div>
   );
 }
+
