@@ -55,16 +55,16 @@ const ChangeDisplay = ({
   }
 
   return (
-    <p className={cn("text-xs mt-0.5 flex items-center", color)}> {/* Reduced mt-1 to mt-0.5 */}
-      <Icon className="h-3 w-3 mr-0.5" /> {/* Reduced icon size and margin */}
+    <p className={cn("text-xs mt-0.5 flex items-center", color)}>
+      <Icon className="h-3 w-3 mr-0.5" />
       {displayValue}
     </p>
   );
 };
 
 export function KpiCard({ kpi }: { kpi: Kpi }) {
-  let valueClassName = "text-2xl font-bold font-headline text-primary"; // Reduced font size from 3xl to 2xl
-  let cardClassName = "shadow-lg transition-all hover:shadow-xl min-h-[115px]"; // Reduced min-h from 170px to 115px
+  let valueClassName = "text-2xl font-bold font-headline text-primary";
+  let cardClassName = "shadow-lg transition-all hover:shadow-xl min-h-[115px]";
 
   if (kpi.isRisk && !kpi.isOrangeRisk && !kpi.isBorderRisk) {
     valueClassName = cn(valueClassName, "text-red-600 font-bold");
@@ -80,15 +80,15 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
 
   return (
     <Card className={cardClassName}>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-1 pt-3 px-4"> {/* Reduced padding */}
-        <CardTitle className="text-sm font-medium font-body leading-tight">{kpi.title}</CardTitle> {/* Added leading-tight */}
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-1 pt-3 px-4">
+        <CardTitle className="text-sm font-medium font-body leading-tight">{kpi.title}</CardTitle>
         {kpi.unit ? (
-          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">{kpi.unit}</span> {/* Added whitespace-nowrap */}
+          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">{kpi.unit}</span>
         ) : (
           IconComponent && <IconComponent className={cn("h-4 w-4", kpi.isRisk || kpi.isBorderRisk ? "text-destructive" : (kpi.isOrangeRisk ? "text-orange-500" : "text-muted-foreground"))} />
         )}
       </CardHeader>
-      <CardContent className="pt-0 pb-3 px-4"> {/* Reduced padding */}
+      <CardContent className="pt-0 pb-3 px-4">
         <div className={valueClassName}>{kpi.value}</div>
         <ChangeDisplay
           change={kpi.comparisonChange}
@@ -97,7 +97,7 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
           changeType={kpi.comparisonChangeType}
         />
         {kpi.description && (
-           <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{kpi.description}</p> {/* Reduced margin, added leading-tight */}
+           <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{kpi.description}</p>
          )}
       </CardContent>
     </Card>
