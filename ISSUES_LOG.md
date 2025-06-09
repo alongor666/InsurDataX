@@ -314,17 +314,28 @@
 - **备注**: 在保持字体基本不变的前提下进行了显著压缩，可能需要根据实际显示效果微调。
 
 ---
-### 19. JSX解析错误 `Unexpected token Card`
-- **问题描述**: `src/components/shared/kpi-card.tsx` 报JSX解析错误 "Unexpected token `Card`. Expected jsx identifier"，即使导入看起来正确。
-- **发生时间**: 2024-05-28
-- **影响范围**: KPI卡片渲染。
+### 19. JSX解析错误 `Unexpected token Card` / Runtime Error for `React.Children.only`
+- **问题描述**:
+    1. `src/components/shared/kpi-card.tsx` 报JSX解析错误 "Unexpected token `Card`. Expected jsx identifier"，即使导入看起来正确。 (此问题后演变为 `React.Children.only` 错误)
+    2. 在尝试实现业务类型筛选器的“只选此项”/“选其余项”子菜单功能时，`src/components/layout/header.tsx` 中因 `DropdownMenuSubTrigger` 与 `asChild` 和 `DropdownMenuCheckboxItem` 组合使用不当，导致 "React.Children.only expected to receive a single React element child." 运行时错误。
+- **发生时间**: 2024-05-28 (初始 Card 错误), 2024-05-29 (React.Children.only 错误)
+- **影响范围**: KPI卡片渲染，业务类型筛选器功能。
 - **解决方案**:
-    1.  重新审视并确认 `src/components/shared/kpi-card.tsx` 文件中 `Card`, `CardHeader`, `CardContent`, `CardTitle` 组件的导入语句 (`import { Card, ... } from '@/components/ui/card';`) 准确无误。
-    2.  仔细检查了 `KpiCard` 函数内部，特别是在 `return (...)` 语句之前的所有JavaScript逻辑，确保没有未闭合的括号、花括号或其它可能导致解析器状态混乱的语法错误。
-    3.  确保 `return` 语句及其包裹的JSX结构清晰且语法正确。
-    4.  通过重新生成文件内容的方式排除了不可见字符或细微语法遗漏的可能性。
+    1.  **JSX解析错误 (`Unexpected token Card`)**:
+        *   重新审视并确认 `src/components/shared/kpi-card.tsx` 文件中 `Card`, `CardHeader`, `CardContent`, `CardTitle` 组件的导入语句 (`import { Card, ... } from '@/components/ui/card';`) 准确无误。
+        *   仔细检查了 `KpiCard` 函数内部，特别是在 `return (...)` 语句之前的所有JavaScript逻辑，确保没有未闭合的括号、花括号或其它可能导致解析器状态混乱的语法错误。
+        *   确保 `return` 语句及其包裹的JSX结构清晰且语法正确。
+        *   通过重新生成文件内容的方式排除了不可见字符或细微语法遗漏的可能性。(此问题后续判断为与下面问题2无关，应为早期修复过程中的临时状态)
+    2.  **Runtime Error (`React.Children.only`)**:
+        *   **根本原因**: ShadCN UI 的 `DropdownMenuSubTrigger` 组件在内部渲染时，会把它自己的子元素 (`props.children`) 和一个它自己添加的 `<ChevronRight />` 图标一起作为子项传递给底层的 Radix UI `DropdownMenuPrimitive.SubTrigger` 组件。当对 ShadCN UI 的 `DropdownMenuSubTrigger` 使用 `asChild` prop 时，这个 `asChild` prop 会被传递给 Radix UI 的 `DropdownMenuPrimitive.SubTrigger`。此时，Radix UI 的 `DropdownMenuPrimitive.SubTrigger` 期望只接收一个子元素来进行属性合并，但它实际上收到了两个（即传递给ShadCN UI `DropdownMenuSubTrigger`的 `children`，以及ShadCN UI `DropdownMenuSubTrigger`内部添加的 `<ChevronRight />`），因此导致了 "React.Children.only" 错误。
+        *   **修复**:
+            *   在 `src/components/layout/header.tsx` 中，移除了 `DropdownMenuSubTrigger` 上的 `asChild` prop。
+            *   将 `DropdownMenuCheckboxItem` 作为 `DropdownMenuSubTrigger` 的主要内容。`DropdownMenuSubTrigger` 正常渲染并自动处理右侧的雪佛龙图标。
+            *   为 `DropdownMenuCheckboxItem` 添加了 `onSelect={(e) => e.preventDefault()}` 来阻止在切换勾选状态时关闭整个下拉菜单。
+            *   调整了 `DropdownMenuCheckboxItem` 的内联样式（例如 `className="w-full p-0 border-none shadow-none focus:bg-transparent ..."`），使其在视觉上更好地融入作为父级 `DropdownMenuSubTrigger` 的内容区，而不是显示为具有完整内边距的独立菜单项。
+            *   确保 `DropdownMenuCheckboxItem` 内部的文本内容能够正确显示，并且其勾选状态的交互不受影响。
 - **状态**: 已解决
-- **备注**: 此类错误通常与导入问题或JSX块之前的JS语法错误有关。
+- **备注**: `asChild` prop 在与内部结构复杂的复合组件一起使用时需要特别小心。当父组件（如ShadCN的SubTrigger）在 `asChild` 模式下仍然尝试添加自己的固定子元素（如Chevron）时，很容易与 `React.Children.only` 的期望冲突。
 
 ---
 ### 20. 业务类型筛选器功能增强
@@ -333,13 +344,13 @@
 - **影响范围**: `src/components/layout/header.tsx`。
 - **解决方案**:
     1.  在 `src/components/layout/header.tsx` 的业务类型筛选下拉菜单中：
-        *   将每个业务类型原先的 `DropdownMenuCheckboxItem` 包装在 `DropdownMenuSub` 和 `DropdownMenuSubTrigger` (使用 `asChild` 指向 `DropdownMenuCheckboxItem`) 中。
-        *   点击业务类型本身仍然切换其勾选状态。
-        *   同时，该操作会展开一个子菜单。
-        *   子菜单中提供两个选项：
+        *   为每个业务类型创建一个 `DropdownMenuSub`。
+        *   `DropdownMenuSubTrigger` (不使用 `asChild`) 将包含 `DropdownMenuCheckboxItem` 作为其内容。这样，点击条目既可以切换勾选状态（通过 `DropdownMenuCheckboxItem` 的 `onCheckedChange` 和 `onSelect`），也可以通过 `DropdownMenuSubTrigger` 的默认行为打开子菜单。
+        *   子菜单 (`DropdownMenuSubContent`) 中提供两个选项：
             *   "只选此项 (清空其他)": 点击后仅保留当前业务类型为选中状态。
             *   "勾选所有其他项": 点击后选中除当前业务类型外的所有其他项。
     2.  更新 `PRODUCT_REQUIREMENTS_DOCUMENT.md` 和 `README.md` 以反映此新功能。
-- **状态**: 已解决
+- **状态**: 已解决 (解决方案在问题19中进一步细化和修正)
 - **备注**: 提升了复杂筛选场景下的操作便捷性。
 
+    

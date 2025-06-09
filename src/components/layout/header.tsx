@@ -198,7 +198,11 @@ export function AppHeader({
                 <DropdownMenuSeparator />
                 {allBusinessTypes.map((type) => (
                   <DropdownMenuSub key={type}>
-                    <DropdownMenuSubTrigger asChild>
+                    <DropdownMenuSubTrigger
+                      className="text-xs md:text-sm px-2 py-1.5" // Applied consistent styling
+                    >
+                      {/* The DropdownMenuCheckboxItem is now content within the SubTrigger */}
+                      {/* The SubTrigger itself handles opening sub-menu and has the chevron */}
                       <DropdownMenuCheckboxItem
                         checked={selectedBusinessTypes.includes(type)}
                         onCheckedChange={(checked) => {
@@ -207,9 +211,15 @@ export function AppHeader({
                             : selectedBusinessTypes.filter(t => t !== type);
                           onSelectedBusinessTypesChange(newSelection.sort((a,b) => a.localeCompare(b)));
                         }}
-                        className="text-xs md:text-sm"
-                        // onSelect={(e) => e.preventDefault()} // Prevent default close behavior IF it closes on check
+                        onSelect={(e) => {
+                            e.preventDefault(); // Prevent menu close on check
+                        }}
+                        // Styling to make it integrate visually and not look like a separate, nested item
+                        className="w-full p-0 border-none shadow-none focus:bg-transparent hover:bg-transparent data-[state=open]:bg-transparent [&[data-highlighted]]:bg-transparent [&[data-highlighted]]:text-accent-foreground relative pl-0" // Removed default padding by setting pl-8 to pl-0 on checkbox and making it relative for its own check indicator positioning
                       >
+                        <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center"> {/* Adjusted from left-2 if pl-0 used for item itself */}
+                           {/* CheckboxPrimitive.Indicator is handled internally by DropdownMenuCheckboxItem, we only provide children */}
+                        </span>
                         {type}
                       </DropdownMenuCheckboxItem>
                     </DropdownMenuSubTrigger>
@@ -268,3 +278,5 @@ export function AppHeader({
     </header>
   );
 }
+
+    
