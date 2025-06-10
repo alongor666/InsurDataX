@@ -164,14 +164,17 @@ export default function DashboardPage() {
       setShareChartAiSummary(null);
       setParetoAiSummary(null);
       try {
-        let data: V4PeriodData[] = [];
+        let rawData: any; // Use 'any' temporarily to check structure
         if (dataSource === 'json') {
           toast({ title: "数据加载中", description: "正在从JSON文件加载数据..." });
-          const response = await fetch('/data/insurance_data_v4.json');
+          const response = await fetch('/data/insurance_data.json');
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status} when fetching JSON.`);
           }
-          data = await response.json();
+          rawData = await response.json();
+          if (!Array.isArray(rawData)) {
+            throw new Error("从JSON文件加载的数据格式不正确，期望得到一个数组。");
+          }
           toast({ title: "数据加载成功", description: "已从JSON文件加载数据。" });
         } else if (dataSource === 'db') {
           toast({ title: "数据加载中", description: "正在尝试从PostgreSQL数据库加载数据..." });
@@ -187,9 +190,12 @@ export default function DashboardPage() {
               }
               throw new Error(errorDetails + ` Status: ${response.status}`);
             }
-            data = await response.json();
+            rawData = await response.json();
+            if (!Array.isArray(rawData)) {
+                throw new Error("从数据库API获取的数据格式不正确，期望得到一个数组。");
+            }
 
-            if (data.length === 0) {
+            if (rawData.length === 0) {
                  toast({ title: "数据库提示", description: "从数据库获取的数据为空，或数据库功能尚未完全实现。" , duration: 5000});
             } else {
                  toast({ title: "数据加载成功", description: "已从PostgreSQL数据库加载数据。" });
@@ -197,17 +203,21 @@ export default function DashboardPage() {
           } catch (dbError) {
             console.error("Error fetching from DB API in page.tsx:", dbError);
             toast({ variant: "destructive", title: "数据库加载失败", description: `无法从数据库加载数据: ${dbError instanceof Error ? dbError.message : String(dbError)}. 请检查配置或联系管理员。`, duration: 8000 });
-            data = [];
+            rawData = []; // Fallback to empty array on DB error
           }
+        } else {
+            rawData = []; // Should not happen with current DataSourceType
         }
+        
+        const data: V4PeriodData[] = rawData as V4PeriodData[]; // Cast after validation
 
         setAllV4Data(data);
         const options = data
           .map(p => ({ value: p.period_id, label: p.period_label }))
-          .sort((a, b) => b.label.localeCompare(a.label));
+          .sort((a, b) => b.label.localeCompare(a.label)); // Sort by label descending (newest first)
         setPeriodOptions(options);
-        // Pass selectedPeriodKey to setGlobalV4DataForKpiWorkaround
-        // This is still needed for exportToCSV
+        
+        // Workaround for global data access in data-utils (used by exportToCSV)
         if (data.length > 0 && selectedPeriodKey) {
           setGlobalV4DataForKpiWorkaround(data, selectedPeriodKey);
         } else if (data.length > 0 && options.length > 0) {
@@ -217,17 +227,18 @@ export default function DashboardPage() {
 
         const currentSelectedIsValid = options.some(opt => opt.value === selectedPeriodKey);
         if (options.length > 0 && (!selectedPeriodKey || !currentSelectedIsValid) ) {
-          setSelectedPeriodKey(options[0].value);
-        } else if (options.length === 0) {
+          setSelectedPeriodKey(options[0].value); // Default to newest period if current selection is invalid or not set
+        } else if (options.length === 0) { // No data loaded or data has no periods
           setSelectedPeriodKey('');
           setSelectedComparisonPeriodKey(null);
         }
 
+        // Ensure comparison period is valid
         if (selectedComparisonPeriodKey && !options.some(opt => opt.value === selectedComparisonPeriodKey)) {
-            setSelectedComparisonPeriodKey(null);
+            setSelectedComparisonPeriodKey(null); // Reset if invalid
         }
         if (selectedComparisonPeriodKey === selectedPeriodKey && selectedPeriodKey !== '') {
-            setSelectedComparisonPeriodKey(null);
+            setSelectedComparisonPeriodKey(null); // Reset if same as current
         }
 
         if (data.length > 0 && data[0].business_data) {
@@ -252,19 +263,19 @@ export default function DashboardPage() {
       }
     };
     fetchData();
-  }, [dataSource, toast]);
+  }, [dataSource, toast]); // Removed selectedPeriodKey from dependencies here to avoid re-fetching on period change
 
+  // Effect to update global data for CSV export when selectedPeriodKey or allV4Data changes
   useEffect(() => {
-    // Update global data when selectedPeriodKey changes and allV4Data is available
-    // This is for exportToCSV
-    if (allV4Data.length > 0 && selectedPeriodKey) {
+    if (Array.isArray(allV4Data) && allV4Data.length > 0 && selectedPeriodKey) {
       setGlobalV4DataForKpiWorkaround(allV4Data, selectedPeriodKey);
     }
   }, [selectedPeriodKey, allV4Data]);
 
 
+  // Main data processing useEffect
   useEffect(() => {
-    if (isGlobalLoading || allV4Data.length === 0 || !selectedPeriodKey) {
+    if (isGlobalLoading || !Array.isArray(allV4Data) || allV4Data.length === 0 || !selectedPeriodKey) {
       setProcessedData([]);
       setKpis([]);
       setTrendChartData([]);
@@ -276,9 +287,13 @@ export default function DashboardPage() {
     }
 
     if (selectedComparisonPeriodKey === selectedPeriodKey && selectedPeriodKey !== '') {
-        setSelectedComparisonPeriodKey(null);
+        // This check is good, but ensure it doesn't cause an infinite loop if setSelectedComparisonPeriodKey triggers this effect.
+        // It's safer to handle this in the period change handlers directly.
+        // For now, let's assume this toast is sufficient.
         toast({variant: "destructive", title: "选择错误", description: "当前周期和对比周期不能相同。已重置对比周期。"})
-        return;
+        // If we reset here, it will re-trigger this effect.
+        // setSelectedComparisonPeriodKey(null); // Consider if this is desired here or in the handler
+        return; 
     }
 
     const dataForCalculations = processDataForSelectedPeriod(
@@ -296,8 +311,8 @@ export default function DashboardPage() {
         allV4Data.find(p => p.period_id === selectedPeriodKey)?.totals_for_period,
         analysisMode,
         selectedBusinessTypes,
-        allV4Data,         // Pass allV4Data for YTD VCR calculation
-        selectedPeriodKey  // Pass selectedPeriodKey as activePeriodId for YTD VCR calculation
+        allV4Data,      
+        selectedPeriodKey 
       );
       setKpis(calculatedKpis);
 
@@ -316,6 +331,7 @@ export default function DashboardPage() {
       const paretoData = prepareParetoChartData_V4(allV4Data, selectedPeriodKey, analysisMode, selectedBusinessTypes, selectedParetoMetric);
       setParetoChartData(paretoData);
     } else {
+      // This case implies currentPeriodData was not found, or no relevant business types after filtering.
       setKpis([]);
       setTrendChartData([]);
       setBubbleChartData([]);
@@ -323,13 +339,14 @@ export default function DashboardPage() {
       setShareChartData([]);
       setParetoChartData([]);
     }
+    // Reset AI summaries when data changes
     setTrendAiSummary(null);
     setBubbleAiSummary(null);
     setBarRankAiSummary(null);
     setShareChartAiSummary(null);
     setParetoAiSummary(null);
 
-  }, [isGlobalLoading, analysisMode, selectedPeriodKey, selectedComparisonPeriodKey, allV4Data, selectedBusinessTypes, selectedTrendMetric, selectedRankingMetric, selectedBubbleXAxisMetric, selectedBubbleYAxisMetric, selectedBubbleSizeMetric, selectedShareChartMetric, selectedParetoMetric, periodOptions, toast]);
+  }, [isGlobalLoading, analysisMode, selectedPeriodKey, selectedComparisonPeriodKey, allV4Data, selectedBusinessTypes, selectedTrendMetric, selectedRankingMetric, selectedBubbleXAxisMetric, selectedBubbleYAxisMetric, selectedBubbleSizeMetric, selectedShareChartMetric, selectedParetoMetric, toast]);
 
 
  const prepareTrendData_V4 = (
@@ -354,16 +371,17 @@ export default function DashboardPage() {
       for (const periodP of periodsForTrendRange) {
         const periodPIndex = sortedPeriods.findIndex(p => p.period_id === periodP.period_id);
 
-        if (periodPIndex === 0 && periodsForTrendRange.length > 1) {
+        if (periodPIndex === 0 && periodsForTrendRange.length > 1) { // Cannot calculate PoP for the very first period in the range if it's not the only one
           continue;
-        } else if (periodsForTrendRange.length === 1) {
+        } else if (periodsForTrendRange.length === 1 && periodPIndex === 0) { // Cannot calculate PoP if only one period is in range
             continue;
         }
-
+        
+        // Try to get the actual previous period ID from current period's data (mom)
         const periodPMinus1Id = periodP.comparison_period_id_mom;
         const periodPMinus1 = periodPMinus1Id ? sortedPeriods.find(p => p.period_id === periodPMinus1Id) : undefined;
 
-        if (!periodPMinus1) continue;
+        if (!periodPMinus1) continue; // Skip if no valid previous period for PoP calculation
 
         const processedP_YTD_Data = processDataForSelectedPeriod(
           allData, periodP.period_id, null, 'cumulative', selBusinessTypes
@@ -394,7 +412,7 @@ export default function DashboardPage() {
           }
         }
       }
-    } else {
+    } else { // mode === 'cumulative'
       periodsForTrendRange.forEach(period => {
         const processedForThisPeriodTrendPoint = processDataForSelectedPeriod(
           allData, period.period_id, null, 'cumulative', selBusinessTypes
@@ -406,7 +424,7 @@ export default function DashboardPage() {
           let value: number | undefined | null = metrics[metricKey as CoreAggregatedMetricKey] as number | undefined | null;
 
           if (typeof value !== 'number' || isNaN(value)) {
-            value = 0;
+            value = 0; // Default to 0 if undefined or NaN
           }
 
           const chartItem: ChartDataItem = {
@@ -427,7 +445,7 @@ export default function DashboardPage() {
   const prepareBubbleChartData_V4 = (
     allRawData: V4PeriodData[],
     currentPeriodId: string,
-    mode: AnalysisMode,
+    mode: AnalysisMode, // Note: Bubble chart always uses 'cumulative' for its own data, per PRD.
     selBusinessTypes: string[],
     xMetric: BubbleMetricKey,
     yMetric: BubbleMetricKey,
@@ -447,6 +465,7 @@ export default function DashboardPage() {
 
     if (typesToProcessForBubbles.length > 0) {
         dataForBubbleChart = typesToProcessForBubbles.map(bt => {
+            // Bubble chart always uses YTD data for its display, irrespective of global analysisMode.
             const singleTypeProcessed = processDataForSelectedPeriod(allRawData, currentPeriodId, null, 'cumulative', [bt]);
             return singleTypeProcessed[0];
         }).filter(d => d && d.currentMetrics && d.businessLineId !== '合计' && d.businessLineId !== '自定义合计');
@@ -454,14 +473,14 @@ export default function DashboardPage() {
 
     return dataForBubbleChart.map(d => {
         const metrics = d.currentMetrics as AggregatedBusinessMetrics;
-        const vcr = metrics.variable_cost_ratio;
+        const vcr = metrics.variable_cost_ratio; // This VCR is YTD because we used 'cumulative' above
         return {
             id: d.businessLineId,
             name: d.businessLineName,
             x: (metrics[xMetric] as number) || 0,
             y: (metrics[yMetric] as number) || 0,
             z: (metrics[zMetric] as number) || 0,
-            color: getDynamicColorByVCR(vcr),
+            color: getDynamicColorByVCR(vcr), // Color based on YTD VCR
             vcr: vcr
         };
     }).filter(item => typeof item.x === 'number' && typeof item.y === 'number' && typeof item.z === 'number');
@@ -471,7 +490,7 @@ export default function DashboardPage() {
     allRawData: V4PeriodData[],
     metricKey: RankingMetricKey,
     currentPeriodId: string,
-    mode: AnalysisMode,
+    mode: AnalysisMode, // Ranking chart data respects global analysisMode
     selBusinessTypes: string[]
     ): ChartDataItem[] => {
     let dataForRanking: ProcessedDataForPeriod[] = [];
@@ -488,6 +507,7 @@ export default function DashboardPage() {
 
     if (typesToProcessForRanking.length > 0) {
         dataForRanking = typesToProcessForRanking.map(bt => {
+            // Ranking data is calculated based on the global analysisMode
             const singleTypeProcessed = processDataForSelectedPeriod(allRawData, currentPeriodId, null, mode, [bt]);
             return singleTypeProcessed[0];
         }).filter(d => d && d.currentMetrics && d.businessLineId !== '合计' && d.businessLineId !== '自定义合计');
@@ -498,11 +518,10 @@ export default function DashboardPage() {
         .sort((a, b) => (b.currentMetrics![metricKey] as number || 0) - (a.currentMetrics![metricKey] as number || 0))
         .map(d => {
           const metrics = d.currentMetrics as AggregatedBusinessMetrics;
-          let vcrForColoring = metrics.variable_cost_ratio;
-          if (mode === 'periodOverPeriod') {
-              const ytdDataForColor = processDataForSelectedPeriod(allRawData, currentPeriodId, null, 'cumulative', [d.businessLineId])[0];
-              vcrForColoring = ytdDataForColor?.currentMetrics.variable_cost_ratio ?? metrics.variable_cost_ratio;
-          }
+          // Color for ranking chart is always based on YTD VCR, even if ranking PoP data
+          const ytdDataForColor = processDataForSelectedPeriod(allRawData, currentPeriodId, null, 'cumulative', [d.businessLineId])[0];
+          const vcrForColoring = ytdDataForColor?.currentMetrics.variable_cost_ratio ?? metrics.variable_cost_ratio; // Fallback to PoP VCR if YTD not found
+          
           return {
             name: d.businessLineName,
             [metricKey]: metrics[metricKey] as number || 0,
@@ -515,13 +534,14 @@ export default function DashboardPage() {
   const prepareShareChartData_V4 = (
     allRawData: V4PeriodData[],
     currentPeriodId: string,
-    mode: AnalysisMode,
+    mode: AnalysisMode, // Share chart data respects global analysisMode
     selBusinessTypes: string[],
     metricKey: ShareChartMetricKey
   ): ShareChartDataItem[] => {
     const currentRawPeriod = allRawData.find(p => p.period_id === currentPeriodId);
     if (!currentRawPeriod) return [];
 
+    // For denominator: total of all *independent* business types for the selected metric & mode
     const allIndividualTypesInPeriod = Array.from(new Set(
         (currentRawPeriod.business_data || [])
         .map(bd => bd.business_type)
@@ -529,14 +549,22 @@ export default function DashboardPage() {
     ));
 
     let grandTotalMetricValue = 0;
-    const grandTotalProcessedData = processDataForSelectedPeriod(allRawData, currentPeriodId, null, mode, []);
+    // Calculate grand total using *all* independent business types, respecting the analysis mode
+    const grandTotalProcessedData = processDataForSelectedPeriod(allRawData, currentPeriodId, null, mode, []); // Empty array for selectedBusinessTypes means sum all
     if (grandTotalProcessedData.length > 0 && grandTotalProcessedData[0].currentMetrics) {
         grandTotalMetricValue = (grandTotalProcessedData[0].currentMetrics[metricKey as CoreAggregatedMetricKey] as number) || 0;
     }
 
-    if (grandTotalMetricValue === 0 && mode === 'cumulative') return [];
-    if (mode === 'periodOverPeriod' && grandTotalMetricValue <=0) return [];
+    if (grandTotalMetricValue === 0 && mode === 'cumulative') return []; // Avoid division by zero if total is zero for cumulative
+    // For PoP, total might be zero or negative, allow this for now
+    if (mode === 'periodOverPeriod' && grandTotalMetricValue === 0 && currentRawPeriod.business_data.some(bd => bd[metricKey as keyof V4BusinessDataEntry] !== 0) ) {
+        // If grand PoP is 0 but individual PoPs are not, this means sum of PoPs is 0.
+        // Percentage calculation might be strange (e.g. 50 / 0).
+        // Let's allow it, but be mindful of interpretation. 0 / 0 will be 0. X / 0 will be problematic if not handled.
+    }
 
+
+    // For numerator: process types based on current selection (selBusinessTypes)
     const typesForSlices = selBusinessTypes.length > 0 ? selBusinessTypes : allIndividualTypesInPeriod;
 
     const shareData: ShareChartDataItem[] = typesForSlices.map(businessType => {
@@ -545,19 +573,30 @@ export default function DashboardPage() {
             const metrics = singleTypeProcessedArray[0].currentMetrics;
             const value = (metrics[metricKey as CoreAggregatedMetricKey] as number) || 0;
 
+            // Color for share chart is always based on YTD VCR
             const ytdDataForColor = processDataForSelectedPeriod(allRawData, currentPeriodId, null, 'cumulative', [businessType])[0];
             const vcrForColoring = ytdDataForColor?.currentMetrics.variable_cost_ratio;
+
+            let percentage = 0;
+            if (grandTotalMetricValue !== 0) {
+                percentage = (value / grandTotalMetricValue) * 100;
+            } else if (value === 0 && grandTotalMetricValue === 0) {
+                percentage = 0; // Or handle as N/A if preferred
+            } else if (value !== 0 && grandTotalMetricValue === 0){
+                percentage = value > 0 ? Infinity : -Infinity; // Or handle as N/A
+            }
+
 
             return {
                 name: singleTypeProcessedArray[0].businessLineName,
                 value: value,
-                percentage: grandTotalMetricValue !== 0 ? (value / grandTotalMetricValue) * 100 : 0,
+                percentage: percentage,
                 color: getDynamicColorByVCR(vcrForColoring),
                 vcr: vcrForColoring,
             };
         }
         return null;
-    }).filter(item => item !== null && (mode === 'cumulative' ? item.value > 0 : item.value !== 0) ) as ShareChartDataItem[];
+    }).filter(item => item !== null && (mode === 'cumulative' ? item.value > 0 : item.value !== 0 || item.percentage !== 0) ) as ShareChartDataItem[]; // Filter out zero-value items for cumulative mode
 
     return shareData.sort((a,b) => b.value - a.value);
   };
@@ -565,7 +604,7 @@ export default function DashboardPage() {
   const prepareParetoChartData_V4 = (
     allRawData: V4PeriodData[],
     currentPeriodId: string,
-    mode: AnalysisMode,
+    mode: AnalysisMode, // Pareto chart data respects global analysisMode
     selBusinessTypes: string[],
     metricKey: ParetoChartMetricKey
   ): ParetoChartDataItem[] => {
@@ -587,7 +626,11 @@ export default function DashboardPage() {
         const metrics = singleTypeProcessedArray[0].currentMetrics;
         const value = (metrics[metricKey as CoreAggregatedMetricKey] as number) || 0;
 
-        if (value > 0 || (mode === 'periodOverPeriod' && value !==0) ) {
+        // For Pareto, typically positive contributions are analyzed.
+        // If PoP can be negative, decide how to handle: abs value for sorting, or filter out negatives.
+        // PRD: "若为PoP模式且有负值，按绝对值降序" - this applies to sorting, but values should be original.
+        if (value > 0 || (mode === 'periodOverPeriod' && value !==0) ) { // Include non-zero PoP values.
+            // Color for Pareto chart is always based on YTD VCR
             const ytdDataForColor = processDataForSelectedPeriod(allRawData, currentPeriodId, null, 'cumulative', [businessType])[0];
             const vcrForColoring = ytdDataForColor?.currentMetrics.variable_cost_ratio;
 
@@ -603,18 +646,32 @@ export default function DashboardPage() {
 
     if (individualMetrics.length === 0) return [];
 
+    // Sort by value: descending for cumulative, descending by absolute value for PoP
     individualMetrics.sort((a, b) => mode === 'periodOverPeriod' ? Math.abs(b.value) - Math.abs(a.value) : b.value - a.value);
 
     const grandTotal = individualMetrics.reduce((sum, item) => sum + item.value, 0);
-    if (grandTotal <= 0 && mode === 'cumulative') return [];
-
+    // If grandTotal is 0 or negative (possible in PoP), cumulative percentage might be weird.
+    if (grandTotal <= 0 && mode === 'cumulative' && individualMetrics.some(im => im.value > 0)) return []; // If cumulative total is <=0 but items are >0, this is an issue.
+    // If PoP total is 0, percentages will be 0 or NaN/Infinity.
+    
     let cumulativeValue = 0;
     const paretoData: ParetoChartDataItem[] = individualMetrics.map(item => {
       cumulativeValue += item.value;
+      let cumulativePercentage = 0;
+      if (grandTotal > 0) { // Only calculate percentage if total is positive, common for Pareto
+          cumulativePercentage = (cumulativeValue / grandTotal) * 100;
+      } else if (grandTotal === 0 && item.value === 0) {
+          cumulativePercentage = 0; // If item and total are 0
+      } else if (grandTotal === 0 && item.value !== 0) {
+          cumulativePercentage = item.value > 0 ? Infinity : -Infinity; // Or N/A
+      }
+      // For negative grandTotal in PoP, interpretation of Pareto is complex.
+      // Standard Pareto assumes positive contributions.
+
       return {
         name: item.name,
         value: item.value,
-        cumulativePercentage: grandTotal !== 0 ? (cumulativeValue / grandTotal) * 100 : 0,
+        cumulativePercentage: cumulativePercentage,
         color: item.color,
         vcr: item.vcr,
       };
@@ -628,7 +685,7 @@ export default function DashboardPage() {
     let comparisonPeriodInfo = "默认对比 (上一周期)";
     let actualComparisonPeriodId = selectedComparisonPeriodKey;
 
-    if (!actualComparisonPeriodId) {
+    if (!actualComparisonPeriodId && Array.isArray(allV4Data)) { // Added Array.isArray check
         const currentPeriodEntry = allV4Data.find(p => p.period_id === selectedPeriodKey);
         if (currentPeriodEntry?.comparison_period_id_mom) {
             actualComparisonPeriodId = currentPeriodEntry.comparison_period_id_mom;
@@ -639,7 +696,7 @@ export default function DashboardPage() {
         const selectedCompLabel = periodOptions.find(p => p.value === actualComparisonPeriodId)?.label;
         if (selectedCompLabel) {
             comparisonPeriodInfo = `对比周期: ${selectedCompLabel}`;
-        } else if (selectedComparisonPeriodKey) {
+        } else if (selectedComparisonPeriodKey) { // If a specific key was selected but not found in options (shouldn't happen if valid)
             comparisonPeriodInfo = "对比所选周期 (标签未知)";
         }
     }
@@ -671,29 +728,28 @@ export default function DashboardPage() {
         const currentMetricValue = metrics?.premium_written;
         const comparisonMetricValue = comparisonMetrics?.premium_written;
 
-        if (currentMetricValue !== undefined && currentMetricValue !== null &&
-            comparisonMetricValue !== undefined && comparisonMetricValue !== null ) {
+        if (typeof currentMetricValue === 'number' && typeof comparisonMetricValue === 'number' ) { // More robust check
             const absChange = currentMetricValue - comparisonMetricValue;
             const pctChange = comparisonMetricValue !== 0 ? (absChange / Math.abs(comparisonMetricValue)) * 100 : (currentMetricValue !== 0 ? Infinity : 0);
             let pctChangeStr = isFinite(pctChange) ? `${pctChange > 0 ? '+' : ''}${pctChange.toFixed(1)}%` : (pctChange > 0 ? '+∞%' : '-∞%');
             if (pctChange === 0 && absChange === 0) pctChangeStr = '0.0%';
 
             changeInfo = `${absChange >= 0 ? '+' : ''}${absChange.toFixed(0)} (${pctChangeStr}, ${compLabel || '对比'})`;
-        } else if (currentMetricValue !== undefined && currentMetricValue !== null) {
+        } else if (typeof currentMetricValue === 'number') {
             changeInfo = `(${currentMetricValue.toFixed(0)}, 无对比数据)`;
         }
 
         return {
-            premiumWritten: `${metrics.premium_written?.toFixed(0) || 'N/A'} 万元`,
-            lossRatio: `${metrics.loss_ratio?.toFixed(1) || 'N/A'}%`,
-            variableCostRatio: `${metrics.variable_cost_ratio?.toFixed(1) || 'N/A'}%`,
+            premiumWritten: `${typeof metrics.premium_written === 'number' ? metrics.premium_written.toFixed(0) : 'N/A'} 万元`,
+            lossRatio: `${typeof metrics.loss_ratio === 'number' ? metrics.loss_ratio.toFixed(1) : 'N/A'}%`,
+            variableCostRatio: `${typeof metrics.variable_cost_ratio === 'number' ? metrics.variable_cost_ratio.toFixed(1) : 'N/A'}%`,
             changeInPremiumWritten: changeInfo,
         };
       };
 
       let comparisonLabelForAISummary = "上一周期";
       let actualComparisonPeriodIdForAISummary = selectedComparisonPeriodKey;
-      if (!actualComparisonPeriodIdForAISummary) {
+      if (!actualComparisonPeriodIdForAISummary && Array.isArray(allV4Data)) {
           const currentPeriodEntry = allV4Data.find(p => p.period_id === selectedPeriodKey);
           actualComparisonPeriodIdForAISummary = currentPeriodEntry?.comparison_period_id_mom || null;
       }
@@ -705,6 +761,7 @@ export default function DashboardPage() {
 
       if (currentContextData && currentContextData.currentMetrics) {
           if (currentContextData.businessLineId === '合计' || currentContextData.businessLineId === '自定义合计' || selectedBusinessTypes.length === 0) {
+             if (Array.isArray(allV4Data)) { // Ensure allV4Data is an array
               const individualLinesData = allBusinessTypes.map(bt => {
                 return processDataForSelectedPeriod(allV4Data, selectedPeriodKey, actualComparisonPeriodIdForAISummary, analysisMode, [bt])[0];
               }).filter(d => d && d.currentMetrics && d.businessLineId !== '合计' && d.businessLineId !== '自定义合计');
@@ -716,6 +773,7 @@ export default function DashboardPage() {
                     name: d.businessLineName,
                     ...relevantMetricsToDisplay(d.currentMetrics, d.momMetrics, comparisonLabelForAISummary)
                 }));
+             }
           } else {
             topBusinessLinesData = [{
                 name: currentContextData.businessLineName,
@@ -763,7 +821,7 @@ export default function DashboardPage() {
     setTrendAiSummary(null);
     try {
       const input: GenerateTrendAnalysisInput = {
-        chartDataJson: JSON.stringify(trendChartData.map(({color, ...rest}) => rest)),
+        chartDataJson: JSON.stringify(trendChartData.map(({color, ...rest}) => rest)), // Remove color before sending to AI
         selectedMetric: availableTrendMetrics.find(m => m.value === selectedTrendMetric)?.label || selectedTrendMetric,
         analysisMode,
         currentPeriodLabel,
@@ -790,11 +848,11 @@ export default function DashboardPage() {
     setBubbleAiSummary(null);
     try {
       const input: GenerateBubbleChartAnalysisInput = {
-        chartDataJson: JSON.stringify(bubbleChartData.map(({color, ...rest}) => rest)),
+        chartDataJson: JSON.stringify(bubbleChartData.map(({color, ...rest}) => rest)), // Remove color
         xAxisMetric: availableBubbleMetrics.find(m => m.value === selectedBubbleXAxisMetric)?.label || selectedBubbleXAxisMetric,
         yAxisMetric: availableBubbleMetrics.find(m => m.value === selectedBubbleYAxisMetric)?.label || selectedBubbleYAxisMetric,
         bubbleSizeMetric: availableBubbleMetrics.find(m => m.value === selectedBubbleSizeMetric)?.label || selectedBubbleSizeMetric,
-        analysisMode,
+        analysisMode, // Bubble chart AI might still want to know the global mode, even if its data is YTD
         currentPeriodLabel,
         filtersJson: JSON.stringify(getCommonAiFilters())
       };
@@ -819,7 +877,7 @@ export default function DashboardPage() {
     setBarRankAiSummary(null);
     try {
       const input: GenerateBarRankingAnalysisInput = {
-        chartDataJson: JSON.stringify(barRankData.map(({color, ...rest}) => rest)),
+        chartDataJson: JSON.stringify(barRankData.map(({color, ...rest}) => rest)), // Remove color
         rankedMetric: availableRankingMetrics.find(m => m.value === selectedRankingMetric)?.label || selectedRankingMetric,
         analysisMode,
         currentPeriodLabel,
@@ -846,7 +904,7 @@ export default function DashboardPage() {
     setShareChartAiSummary(null);
     try {
       const input: GenerateShareChartAnalysisInput = {
-        chartDataJson: JSON.stringify(shareChartData.map(({color, ...rest}) => rest)),
+        chartDataJson: JSON.stringify(shareChartData.map(({color, ...rest}) => rest)), // Remove color
         analyzedMetric: availableShareChartMetrics.find(m => m.value === selectedShareChartMetric)?.label || selectedShareChartMetric,
         analysisMode,
         currentPeriodLabel,
@@ -873,7 +931,7 @@ export default function DashboardPage() {
     setParetoAiSummary(null);
     try {
       const input: GenerateParetoAnalysisInput = {
-        chartDataJson: JSON.stringify(paretoChartData.map(({color, ...rest}) => rest)),
+        chartDataJson: JSON.stringify(paretoChartData.map(({color, ...rest}) => rest)), // Remove color
         analyzedMetric: availableParetoMetrics.find(m => m.value === selectedParetoMetric)?.label || selectedParetoMetric,
         analysisMode,
         currentPeriodLabel,
@@ -893,7 +951,7 @@ export default function DashboardPage() {
 
 
   const handleExportData = () => {
-    if (processedData.length > 0) {
+    if (Array.isArray(processedData) && processedData.length > 0) { // Added Array.isArray check
       const fileName = `${currentPeriodLabel}_${analysisMode}_${selectedBusinessTypes.join('_') || '合计'}_车险数据.csv`;
       exportToCSV(processedData, analysisMode, fileName, selectedComparisonPeriodKey, periodOptions, selectedPeriodKey);
       toast({ title: "数据导出成功", description: `数据已导出为 ${fileName}` });
@@ -908,9 +966,21 @@ export default function DashboardPage() {
       onAnalysisModeChange={setAnalysisMode}
       onAiSummaryClick={handleOverallAiSummary}
       selectedPeriod={selectedPeriodKey}
-      onPeriodChange={setSelectedPeriodKey}
+      onPeriodChange={(newPeriod) => {
+        setSelectedPeriodKey(newPeriod);
+        if (newPeriod === selectedComparisonPeriodKey) {
+          setSelectedComparisonPeriodKey(null); // Reset comparison if it becomes same as current
+        }
+      }}
       selectedComparisonPeriod={selectedComparisonPeriodKey}
-      onComparisonPeriodChange={setSelectedComparisonPeriodKey}
+      onComparisonPeriodChange={(newCompPeriod) => {
+        if (newCompPeriod === selectedPeriodKey) {
+          setSelectedComparisonPeriodKey(null); // Prevent selecting same as current
+          toast({variant: "default", title:"提示", description: "对比周期不能与当前周期相同。已重置对比周期。"});
+        } else {
+          setSelectedComparisonPeriodKey(newCompPeriod);
+        }
+      }}
       isAiSummaryLoading={isOverallAiSummaryLoading}
       periodOptions={periodOptions}
       activeView={activeView}
@@ -930,12 +1000,12 @@ export default function DashboardPage() {
         <AiSummarySection summary={overallAiSummary} isLoading={isOverallAiSummaryLoading} />
 
         {isGlobalLoading && <p className="text-center text-muted-foreground py-8">数据加载中，请稍候...</p>}
-        {!isGlobalLoading && allV4Data.length === 0 && dataSource === 'db' && <p className="text-center text-destructive py-8">无法从数据库加载数据或数据库为空。请检查数据库连接配置和数据表。您可以尝试切换回JSON数据源。</p>}
-        {!isGlobalLoading && allV4Data.length === 0 && dataSource === 'json' && <p className="text-center text-destructive py-8">JSON数据文件为空或加载失败。请检查 public/data/insurance_data_v4.json 文件。</p>}
-        {!isGlobalLoading && allV4Data.length > 0 && !selectedPeriodKey && <p className="text-center text-muted-foreground py-8">请选择一个数据周期以开始分析。</p>}
+        {!isGlobalLoading && (!Array.isArray(allV4Data) || allV4Data.length === 0) && dataSource === 'db' && <p className="text-center text-destructive py-8">无法从数据库加载数据或数据库为空/格式错误。请检查数据库连接配置和数据表。您可以尝试切换回JSON数据源。</p>}
+        {!isGlobalLoading && (!Array.isArray(allV4Data) || allV4Data.length === 0) && dataSource === 'json' && <p className="text-center text-destructive py-8">JSON数据文件为空、加载失败或格式错误。请检查 public/data/insurance_data.json 文件内容是否为有效的数组结构。</p>}
+        {!isGlobalLoading && Array.isArray(allV4Data) && allV4Data.length > 0 && !selectedPeriodKey && <p className="text-center text-muted-foreground py-8">请选择一个数据周期以开始分析。</p>}
 
 
-        {!isGlobalLoading && allV4Data.length > 0 && selectedPeriodKey && (
+        {!isGlobalLoading && Array.isArray(allV4Data) && allV4Data.length > 0 && selectedPeriodKey && (
           <>
             {activeView === 'kpi' &&
               <KpiDashboardSection
@@ -1020,5 +1090,6 @@ export default function DashboardPage() {
     </AppLayout>
   );
 }
+    
 
     
