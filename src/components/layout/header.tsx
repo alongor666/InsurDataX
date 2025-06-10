@@ -1,9 +1,11 @@
 
+"use client";
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
 import type { AnalysisMode, PeriodOption, DashboardView, DataSourceType } from '@/data/types';
-import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon, AreaChart, Check } from 'lucide-react';
+import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon, AreaChart, Check, Undo2, Eraser, MousePointerClick, CheckSquare, Square } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -19,14 +21,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu"
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-
+import React, { useState, useEffect } from 'react';
 
 interface AppHeaderProps {
   analysisMode: AnalysisMode;
@@ -68,6 +66,52 @@ export function AppHeader({
   onDataSourceChange,
 }: AppHeaderProps) {
 
+  const [businessTypeDropdownOpen, setBusinessTypeDropdownOpen] = useState(false);
+  const [pendingSelectedTypes, setPendingSelectedTypes] = useState<string[]>(selectedBusinessTypes);
+
+  useEffect(() => {
+    if (businessTypeDropdownOpen) {
+      setPendingSelectedTypes(selectedBusinessTypes);
+    }
+  }, [businessTypeDropdownOpen, selectedBusinessTypes]);
+
+  const handleSelectAllPending = () => {
+    setPendingSelectedTypes([...allBusinessTypes].sort((a,b) => a.localeCompare(b)));
+  };
+
+  const handleInvertSelectionPending = () => {
+    setPendingSelectedTypes(
+      allBusinessTypes.filter(bt => !pendingSelectedTypes.includes(bt)).sort((a,b) => a.localeCompare(b))
+    );
+  };
+
+  const handleClearSelectionDirectly = () => {
+    onSelectedBusinessTypesChange([]);
+    setBusinessTypeDropdownOpen(false);
+  };
+
+  const handleTogglePendingType = (type: string) => {
+    const newSelection = pendingSelectedTypes.includes(type)
+      ? pendingSelectedTypes.filter(t => t !== type)
+      : [...pendingSelectedTypes, type];
+    setPendingSelectedTypes(newSelection.sort((a,b) => a.localeCompare(b)));
+  };
+
+  const handleSelectOnlyDirectly = (type: string) => {
+    onSelectedBusinessTypesChange([type]);
+    setBusinessTypeDropdownOpen(false);
+  };
+
+  const handleConfirmPending = () => {
+    onSelectedBusinessTypesChange(pendingSelectedTypes);
+    setBusinessTypeDropdownOpen(false);
+  };
+
+  const handleCancel = () => {
+    setBusinessTypeDropdownOpen(false); 
+  };
+
+
   const viewOptions: {label: string, value: DashboardView, icon: React.ElementType}[] = [
     { label: "KPI看板", value: "kpi", icon: LayoutDashboard },
     { label: "趋势图", value: "trend", icon: LineChart },
@@ -82,24 +126,8 @@ export function AppHeader({
       {label: "JSON文件", value: "json", icon: FileJson},
       {label: "PostgreSQL数据库", value: "db", icon: Database}
   ];
-
-  const handleSelectAllBusinessTypes = () => {
-    if (selectedBusinessTypes.length === allBusinessTypes.length && allBusinessTypes.length > 0) {
-      onSelectedBusinessTypesChange([]);
-    } else {
-      onSelectedBusinessTypesChange([...allBusinessTypes]);
-    }
-  };
-
-  const handleInvertBusinessTypesSelection = () => {
-    const newSelection = allBusinessTypes.filter(
-      bt => !selectedBusinessTypes.includes(bt)
-    );
-    onSelectedBusinessTypesChange(newSelection);
-  };
-
+  
   const comparisonPeriodOptions = periodOptions.filter(option => option.value !== selectedPeriod);
-
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -177,64 +205,55 @@ export function AppHeader({
               )}
             </div>
 
-            <DropdownMenu>
+            <DropdownMenu open={businessTypeDropdownOpen} onOpenChange={setBusinessTypeDropdownOpen}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="h-9 text-xs md:text-sm px-2.5 md:px-3">
                   <ListFilter className="mr-1 md:mr-1.5 h-4 w-4" />
                   {selectedBusinessTypes.length === 0 && "全部业务"}
-                  {selectedBusinessTypes.length === 1 && (selectedBusinessTypes[0].length > 5 ? selectedBusinessTypes[0].substring(0,4) + "..." : selectedBusinessTypes[0])}
+                  {selectedBusinessTypes.length === 1 && (allBusinessTypes.find(bt=>bt === selectedBusinessTypes[0])?.length ?? 0 > 8 ? (allBusinessTypes.find(bt=>bt === selectedBusinessTypes[0])?.substring(0,6) + "...") : selectedBusinessTypes[0])}
                   {selectedBusinessTypes.length > 1 && `${selectedBusinessTypes.length}项业务`}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-60 max-h-96 overflow-y-auto">
-                <DropdownMenuLabel className="text-xs md:text-sm">选择业务类型</DropdownMenuLabel>
+              <DropdownMenuContent className="w-72 max-h-[calc(100vh-200px)] overflow-y-auto">
+                <DropdownMenuLabel className="text-xs md:text-sm">筛选业务类型</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={handleSelectAllBusinessTypes} className="text-xs md:text-sm cursor-pointer">
-                  {selectedBusinessTypes.length === allBusinessTypes.length && allBusinessTypes.length > 0 ? "清除选择" : "全选"}
+                <DropdownMenuItem onSelect={handleSelectAllPending} className="text-xs md:text-sm cursor-pointer">
+                  <CheckSquare className="mr-2 h-4 w-4" /> 全选 (待确认)
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={handleInvertBusinessTypesSelection} className="text-xs md:text-sm cursor-pointer">
-                  反选
+                <DropdownMenuItem onSelect={handleInvertSelectionPending} className="text-xs md:text-sm cursor-pointer">
+                  <Undo2 className="mr-2 h-4 w-4" /> 反选 (待确认)
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleClearSelectionDirectly} className="text-xs md:text-sm cursor-pointer">
+                  <Eraser className="mr-2 h-4 w-4" /> 清除 (立即生效)
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                {allBusinessTypes.map((type) => (
-                  <DropdownMenuSub key={type}>
-                    <DropdownMenuSubTrigger
-                      className="text-xs md:text-sm px-2 py-1.5" // Applied consistent styling
-                    >
-                      {/* The DropdownMenuCheckboxItem is now content within the SubTrigger */}
-                      {/* The SubTrigger itself handles opening sub-menu and has the chevron */}
-                      <DropdownMenuCheckboxItem
-                        checked={selectedBusinessTypes.includes(type)}
-                        onCheckedChange={(checked) => {
-                          const newSelection = checked
-                            ? [...selectedBusinessTypes, type]
-                            : selectedBusinessTypes.filter(t => t !== type);
-                          onSelectedBusinessTypesChange(newSelection.sort((a,b) => a.localeCompare(b)));
-                        }}
-                        onSelect={(e) => {
-                            e.preventDefault(); // Prevent menu close on check
-                        }}
-                        // Styling to make it integrate visually and not look like a separate, nested item
-                        className="w-full p-0 border-none shadow-none focus:bg-transparent hover:bg-transparent data-[state=open]:bg-transparent [&[data-highlighted]]:bg-transparent [&[data-highlighted]]:text-accent-foreground relative pl-0" // Removed default padding by setting pl-8 to pl-0 on checkbox and making it relative for its own check indicator positioning
+                <div className="max-h-60 overflow-y-auto py-1"> {/* Scrollable area for business types */}
+                  {allBusinessTypes.map((type) => (
+                    <div key={type} className="flex items-center justify-between pr-2 hover:bg-accent rounded-sm">
+                       <DropdownMenuCheckboxItem
+                        checked={pendingSelectedTypes.includes(type)}
+                        onCheckedChange={() => handleTogglePendingType(type)}
+                        onSelect={(e) => e.preventDefault()} 
+                        className="text-xs md:text-sm flex-grow"
                       >
-                        <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center"> {/* Adjusted from left-2 if pl-0 used for item itself */}
-                           {/* CheckboxPrimitive.Indicator is handled internally by DropdownMenuCheckboxItem, we only provide children */}
-                        </span>
                         {type}
                       </DropdownMenuCheckboxItem>
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
-                      <DropdownMenuSubContent className="w-48 text-xs md:text-sm">
-                        <DropdownMenuItem onSelect={() => { onSelectedBusinessTypesChange([type]); }}>
-                          只选此项 (清空其他)
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => { onSelectedBusinessTypesChange(allBusinessTypes.filter(bt => bt !== type)); }}>
-                          勾选所有其他项
-                        </DropdownMenuItem>
-                      </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
-                  </DropdownMenuSub>
-                ))}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => handleSelectOnlyDirectly(type)}
+                      >
+                        <MousePointerClick className="mr-1 h-3.5 w-3.5" /> 仅此项
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <DropdownMenuSeparator />
+                <div className="flex justify-end gap-2 p-2 sticky bottom-0 bg-popover border-t border-muted">
+                  <Button variant="outline" size="sm" onClick={handleCancel} className="text-xs">取消</Button>
+                  <Button size="sm" onClick={handleConfirmPending} className="text-xs">确认</Button>
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -278,5 +297,6 @@ export function AppHeader({
     </header>
   );
 }
+    
 
     
