@@ -1,3 +1,4 @@
+
 # 问题与解决日志
 
 本文档用于记录在“车险经营分析周报”项目开发过程中遇到的主要问题及其解决方案。
@@ -268,7 +269,7 @@
 - **发生时间**: 2024-05-28
 - **影响范围**: 趋势分析AI Flow的加载和执行。
 - **解决方案**:
-    1.  在 `src/ai/flows/generate-trend-analysis-flow.ts` 的Prompt字符串中，将围绕 `vcrColorRules` 的反引号转义。
+    1.  在 `src/ai/flows/generate-trend-analysis-flow.ts` 的Prompt字符串中，将围绕 `vcrColorRules` 的反引号转义为 `\\\`vcrColorRules\\\``。
 - **状态**: 已解决
 - **备注**: 模板字符串内的特殊字符需正确转义。
 
@@ -368,8 +369,8 @@
 - **问题描述**:
     1.  “仅选此项”按钮应仅在鼠标悬停于对应业务类型条目时显示，且不带图标。
     2.  “全选”、“反选”、“清除”等操作的标签文本中不应出现“(待确认)”或“(立即生效)”等提示性文字。
-    3.  **（本次修复）** 每个业务类型条目前应有复选框，允许用户多选。
-    4.  **（本次修复）** “反选”功能逻辑不正确，未按预期工作。
+    3.  每个业务类型条目前应有复选框，允许用户多选。
+    4.  “反选”功能逻辑不正确，未按预期工作。
 - **发生时间**: 2024-05-29
 - **影响范围**: `src/components/layout/header.tsx` 业务类型筛选器UI和交互。
 - **解决方案**:
@@ -387,8 +388,11 @@
         *   `onCheckedChange` 事件用于更新 `pendingSelectedTypes`。
         *   使用 `onSelect={(e) => e.preventDefault()}` 防止菜单在点击复选框时关闭。
     4.  **“反选”逻辑修正**:
-        *   `handleInvertSelectionPending` 函数逻辑更新为：获取所有业务类型中，当前未在 `pendingSelectedTypes` 中的那些类型，作为新的 `pendingSelectedTypes`。
+        *   `handleInvertSelectionPending` 函数逻辑更新为：获取所有业务类型中，当前未在 `pendingSelectedTypes` 中的那些类型，作为新的 `pendingSelectedTypes`。该函数还需接受 `event` 参数并调用 `event.preventDefault()` 以保持下拉菜单打开。
+        *   类似地，`handleSelectAllPending` 也需接受 `event` 并调用 `event.preventDefault()`。
     5.  确保其他相关逻辑（如全选、清除、确认/取消机制）保持不变并与新的复选框交互兼容。
 - **状态**: 已解决
-- **备注**: 进一步提升了筛选器的整洁度和交互的直观性，修正了核心功能。
+- **备注**: 进一步提升了筛选器的整洁度和交互的直观性，修正了核心功能。确保需要确认的操作（全选、反选、勾选）在执行后保持下拉菜单打开。
 
+
+    

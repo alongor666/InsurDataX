@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -74,11 +75,13 @@ export function AppHeader({
     }
   }, [businessTypeDropdownOpen, selectedBusinessTypes]);
 
-  const handleSelectAllPending = () => {
+  const handleSelectAllPending = (event: Event) => {
+    event.preventDefault(); // Keep dropdown open
     setPendingSelectedTypes([...allBusinessTypes].sort((a,b) => a.localeCompare(b)));
   };
 
-  const handleInvertSelectionPending = () => {
+  const handleInvertSelectionPending = (event: Event) => {
+    event.preventDefault(); // Keep dropdown open
     setPendingSelectedTypes(
       allBusinessTypes.filter(bt => !pendingSelectedTypes.includes(bt)).sort((a,b) => a.localeCompare(b))
     );
@@ -86,7 +89,7 @@ export function AppHeader({
 
   const handleClearSelectionDirectly = () => {
     onSelectedBusinessTypesChange([]);
-    setPendingSelectedTypes([]); // Also clear pending
+    setPendingSelectedTypes([]); 
     setBusinessTypeDropdownOpen(false);
   };
 
@@ -218,10 +221,10 @@ export function AppHeader({
               <DropdownMenuContent className="w-72 max-h-[calc(100vh-200px)] overflow-y-auto">
                 <DropdownMenuLabel className="text-xs md:text-sm">筛选业务类型</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={handleSelectAllPending} className="text-xs md:text-sm cursor-pointer">
+                <DropdownMenuItem onSelect={(e) => handleSelectAllPending(e)} className="text-xs md:text-sm cursor-pointer">
                   <CheckSquare className="mr-2 h-4 w-4" /> 全选
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={handleInvertSelectionPending} className="text-xs md:text-sm cursor-pointer">
+                <DropdownMenuItem onSelect={(e) => handleInvertSelectionPending(e)} className="text-xs md:text-sm cursor-pointer">
                   <Undo2 className="mr-2 h-4 w-4" /> 反选
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={handleClearSelectionDirectly} className="text-xs md:text-sm cursor-pointer">
@@ -301,4 +304,6 @@ export function AppHeader({
   );
 }
     
+    
+
     
