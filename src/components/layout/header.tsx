@@ -1,11 +1,10 @@
-
 "use client";
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
 import type { AnalysisMode, PeriodOption, DashboardView, DataSourceType } from '@/data/types';
-import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon, AreaChart, Check, Undo2, Eraser, CheckSquare, Square } from 'lucide-react'; // MousePointerClick removed
+import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon, AreaChart, Check, Undo2, Eraser, MousePointerClick, CheckSquare, Square } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -87,6 +86,7 @@ export function AppHeader({
 
   const handleClearSelectionDirectly = () => {
     onSelectedBusinessTypesChange([]);
+    setPendingSelectedTypes([]); // Also clear pending
     setBusinessTypeDropdownOpen(false);
   };
 
@@ -99,7 +99,7 @@ export function AppHeader({
 
   const handleSelectOnlyDirectly = (type: string) => {
     onSelectedBusinessTypesChange([type]);
-    setPendingSelectedTypes([type]); // Also update pending types to reflect immediate change
+    setPendingSelectedTypes([type]);
     setBusinessTypeDropdownOpen(false);
   };
 
@@ -234,8 +234,8 @@ export function AppHeader({
                       key={type}
                       checked={pendingSelectedTypes.includes(type)}
                       onCheckedChange={() => handleTogglePendingType(type)}
-                      onSelect={(e) => e.preventDefault()}
-                      className="text-xs md:text-sm group flex items-center justify-between"
+                      onSelect={(e) => e.preventDefault()} 
+                      className="text-xs md:text-sm group flex items-center justify-between pr-2"
                     >
                       <span className="truncate max-w-[160px] sm:max-w-[180px]">{type}</span>
                       <Button
@@ -243,7 +243,7 @@ export function AppHeader({
                         size="sm"
                         className="ml-2 text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 transition-opacity !p-1 h-auto text-xs"
                         onClick={(e) => {
-                          e.stopPropagation();
+                          e.stopPropagation(); 
                           handleSelectOnlyDirectly(type);
                         }}
                       >
@@ -301,5 +301,4 @@ export function AppHeader({
   );
 }
     
-
     
