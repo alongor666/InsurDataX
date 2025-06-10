@@ -100,7 +100,7 @@
     1.  用户重新提供了W21和W22的数据。
     2.  将用户提供的所有数据周期（W18, W19, W20, W21, W22, W23）进行了统一解析、格式转换（包括推算`expense_amount_raw`和`policy_count_earned`，处理`null`/`NaN`值）并构建为 `V4PeriodData` 对象。
     3.  所有周期的对象被合并到一个数组中，并按 `period_id` 升序排列。
-    4.  使用包含所有六周完整数据的数组内容，重新生成并替换了 `public/data/insurance_data_v4.json` 文件。
+    4.  使用包含所有六周完整数据的数组内容，重新生成并替换了 `public/data/insurance_data.json` 文件。
 - **状态**: 已解决
 - **备注**: 此问题强调了数据文件更新操作的谨慎性，应采取合并或在明确指示下替换的策略，避免无意的数据丢失。
 
@@ -371,6 +371,7 @@
     2.  “全选”、“反选”、“清除”等操作的标签文本中不应出现“(待确认)”或“(立即生效)”等提示性文字。
     3.  每个业务类型条目前应有复选框，允许用户多选。
     4.  “反选”功能逻辑不正确，未按预期工作。
+    5.  “全选”和“反选”操作后，下拉菜单不应自动关闭。
 - **发生时间**: 2024-05-29
 - **影响范围**: `src/components/layout/header.tsx` 业务类型筛选器UI和交互。
 - **解决方案**:
@@ -389,10 +390,43 @@
         *   使用 `onSelect={(e) => e.preventDefault()}` 防止菜单在点击复选框时关闭。
     4.  **“反选”逻辑修正**:
         *   `handleInvertSelectionPending` 函数逻辑更新为：获取所有业务类型中，当前未在 `pendingSelectedTypes` 中的那些类型，作为新的 `pendingSelectedTypes`。该函数还需接受 `event` 参数并调用 `event.preventDefault()` 以保持下拉菜单打开。
-        *   类似地，`handleSelectAllPending` 也需接受 `event` 并调用 `event.preventDefault()`。
-    5.  确保其他相关逻辑（如全选、清除、确认/取消机制）保持不变并与新的复选框交互兼容。
+    5.  **“全选”/“反选”保持菜单打开**:
+        *   修改 `handleSelectAllPending` 和 `handleInvertSelectionPending` 函数，使其接受 `event` 参数并在函数体开头调用 `event.preventDefault()`。
+        *   更新“全选”和“反选” `DropdownMenuItem` 的 `onSelect` prop，使其调用处理函数时传递事件对象 `(e) => handleSelectAllPending(e)` 和 `(e) => handleInvertSelectionPending(e)`。
+    6.  确保其他相关逻辑（如清除、确认/取消机制）保持不变并与新的复选框交互兼容。
 - **状态**: 已解决
 - **备注**: 进一步提升了筛选器的整洁度和交互的直观性，修正了核心功能。确保需要确认的操作（全选、反选、勾选）在执行后保持下拉菜单打开。
 
+---
+### 23. KPI看板环比数据对比逻辑修正
+- **问题描述**: KPI看板在“环比数据”模式下，其显示的环比变化是“当前期PoP值”与“对比期YTD累计值”的比较。应修正为“当前期PoP值”与“对比期PoP值”的比较。
+- **发生时间**: 2024-05-29
+- **影响范围**: `src/lib/data-utils.ts` 中的 `processDataForSelectedPeriod` 和 `calculateKpis` 函数。KPI看板 (`src/components/sections/kpi-dashboard-section.tsx`) 的数据准确性。
+- **解决方案**:
+    1.  **`src/lib/data-utils.ts` - `processDataForSelectedPeriod`**:
+        *   当全局 `analysisMode` 为 `'periodOverPeriod'` 时，为 `momMetrics` (对比周期的指标) 计算其自身的PoP值。这涉及到获取“对比周期”的YTD数据，以及“对比周期的上一周期”（即“上上期”）的YTD数据，然后调用 `aggregateAndCalculateMetrics` 传入这两个YTD周期和 `'periodOverPeriod'` 模式。
+    2.  **`src/lib/data-utils.ts` - `calculateKpis`**:
+        *   确保在为“保费”指标的颜色变化逻辑确定 `vcrForPremiumGrowthColor` 时，如果当前分析模式是 `'periodOverPeriod'`，则需要回溯计算当前周期和当前选择下的 YTD 变动成本率。
+        *   确保 `createKpiComparisonFields` 函数在 `compValue` 为 `NaN` 或 `null` 时正确处理。
+    3.  **文档更新**: `FIELD_DICTIONARY_V4.md`, `PRODUCT_REQUIREMENTS_DOCUMENT.md`, `README.md` 已更新以反映此计算逻辑。
+- **状态**: 已解决
+- **备注**: 确保了KPI看板在“环比数据”模式下提供准确的“当周发生额 vs. 上一期当周发生额”对比。
+
+---
+### 24. 气泡图保单件数显示合计值问题
+- **问题描述**: 气泡图中，每个业务类型的“保单件数”（如果作为气泡大小指标）显示的是所有业务类型的合计保单件数，而不是该业务类型自身的保单件数。
+- **发生时间**: 2024-05-29
+- **影响范围**: `src/lib/data-utils.ts` 中的 `aggregateAndCalculateMetrics` 函数。气泡图 (`src/components/sections/bubble-chart-section.tsx`) 的数据准确性。
+- **解决方案**:
+    1.  **`src/lib/data-utils.ts` - `aggregateAndCalculateMetrics`**:
+        *   修改函数逻辑，当 `isSingleTypeCumulative` (表示正在为单个业务类型计算累计值) 为 `true` 时：
+            *   `metrics.policy_count` (保单件数) 应根据该单个业务类型的 `premium_written` (跟单保费) 和 `avg_premium_per_policy` (单均保费，优先从JSON获取) 来计算。
+            *   `metrics.avg_premium_per_policy` 也应优先使用该单个业务类型JSON中的预计算值。
+        *   确保后续的通用 `policy_count` 和 `avg_premium_per_policy` 计算逻辑（用于聚合情况）不会覆盖掉单个业务类型已经计算好的这些值。这通过将通用计算逻辑包裹在 `if (!isSingleTypeCumulative)` 条件中实现。
+        *   确保 `metrics.expense_ratio` 和 `metrics.loss_ratio` 在 `isSingleTypeCumulative` 为 `true` 时，也优先使用JSON中的预计算值（如果有效），否则基于该单个业务类型的基础数据计算。
+- **状态**: 已解决
+- **备注**: 此修复确保了在处理单个业务类型数据时，所有指标（包括保单件数）都正确地反映该业务类型自身的情况，而不是全局合计或错误聚合。
+
+    
 
     
