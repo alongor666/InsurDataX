@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
 import type { AnalysisMode, PeriodOption, DashboardView, DataSourceType } from '@/data/types';
-import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon, AreaChart, Check, Undo2, Eraser, MousePointerClick, CheckSquare, Square } from 'lucide-react';
+import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon, AreaChart, Check, Undo2, Eraser, CheckSquare, Square } from 'lucide-react'; // MousePointerClick removed
 import {
   Select,
   SelectContent,
@@ -99,6 +99,7 @@ export function AppHeader({
 
   const handleSelectOnlyDirectly = (type: string) => {
     onSelectedBusinessTypesChange([type]);
+    setPendingSelectedTypes([type]); // Also update pending types to reflect immediate change
     setBusinessTypeDropdownOpen(false);
   };
 
@@ -218,35 +219,37 @@ export function AppHeader({
                 <DropdownMenuLabel className="text-xs md:text-sm">筛选业务类型</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={handleSelectAllPending} className="text-xs md:text-sm cursor-pointer">
-                  <CheckSquare className="mr-2 h-4 w-4" /> 全选 (待确认)
+                  <CheckSquare className="mr-2 h-4 w-4" /> 全选
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={handleInvertSelectionPending} className="text-xs md:text-sm cursor-pointer">
-                  <Undo2 className="mr-2 h-4 w-4" /> 反选 (待确认)
+                  <Undo2 className="mr-2 h-4 w-4" /> 反选
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={handleClearSelectionDirectly} className="text-xs md:text-sm cursor-pointer">
-                  <Eraser className="mr-2 h-4 w-4" /> 清除 (立即生效)
+                  <Eraser className="mr-2 h-4 w-4" /> 清除
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <div className="max-h-60 overflow-y-auto py-1"> {/* Scrollable area for business types */}
+                <div className="max-h-60 overflow-y-auto py-1">
                   {allBusinessTypes.map((type) => (
-                    <div key={type} className="flex items-center justify-between pr-2 hover:bg-accent rounded-sm">
-                       <DropdownMenuCheckboxItem
-                        checked={pendingSelectedTypes.includes(type)}
-                        onCheckedChange={() => handleTogglePendingType(type)}
-                        onSelect={(e) => e.preventDefault()} 
-                        className="text-xs md:text-sm flex-grow"
-                      >
-                        {type}
-                      </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      key={type}
+                      checked={pendingSelectedTypes.includes(type)}
+                      onCheckedChange={() => handleTogglePendingType(type)}
+                      onSelect={(e) => e.preventDefault()}
+                      className="text-xs md:text-sm group flex items-center justify-between"
+                    >
+                      <span className="truncate max-w-[160px] sm:max-w-[180px]">{type}</span>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => handleSelectOnlyDirectly(type)}
+                        className="ml-2 text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 transition-opacity !p-1 h-auto text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectOnlyDirectly(type);
+                        }}
                       >
-                        <MousePointerClick className="mr-1 h-3.5 w-3.5" /> 仅此项
+                        仅此项
                       </Button>
-                    </div>
+                    </DropdownMenuCheckboxItem>
                   ))}
                 </div>
                 <DropdownMenuSeparator />
