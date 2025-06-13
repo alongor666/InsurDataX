@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
-import type { AnalysisMode, PeriodOption, DashboardView, DataSourceType } from '@/data/types';
+import type { AnalysisMode, PeriodOption, DashboardView } from '@/data/types'; // Removed DataSourceType
 import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon, AreaChart, Check, Undo2, Eraser, MousePointerClick, CheckSquare, Square } from 'lucide-react';
 import {
   Select,
@@ -42,8 +42,7 @@ interface AppHeaderProps {
   selectedBusinessTypes: string[];
   onSelectedBusinessTypesChange: (types: string[]) => void;
   onExportClick: () => void;
-  currentDataSource: DataSourceType;
-  onDataSourceChange: (source: DataSourceType) => void;
+  // currentDataSource and onDataSourceChange removed
 }
 
 export function AppHeader({
@@ -62,8 +61,6 @@ export function AppHeader({
   selectedBusinessTypes,
   onSelectedBusinessTypesChange,
   onExportClick,
-  currentDataSource,
-  onDataSourceChange,
 }: AppHeaderProps) {
 
   const [businessTypeDropdownOpen, setBusinessTypeDropdownOpen] = useState(false);
@@ -76,12 +73,12 @@ export function AppHeader({
   }, [businessTypeDropdownOpen, selectedBusinessTypes]);
 
   const handleSelectAllPending = (event: Event) => {
-    event.preventDefault(); // Keep dropdown open
+    event.preventDefault(); 
     setPendingSelectedTypes([...allBusinessTypes].sort((a,b) => a.localeCompare(b)));
   };
 
   const handleInvertSelectionPending = (event: Event) => {
-    event.preventDefault(); // Keep dropdown open
+    event.preventDefault(); 
     setPendingSelectedTypes(
       allBusinessTypes.filter(bt => !pendingSelectedTypes.includes(bt)).sort((a,b) => a.localeCompare(b))
     );
@@ -126,40 +123,20 @@ export function AppHeader({
     { label: "数据表", value: "data_table", icon: Rows3 },
   ];
 
-  const dataSourceOptions: {label: string, value: DataSourceType, icon: React.ElementType}[] = [
-      {label: "JSON文件", value: "json", icon: FileJson},
-      {label: "PostgreSQL数据库", value: "db", icon: Database}
-  ];
+  // DataSource selection removed
   
   const comparisonPeriodOptions = periodOptions.filter(option => option.value !== selectedPeriod);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      {/* Top row for global context and actions */}
       <div className="container flex flex-col md:flex-row h-auto items-center justify-between gap-y-2 py-3 md:py-0 md:h-16">
         <Link href="/" className="mr-6 flex items-center space-x-2 self-start md:self-center">
           <span className="font-headline text-xl font-bold text-primary">车险经营分析周报</span>
         </Link>
 
         <div className="flex flex-wrap items-center justify-start md:justify-end flex-grow gap-x-2.5 gap-y-2 md:gap-x-3">
-          {/* Data Configuration Group */}
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 md:gap-x-3">
-            <Select value={currentDataSource} onValueChange={(value) => onDataSourceChange(value as DataSourceType)}>
-                <SelectTrigger className="w-auto md:w-[130px] h-9 text-xs md:text-sm">
-                    <SelectValue placeholder="选择数据源"/>
-                </SelectTrigger>
-                <SelectContent>
-                    {dataSourceOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value} className="text-xs md:text-sm">
-                           <div className="flex items-center">
-                             <option.icon className="mr-2 h-4 w-4 text-muted-foreground" />
-                             {option.label}
-                           </div>
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-            
+            {/* Data Source Select removed */}
             <Select value={selectedPeriod} onValueChange={onPeriodChange} disabled={periodOptions.length === 0}>
               <SelectTrigger className="w-auto md:w-[160px] h-9 text-xs md:text-sm">
                 <SelectValue placeholder={periodOptions.length > 0 ? "选择当前周期" : "加载周期中..."} />
@@ -266,14 +243,12 @@ export function AppHeader({
             <AnalysisModeToggle currentMode={analysisMode} onModeChange={onAnalysisModeChange} />
           </div>
 
-          {/* Vertical Separator for medium screens and up */}
           <Separator orientation="vertical" className="h-6 hidden md:inline-flex mx-1 md:mx-2 self-center" />
 
-          {/* Global Actions Group */}
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 md:gap-x-3">
             <Button onClick={onAiSummaryClick} variant="outline" size="sm" disabled={isAiSummaryLoading} className="h-9 text-xs md:text-sm">
               <Sparkles className={`mr-1 md:mr-1.5 h-4 w-4 ${isAiSummaryLoading ? 'animate-spin' : ''}`} />
-              {isAiSummaryLoading ? '生成中...' : 'AI摘要'}
+              {isAiSummaryLoading ? '处理中...' : 'AI摘要'}
             </Button>
              <Button onClick={onExportClick} variant="outline" size="sm" className="h-9 text-xs md:text-sm">
               <Download className="mr-1 md:mr-1.5 h-4 w-4" />
@@ -285,7 +260,6 @@ export function AppHeader({
       
       <Separator />
 
-      {/* Second row for view navigation */}
       <div className="container flex h-12 items-center justify-center space-x-1 md:space-x-2 overflow-x-auto">
         {viewOptions.map(option => (
           <Button

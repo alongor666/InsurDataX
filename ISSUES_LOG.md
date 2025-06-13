@@ -22,410 +22,222 @@
 - **发生时间**: 2024-05-23 (根据对话记录估算)
 - **影响范围**: KPI看板的数据加载和显示。
 - **解决方案**:
-    1.  **图标问题 (`ShieldAlert is not defined`)**:
-        *   将 `Kpi.icon` 类型从直接存储Lucide组件改为存储图标的字符串名称 (e.g., `'ShieldAlert'`)。
-        *   在 `KpiCard` 组件中创建一个 `iconMap`，将字符串名称映射到实际的Lucide图标组件进行渲染。
-        *   这确保了数据处理逻辑与UI展示逻辑的分离。
-    2.  **变量未定义问题 (`selectedPeriodId is not defined`)**:
-        *   修改 `calculateKpis` 函数签名，使其接收 `activePeriodId` (或类似名称)作为必需参数。
-        *   在 `src/app/page.tsx` 中调用 `calculateKpis` 时，确保传递了当前选中的周期ID (`selectedPeriodKey`)。
-        *   这确保了函数能访问到其依赖的关键ID。
+    1.  图标问题 (`ShieldAlert is not defined`)。
+    2.  变量未定义问题 (`selectedPeriodId is not defined`)。
 - **状态**: 已解决
-- **备注**: 此问题强调了数据处理逻辑与UI展示逻辑分离的重要性，以及函数依赖应通过参数明确传递的原则。
 
 ---
 
-### 2. AI分析输出非结构化且未充分利用上下文；条形图颜色未按精细化规则更新；聚合变动成本率计算不一致
+### 2. AI分析输出非结构化；条形图颜色未按规则更新；聚合变动成本率计算不一致
 - **问题描述**:
-    1. AI生成的分析（总体摘要、图表解读）缺乏结构，通用性强，未能充分根据用户当前的筛选（指标、业务类型）和图表特性（如变动成本率颜色）进行定制。未能使用Markdown等方式突出重点。
-    2. 水平条形图（排名图）未能正确应用基于变动成本率的精细化动态颜色规则（红/蓝/绿，且颜色深浅根据变动成本率值变化）。
-    3. 在“全部业务”聚合视图下，KPI看板显示的“变动成本率”未严格等于独立显示的“费用率”与“满期赔付率”之和，与最新的全局计算规则不符。
+    1. AI生成的分析缺乏结构，未能充分根据用户当前的筛选和图表特性进行定制。
+    2. 水平条形图未能正确应用基于变动成本率的精细化动态颜色规则。
+    3. “全部业务”聚合视图下，“变动成本率”未严格等于“费用率”与“满期赔付率”之和。
 - **发生时间**: 2024-05-24 - 2024-05-25
-- **影响范围**:
-    1. AI智能分析模块 (`src/ai/flows/*`) 的用户体验和实用性。
-    2. 水平条形图排名 (`src/components/sections/bar-chart-ranking-section.tsx`) 的视觉呈现。
-    3. KPI看板 (`src/components/sections/kpi-dashboard-section.tsx`) 中聚合指标的准确性。
-    4. 核心数据处理逻辑 (`src/lib/data-utils.ts`)。
+- **影响范围**: AI智能分析模块, 水平条形图排名, KPI看板, 核心数据处理逻辑。
 - **解决方案**:
-    1.  **AI分析优化 (已解决)**:
-        *   **Prompt工程**: 修改所有AI Flow (`generate-business-summary.ts`, `generate-trend-analysis-flow.ts`, `generate-bubble-chart-analysis-flow.ts`, `generate-bar-ranking-analysis-flow.ts`) 中的Prompt。
-            *   明确指示AI以结构化的方式输出（例如，使用小标题、列表）。
-            *   强调AI必须根据传入的上下文（如`selectedMetric`, `analysisMode`, `filtersJson`中的业务类型和变动成本率颜色规则及业务含义）生成与当前视图和筛选条件高度相关的分析。
-            *   **要求AI使用Markdown语法（如加粗）来突出关键信息，并解释变动成本率颜色背后的业务含义，而不是简单描述颜色本身。**
-            *   进一步优化Prompt，要求AI以麦肯锡专家视角进行深度分析，理解指标间逻辑，并确保输出语言为全中文。
-    2.  **条形图颜色修复 (已解决)**:
-        *   **`src/components/sections/bar-chart-ranking-section.tsx`**:
-            *   确保 `recharts` 的 `Cell` 组件被正确导入和使用。
-            *   修改 `<Bar>` 组件的子元素，移除之前错误的颜色应用方式。
-            *   正确地在 `<Bar>` 组件内部映射 `data` 数组，并为每个数据点（条形）渲染一个 `<Cell fill={entry.color || 'fallbackColor'} />`，其中 `entry.color` 来自经过 `getDynamicColorByVCR` 处理的数据。
-    3.  **聚合变动成本率计算修正 (已解决)**:
-        *   **`src/lib/data-utils.ts`**: 彻底审查并重构 `aggregateAndCalculateMetrics` 函数。
-            *   确保在所有情况下（单选、多选、全部业务；累计、当周发生额），“费用率”始终基于跟单保费，“满期赔付率”始终基于满期保费。
-            *   **确保“变动成本率”严格等于上述计算的“费用率”与“满期赔付率”之和。**
-            *   确保“边际贡献率”严格等于 `100% - 动成本率`。
-            *   确保“边贡额”严格等于 `满期保费 * 边际贡献率`。
-            *   更新了`FIELD_DICTIONARY_V4.md`以精确反映此最终计算逻辑。
+    1.  AI分析优化 (Prompt工程)。
+    2.  条形图颜色修复。
+    3.  聚合变动成本率计算修正。
 - **状态**: 已解决
-- **备注**: 提升AI分析的相关性和结构性需要持续的Prompt调优。核心指标的计算逻辑必须严格遵循已定义的全局规则和约束。术语“VCR”已统一为“变动成本率”。
 
 ---
 ### 3. Module not found: Can't resolve 'dns' (pg library issue)
-- **问题描述**: `pg` 库在客户端组件中被间接导入，导致 `Module not found: Can't resolve 'dns'`错误，因为 `dns` 是Node.js的内置模块。
+- **问题描述**: `pg` 库在客户端组件中被间接导入，导致 `Module not found: Can't resolve 'dns'`错误。
 - **发生时间**: 2024-05-25
-- **影响范围**: 数据库数据源切换功能，当尝试从数据库加载数据时应用会报错。
-- **解决方案**:
-    1.  创建了一个新的API路由 `src/app/api/insurance-data/route.ts`。
-    2.  该API路由负责执行数据库查询（调用 `getAllV4DataFromDb`）。
-    3.  主页面 `src/app/page.tsx` 在选择 'db' 数据源时，通过 `fetch` 调用此API路由来获取数据，而不是直接调用数据库函数。
-    4.  这样确保了所有数据库相关的代码（包括 `pg` 库的导入和使用）都只在服务器端执行。
-- **状态**: 已解决
-- **备注**: 这是在Next.js中处理服务器端依赖的推荐方法，确保了客户端包的纯净性。
+- **影响范围**: 数据库数据源切换功能。
+- **解决方案**: 创建API路由 `src/app/api/insurance-data/route.ts` 处理数据库查询。
+- **状态**: 已解决 (但在后续静态化改造中，此API路由及DB功能被移除)
 
 ---
 ### 4. Export calculateChangeAndType doesn't exist in target module
-- **问题描述**: `src/components/sections/data-table-section.tsx` 尝试导入 `calculateChangeAndType` 函数，但该函数未在 `src/lib/data-utils.ts` 中导出。
+- **问题描述**: `src/components/sections/data-table-section.tsx` 导入未导出的 `calculateChangeAndType`。
 - **发生时间**: 2024-05-25
-- **影响范围**: 数据表组件 (`src/components/sections/data-table-section.tsx`) 的渲染。
-- **解决方案**:
-    1.  在 `src/lib/data-utils.ts` 文件中，为 `calculateChangeAndType` 函数添加了 `export` 关键字。
+- **影响范围**: 数据表组件。
+- **解决方案**: 导出该函数。
 - **状态**: 已解决
-- **备注**: 简单的导出遗漏。
 
 ---
 ### 5. 数据源文件覆盖导致历史数据丢失及后续恢复
-- **问题描述**: 在一次数据更新操作中，仅使用了最新提供的几周数据覆盖了 `public/data/insurance_data_v4.json` 文件，导致之前已存在的 W21 和 W22 数据丢失。之后通过用户重新提供数据进行了修复。
+- **问题描述**: W21和W22数据因文件覆盖丢失，后通过用户重新提供数据修复。
 - **发生时间**: 2024-05-26
-- **影响范围**: 应用无法访问W21和W22的数据，影响了数据完整性和历史趋势分析。
-- **解决方案**:
-    1.  用户重新提供了W21和W22的数据。
-    2.  将用户提供的所有数据周期（W18, W19, W20, W21, W22, W23）进行了统一解析、格式转换（包括推算`expense_amount_raw`和`policy_count_earned`，处理`null`/`NaN`值）并构建为 `V4PeriodData` 对象。
-    3.  所有周期的对象被合并到一个数组中，并按 `period_id` 升序排列。
-    4.  使用包含所有六周完整数据的数组内容，重新生成并替换了 `public/data/insurance_data.json` 文件。
+- **影响范围**: 数据完整性和历史趋势分析。
+- **解决方案**: 合并所有周期数据重新生成 `insurance_data_v4.json`。
 - **状态**: 已解决
-- **备注**: 此问题强调了数据文件更新操作的谨慎性，应采取合并或在明确指示下替换的策略，避免无意的数据丢失。
 
 ---
 ### 6. 业务类型筛选列表中存在重复项
-- **问题描述**: 在业务类型筛选下拉菜单中，“2-9吨营业货车”和“9-10吨营业货车”等条目出现重复。
+- **问题描述**: 业务类型筛选下拉菜单中存在重复项，因数据源中名称微小差异。
 - **发生时间**: 2024-05-26
-- **影响范围**: 用户在筛选业务类型时的体验，可能导致困惑。
-- **解决方案**:
-    1.  检查发现问题源于 `public/data/insurance_data_v4.json` 文件中，不同数据周期间，这些业务类型的字符串名称存在微小差异（例如，多一个或少一个空格，如 "2 - 9吨营业货车" vs "2-9吨营业货车"）。
-    2.  在重新生成包含W18-W23完整数据的 `public/data/insurance_data_v4.json` 文件时，对所有业务类型的名称进行了标准化处理，确保在所有周中，逻辑上相同的业务类型使用完全一致的字符串名称。
+- **影响范围**: 用户筛选体验。
+- **解决方案**: 标准化业务类型名称。
 - **状态**: 已解决
-- **备注**: 数据源中原始数据的一致性对前端处理至关重要。
 
 ---
 ### 7. 趋势图AI分析功能未完全实现 & 图表AI分析UI一致性
-- **问题描述**:
-    1. 趋势分析图表部分的AI摘要生成功能未完全实现或未正确集成。
-    2. 各图表（趋势、气泡、排名）的AI分析功能按钮和内容显示区域的UI布局和位置不统一。
+- **问题描述**: 趋势分析AI摘要未完全实现，各图表AI分析UI不统一。
 - **发生时间**: 2024-05-26
-- **影响范围**: 趋势分析视图的用户体验，整体应用UI一致性。
-- **解决方案**:
-    1.  **趋势分析AI实现**:
-        *   在 `src/app/page.tsx` 中，确保 `trendAiSummary` 和 `isTrendAiSummaryLoading` state 正确管理。
-        *   确保 `handleGenerateTrendAiSummary` 函数正确构造 `GenerateTrendAnalysisInput` 并调用 `generateTrendAnalysis` AI flow，然后更新相关state。
-    2.  **UI一致性**:
-        *   修改 `src/components/sections/trend-analysis-section.tsx`, `src/components/sections/bubble-chart-section.tsx`, `src/components/sections/bar-chart-ranking-section.tsx`, `src/components/sections/share-chart-section.tsx`, `src/components/sections/pareto-chart-section.tsx`，确保 `ChartAiSummary` 组件（包含按钮和内容显示）被正确引入并统一放置在对应图表的下方。AI分析输出字体大小与总体摘要一致。
-- **状态**: 已解决
-- **备注**: 统一UI组件和交互模式能提升用户体验。
+- **影响范围**: 趋势分析视图用户体验，UI一致性。
+- **解决方案**: 实现趋势AI逻辑，统一各图表AI组件布局。
+- **状态**: 已解决 (但在后续静态化改造中，AI功能被禁用)
 
 ---
 ### 8. 趋势图未根据指标类型智能切换图表形式
-- **问题描述**: 趋势图未能根据所选指标是“率值”还是“数值”来智能切换为折线图或柱状图。
+- **问题描述**: 趋势图未能根据指标是“率值”还是“数值”智能切换为折线图或柱状图。
 - **发生时间**: 2024-05-26
-- **影响范围**: 趋势分析图表的可读性和数据表达的准确性。
-- **解决方案**:
-    1.  在 `src/components/sections/trend-analysis-section.tsx` 中：
-        *   实现 `getMetricChartType` 辅助函数，根据 `METRIC_FORMAT_RULES_FOR_CHARTS` 判断指标类型。
-        *   基于判断结果，条件渲染 `<RechartsLineChart>` 或 `<RechartsBarChart>`。
-        *   确保变动成本率驱动的动态颜色逻辑（折线图数据点、柱状图柱子）在两种图表上均正确应用。
-        *   为柱状图添加了数据标签。
+- **影响范围**: 趋势分析图表可读性。
+- **解决方案**: 实现 `getMetricChartType` 辅助函数，条件渲染图表。
 - **状态**: 已解决
-- **备注**: 此功能增强了数据可视化的灵活性和表达力。
 
 ---
 ### 9. 趋势图在“环比数据”模式下的计算逻辑与展示
-- **问题描述**: 当趋势分析图表处于“环比数据” (`periodOverPeriod`) 模式时，其计算逻辑需要明确为：图表上每个点的值代表 `当前期对应指标的YTD值 - 上一期对应指标的YTD值`。这适用于所有指标类型（率值、绝对值）。
+- **问题描述**: 趋势图“环比数据”模式计算逻辑需明确为YTD差额。
 - **发生时间**: 2024-05-26
-- **影响范围**: 趋势分析图表在“环比数据”模式下的数据准确性和展示。
-- **解决方案**:
-    1.  **`src/app/page.tsx`** (`prepareTrendData_V4` 函数):
-        *   当 `analysisMode` 为 `'periodOverPeriod'` 时，修改逻辑。对于趋势图范围内的每个周期P（从第二个周期开始），分别获取P期和P-1期的YTD指标值（通过调用 `processDataForSelectedPeriod` 并强制其在 `'cumulative'` 模式下计算）。
-        *   计算这两个YTD值的差额，作为周期P在图表上的显示值。
-        *   数据点的颜色（变动成本率）使用P期YTD的变动成本率。
-    2.  **`src/components/sections/trend-analysis-section.tsx`**:
-        *   组件接收 `analysisMode` prop。
-        *   **Y轴标签**: 当 `analysisMode` 为 `'periodOverPeriod'` 且选定指标为率值类型时，Y轴单位标签显示为 "(pp)"。
-        *   **Y轴刻度格式化**: 当 `analysisMode` 为 `'periodOverPeriod'` 且选定指标为率值类型时，刻度值直接显示差额（如1.9），不附加"%"。
-        *   **Tooltip格式化**: 当 `analysisMode` 为 `'periodOverPeriod'` 且选定指标为率值类型时，Tooltip中显示的值附加 "pp" 单位（如 "1.9 pp"）。
-    3.  **文档更新**:
-        *   `PRODUCT_REQUIREMENTS_DOCUMENT.md` (F-TREND, 术语定义) 和 `README.md` 已更新，以反映此特定计算和展示逻辑。
+- **影响范围**: 趋势分析图表数据准确性。
+- **解决方案**: 修改 `prepareTrendData_V4`，调整Y轴标签和Tooltip。
 - **状态**: 已解决
-- **备注**: 此调整确保了趋势图在环比模式下的计算逻辑与用户最新要求一致，同时不影响KPI看板和数据表的环比计算。
 
 ---
 ### 10. 模块未找到错误 (ShareChartSection, ParetoChartSection)
-- **问题描述**: `src/app/page.tsx` 尝试导入 `ShareChartSection` 和 `ParetoChartSection` 组件，但这些文件在初始阶段尚未创建，导致 `Module not found` 错误。
+- **问题描述**: `page.tsx` 导入未创建的组件。
 - **发生时间**: 2024-05-27
-- **影响范围**: 应用编译和运行。
-- **解决方案**:
-    1.  分阶段创建了 `src/components/sections/share-chart-section.tsx` 和 `src/components/sections/pareto-chart-section.tsx` 文件，并包含基本的占位符组件结构，后续逐步实现功能。
+- **影响范围**: 应用编译。
+- **解决方案**: 创建占位符组件。
 - **状态**: 已解决
-- **备注**: 这是在实现新功能模块过程中的一个预期步骤。
 
 ---
 ### 11. 占比图与帕累托图功能实现
-- **问题描述**: 需要实现占比图和帕累托图功能，包括数据准备、图表渲染和AI分析对接。
+- **问题描述**: 实现占比图和帕累托图功能。
 - **发生时间**: 2024-05-27
-- **影响范围**: 应用的数据分析视图。
-- **解决方案**:
-    1.  **`src/app/page.tsx`**:
-        *   实现了 `prepareShareChartData_V4` 和 `prepareParetoChartData_V4` 函数，用于数据处理。
-        *   实现了 `handleGenerateShareChartAiSummary` 和 `handleGenerateParetoAiSummary` 函数。
-    2.  **`src/components/sections/share-chart-section.tsx`**: 使用 `recharts` 的 `PieChart` 实现占比图。图表高度增加到 `h-[450px]`。
-    3.  **`src/components/sections/pareto-chart-section.tsx`**: 使用 `recharts` 的 `ComposedChart` 实现帕累托图。
-    4.  **AI Flows**: `generate-pareto-analysis-flow.ts` 和 `generate-share-chart-analysis-flow.ts` 已创建并对接。
-    5.  相关文档（PRD, README, ISSUES_LOG）已更新。
-- **状态**: 已解决
-- **备注**: 新增图表为业务分析提供了新视角。
+- **影响范围**: 数据分析视图。
+- **解决方案**: 实现数据准备、图表渲染和AI对接。
+- **状态**: 已解决 (但在后续静态化改造中，AI功能被禁用)
 
 ---
 ### 12. KPI看板显示逻辑优化 (V1)
-- **问题描述**:
-    1.  KPI卡片的对比标签固定显示“环比”，不准确。
-    2.  KPI看板第四列的“自主系数”在聚合时无意义，应替换。
-    3.  率/占比类KPI卡片图标不够直观。
+- **问题描述**: KPI对比标签固定，第四列“自主系数”不适用聚合，图标不够直观。
 - **发生时间**: 2024-05-28
-- **影响范围**: KPI看板 (`src/components/sections/kpi-dashboard-section.tsx`, `src/components/shared/kpi-card.tsx`) 的准确性和用户体验。核心数据处理 (`src/lib/data-utils.ts`)。
-- **解决方案**:
-    1.  **对比标签优化**: (此方案已废弃，采用看板下方统一显示对比周期信息)
-    2.  **KPI布局调整**: 在 `src/components/sections/kpi-dashboard-section.tsx` 的 `KPI_LAYOUT_CONFIG` 中，将第四列的“自主系数”替换为“已报件数”。
-    3.  **图标优化**: 在 `src/lib/data-utils.ts` 的 `calculateKpis` 函数中，为率值和占比类指标的 `Kpi` 对象分配更具体的 `icon` 字符串名称 (如 'Percent', 'PieChart', 'Activity', 'Ratio', 'Zap', 'ShieldAlert')。`src/components/shared/kpi-card.tsx` 中的 `iconMap` 会映射这些名称到Lucide图标。
-    4.  **文档更新**: `PRODUCT_REQUIREMENTS_DOCUMENT.md`, `README.md`, `FIELD_DICTIONARY_V4.md` 已同步更新相关描述。
+- **影响范围**: KPI看板。
+- **解决方案**: 调整KPI布局，优化图标。
 - **状态**: 已解决
-- **备注**: 这些调整提升了KPI看板的准确性和信息的直观性。
 
 ---
 ### 13. 业务类型名称缩写与文档同步
-- **问题描述**: 为提升图表可读性，需在图表显示中使用业务类型的缩写，但数据源和内部逻辑应保持原始名称。
+- **问题描述**: 图表需使用业务类型缩写。
 - **发生时间**: 2024-05-28
-- **影响范围**: 所有图表组件、数据表、核心数据处理 (`src/lib/data-utils.ts`)、相关文档。
-- **解决方案**:
-    1.  在 `src/lib/data-utils.ts` 中创建 `BUSINESS_TYPE_ABBREVIATIONS` 映射表和 `getDisplayBusinessTypeName` 辅助函数。
-    2.  修改 `processDataForSelectedPeriod`，使其生成的 `ProcessedDataForPeriod.businessLineName` 包含缩写（若有定义）。
-    3.  图表和数据表自动使用此缩写名。
-    4.  更新 `PRODUCT_REQUIREMENTS_DOCUMENT.md` 和 `README.md`，说明图表中使用缩写。
+- **影响范围**: 图表、数据表、数据处理。
+- **解决方案**: 创建缩写映射表和辅助函数。
 - **状态**: 已解决
-- **备注**: 确保了数据处理的准确性和前端展示的简洁性。
 
 ---
 ### 14. 控件布局优化
-- **问题描述**: 应用头部的全局筛选和操作控件布局不够清晰。
+- **问题描述**: 应用头部控件布局不够清晰。
 - **发生时间**: 2024-05-28
-- **影响范围**: 应用头部 (`src/components/layout/header.tsx`)。
-- **解决方案**:
-    1.  将第一行控件分为“数据定义组”（数据源、周期、业务类型、分析模式）和“全局操作组”（AI摘要、导出）。
-    2.  在中大屏幕上，两组之间增加垂直分隔线。
-    3.  调整了控件间距和包裹方式。
-    4.  视图导航按钮选中态改为 `secondary`，未选中态改为 `ghost`。
+- **影响范围**: 应用头部。
+- **解决方案**: 分组控件，增加分隔线，调整间距。
 - **状态**: 已解决
-- **备注**: 提升了头部的视觉组织和操作便捷性。
 
 ---
 ### 15. KPI看板对比信息及UI优化；图表UI及AI分析内容优化；动态颜色逻辑修正
-- **问题描述**:
-    1. 术语 "VCR" 未在UI和AI分析中统一为 "变动成本率"。
-    2. KPI卡片内独立的对比周期标签导致信息冗余，应统一显示。
-    3. KPI看板整体视觉可能拥挤。
-    4. 占比图图例和标签混乱。
-    5. 帕累托图X轴标签倾斜。
-    6. AI分析内容未强制全中文。
-    7. AI分析Markdown未正确渲染。
-    8. AI分析字体大小不一致。
-    9. 动态颜色逻辑 (getDynamicColorByVCR) 与期望的深浅变化规则不完全一致。
-    10. KPI卡片变化箭头方向与数值增减物理方向不一致。
+- **问题描述**: 术语统一，KPI对比信息冗余，占比图/帕累托图UI，AI内容，动态颜色，KPI箭头。
 - **发生时间**: 2024-05-28
-- **影响范围**: 整个应用UI，特别是KPI看板、各图表区、AI分析输出、核心数据处理 (`data-utils.ts`)。
-- **解决方案**:
-    1.  **术语统一**: 全局替换 "VCR" 为 "变动成本率" (UI, AI Prompts, 文档)。
-    2.  **KPI对比信息**: 移除卡片内对比标签，在看板下方统一显示周期对比信息。`Kpi` 类型不再包含 `comparisonLabel`。
-    3.  **KPI视觉**: 调整 `KpiCard` 的 `min-h` 为 `170px` (后因压缩需求改为 `min-h-[115px]`)。
-    4.  **占比图优化**: 移除扇区数据标签；自定义图例为3列，每列最多5项，按占比降序排列，显示业务类型缩写和百分比。图表高度增加到 `h-[450px]`。
-    5.  **帕累托图优化**: X轴业务类型标签改为横向显示，调整图表边距。
-    6.  **AI内容全中文**: 在所有AI Flow Prompt中加入强制中文输出的指令。
-    7.  **Markdown渲染**: 为 `AiSummarySection` 和 `ChartAiSummary` 组件集成 `react-markdown`。
-    8.  **AI字体一致**: 确保 `ChartAiSummary` 的字体大小与 `AiSummarySection` (通过 `prose-sm`) 一致。
-    9.  **动态颜色修正**: 修改 `src/lib/data-utils.ts` 中的 `getDynamicColorByVCR`，确保VCR<88%（绿色）时值越小颜色越深，88%-92%（蓝色）时值越接近88%颜色越深，>=92%（红色）时值越大颜色越深。
-    10. **KPI箭头修正**: 修改 `src/components/shared/kpi-card.tsx`，确保箭头物理方向（上/下）仅由数值增/减决定，颜色（红/绿）由业务含义（更高更好/更低更好）决定。
-    11. **文档更新**: `PRODUCT_REQUIREMENTS_DOCUMENT.md`, `README.md`, `FIELD_DICTIONARY_V4.md`, `ISSUES_LOG.md` 同步所有变更。
-- **状态**: 已解决
-- **备注**: 综合性UI和逻辑优化，提升了信息呈现质量和用户体验。
+- **影响范围**: 整体UI，KPI看板，图表，AI分析，核心数据处理。
+- **解决方案**: 全局替换术语，统一KPI对比信息显示，优化各图表UI，集成Markdown渲染，修正颜色逻辑和箭头。
+- **状态**: 已解决 (部分AI相关优化在静态化改造中被禁用)
 
 ---
 ### 16. AI Prompt中反引号转义问题
-- **问题描述**: `src/ai/flows/generate-trend-analysis-flow.ts` 中，Prompt字符串内使用了未转义的反引号 (`)` 围绕 `vcrColorRules`，导致ECMAScript解析错误。
+- **问题描述**: Prompt字符串内未转义反引号导致解析错误。
 - **发生时间**: 2024-05-28
-- **影响范围**: 趋势分析AI Flow的加载和执行。
-- **解决方案**:
-    1.  在 `src/ai/flows/generate-trend-analysis-flow.ts` 的Prompt字符串中，将围绕 `vcrColorRules` 的反引号转义为 `\\\`vcrColorRules\\\``。
+- **影响范围**: 趋势分析AI Flow。
+- **解决方案**: 转义反引号。
 - **状态**: 已解决
-- **备注**: 模板字符串内的特殊字符需正确转义。
 
 ---
 ### 17. 全局规则实施：视觉层去英文、AI分析内容与交互优化
-- **问题描述**:
-    1. 视觉层仍存在少量英文硬编码。
-    2. AI分析Prompt需要进一步强化，确保不使用颜色描述问题，而是使用业务状态，并确保全中文输出。
-    3. AI分析输入数据中不应包含颜色字段，迫使其依赖VCR值和规则。
+- **问题描述**: UI少量英文，AI Prompt需强化。
 - **发生时间**: 2024-05-28
-- **影响范围**: 整体应用UI（页脚、部分提示），所有AI分析Flows，`page.tsx`中AI数据准备逻辑。
-- **解决方案**:
-    1.  **`src/components/layout/app-layout.tsx`**: 页脚修改为中文。
-    2.  **`src/components/shared/chart-ai-summary.tsx`**: 内部提示文本中文化。
-    3.  **`src/app/page.tsx`**:
-        *   修改所有图表AI分析函数 (`handleGenerate...AiSummary`)，在构造传递给AI的 `chartDataJson` 时，明确移除 `color` 字段。
-        *   更新 `getCommonAiFilters` 中 `vcrColorRules` 的描述文本，使其更清晰地将VCR值、颜色（AI不直接用）和业务状态关联起来。
-        *   部分加载提示文本中文化。
-    4.  **所有AI Flow Prompts (`src/ai/flows/*.ts`)**:
-        *   再次强化了“严禁描述颜色，必须使用业务状态”的核心指令，并提供了正反示例。
-        *   再次强调输出必须为全中文。
-- **状态**: 已解决
-- **备注**: 提升了应用的专业性和本地化程度，增强了AI分析的准确性和一致性。
+- **影响范围**: 整体UI，AI分析Flows。
+- **解决方案**: UI中文化，强化AI Prompt指令，移除AI输入数据中的颜色字段。
+- **状态**: 已解决 (部分AI相关优化在静态化改造中被禁用)
 
 ---
 ### 18. KPI看板尺寸压缩与布局调整
-- **问题描述**: 需要将KPI看板整体尺寸（高度和宽度）压缩约1/3，同时保持字体大小不变，并确保内容不溢出。
+- **问题描述**: KPI看板尺寸需压缩。
 - **发生时间**: 2024-05-28
-- **影响范围**: `src/components/shared/kpi-card.tsx`, `src/components/sections/kpi-dashboard-section.tsx`。
-- **解决方案**:
-    1.  **`src/components/shared/kpi-card.tsx`**:
-        *   `min-h` 从 `170px` 减至 `115px`。
-        *   主要数值字体大小从 `text-3xl` 调整为 `text-2xl` 作为折中。
-        *   大幅减少 `CardHeader` 和 `CardContent` 的内边距。
-        *   微调对比信息区域的图标大小和间距。
-        *   为标题和描述添加 `leading-tight`。
-    2.  **`src/components/sections/kpi-dashboard-section.tsx`**:
-        *   网格 `gap` 从 `gap-4` 减至 `gap-3`。
-        *   列内 `space-y` 从 `space-y-4` 减至 `space-y-3`。
-        *   调整了看板底部周期信息的边距和字体大小。
+- **影响范围**: KPI卡片和看板。
+- **解决方案**: 调整卡片最小高度、内边距、字体，调整看板网格间距。
 - **状态**: 已解决
-- **备注**: 在保持字体基本不变的前提下进行了显著压缩，可能需要根据实际显示效果微调。
 
 ---
-### 19. JSX解析错误 `Unexpected token Card` / Runtime Error for `React.Children.only`
-- **问题描述**:
-    1. `src/components/shared/kpi-card.tsx` 报JSX解析错误 "Unexpected token `Card`. Expected jsx identifier"。 (此问题后演变为 `React.Children.only` 错误)
-    2. 在尝试实现业务类型筛选器的“只选此项”/“选其余项”子菜单功能时，`src/components/layout/header.tsx` 中因 `DropdownMenuSubTrigger` 与 `asChild` 和 `DropdownMenuCheckboxItem` 组合使用不当，导致 "React.Children.only expected to receive a single React element child." 运行时错误。
-- **发生时间**: 2024-05-28 (初始 Card 错误), 2024-05-29 (React.Children.only 错误)
-- **影响范围**: KPI卡片渲染，业务类型筛选器功能。
-- **解决方案**:
-    1.  **JSX解析错误 (`Unexpected token Card`)**:
-        *   重新审视并确认 `src/components/shared/kpi-card.tsx` 文件中 `Card`, `CardHeader`, `CardContent`, `CardTitle` 组件的导入语句准确无误。
-        *   仔细检查了 `KpiCard` 函数内部，特别是在 `return (...)` 语句之前的所有JavaScript逻辑，确保没有未闭合的括号、花括号或其它可能导致解析器状态混乱的语法错误。
-        *   通过重新生成文件内容的方式排除了不可见字符或细微语法遗漏的可能性。
-    2.  **Runtime Error (`React.Children.only`)**:
-        *   **根本原因**: ShadCN UI 的 `DropdownMenuSubTrigger` 组件在内部渲染时，会把它自己的子元素 (`props.children`) 和一个它自己添加的 `<ChevronRight />` 图标一起作为子项传递给底层的 Radix UI `DropdownMenuPrimitive.SubTrigger` 组件。当对 ShadCN UI 的 `DropdownMenuSubTrigger` 使用 `asChild` prop 时，Radix UI 的 `DropdownMenuPrimitive.SubTrigger` 期望只接收一个子元素来进行属性合并，但它实际上收到了多个，因此导致错误。
-        *   **修复**: 移除了 `DropdownMenuSubTrigger` 上的 `asChild` prop，并将 `DropdownMenuCheckboxItem` 作为其内容，同时调整样式和事件处理以保证交互。
+### 19. JSX解析错误 / Runtime Error for `React.Children.only` (DropdownMenuSubTrigger)
+- **问题描述**: `DropdownMenuSubTrigger` 与 `asChild` 和 `DropdownMenuCheckboxItem` 组合使用不当。
+- **发生时间**: 2024-05-28 / 2024-05-29
+- **影响范围**: KPI卡片渲染，业务类型筛选器子菜单。
+- **解决方案**: 移除 `DropdownMenuSubTrigger` 的 `asChild` prop，调整内部结构。
 - **状态**: 已解决
-- **备注**: `asChild` prop 在与内部结构复杂的复合组件一起使用时需要特别小心。
 
 ---
 ### 20. 业务类型筛选器功能增强 (含确认/取消机制)
-- **问题描述**: 业务类型筛选器需要支持更便捷的“全选”、“反选”、“清除”操作，并为每个业务类型提供“仅选此项”快捷方式。部分操作（全选、反选、单个勾选）需要通过底部的“确认”按钮生效，“清除”和“仅选此项”则立即生效。“取消”按钮用于放弃待定更改。
+- **问题描述**: 业务类型筛选器需支持全选、反选、清除、仅选此项，并引入确认/取消机制。
 - **发生时间**: 2024-05-29
 - **影响范围**: `src/components/layout/header.tsx`。
-- **解决方案**:
-    1.  在 `src/components/layout/header.tsx` 中，为业务类型筛选下拉菜单引入内部状态 `pendingSelectedTypes` 和 `businessTypeDropdownOpen`。
-    2.  **顶部操作区**:
-        *   “全选”：更新 `pendingSelectedTypes` 为所有业务类型。
-        *   “反选”：根据 `pendingSelectedTypes` 反转选择。
-        *   “清除”：直接调用 `onSelectedBusinessTypesChange([])` 并关闭下拉。
-    3.  **中间列表区**:
-        *   每个业务类型使用 `DropdownMenuCheckboxItem`，其勾选状态绑定到 `pendingSelectedTypes`。
-        *   旁边放置一个“仅选此项”按钮，点击后直接调用 `onSelectedBusinessTypesChange([type])` 并关闭下拉。
-        *   `DropdownMenuCheckboxItem` 的 `onSelect` 事件通过 `e.preventDefault()` 阻止菜单关闭。
-    4.  **底部操作区**:
-        *   “确认”按钮：调用 `onSelectedBusinessTypesChange(pendingSelectedTypes)` 并关闭下拉。
-        *   “取消”按钮：直接关闭下拉（`pendingSelectedTypes` 会在下次打开时根据props重新初始化）。
-    5.  `useEffect` 用于在下拉菜单打开时，将 `pendingSelectedTypes` 与外部 `selectedBusinessTypes` 同步。
+- **解决方案**: 引入 `pendingSelectedTypes` 状态，实现各操作逻辑和底部确认/取消按钮。
 - **状态**: 已解决
-- **备注**: 此增强显著提升了业务类型筛选的灵活性和用户体验，并引入了防止误操作的确认机制。
 
 ---
 ### 21. Lucide图标 `MousePointerSquare` 不存在
-- **问题描述**: `src/components/layout/header.tsx` 尝试导入 `MousePointerSquare` 图标，但该图标在 `lucide-react` 中不存在。
+- **问题描述**: `header.tsx` 导入不存在的 `MousePointerSquare` 图标。
 - **发生时间**: 2024-05-29
-- **影响范围**: 业务类型筛选器中“仅选此项”按钮的图标显示。
-- **解决方案**:
-    1.  将 `lucide-react` 导入语句中的 `MousePointerSquare` 替换为存在的 `MousePointerClick` 图标。
-    2.  更新按钮处使用的图标为 `MousePointerClick`。
+- **影响范围**: 业务类型筛选器“仅选此项”按钮图标。
+- **解决方案**: 替换为 `MousePointerClick` 图标。
 - **状态**: 已解决
-- **备注**: 应始终确认所用图标在库中实际存在。
 
 ---
 ### 22. 业务类型筛选器交互和UI再优化 (V2.9.1 实现)
-- **问题描述**:
-    1.  “仅选此项”按钮应仅在鼠标悬停于对应业务类型条目时显示，且不带图标。
-    2.  “全选”、“反选”、“清除”等操作的标签文本中不应出现“(待确认)”或“(立即生效)”等提示性文字。
-    3.  每个业务类型条目前应有复选框，允许用户多选。
-    4.  “反选”功能逻辑不正确，未按预期工作。
-    5.  “全选”和“反选”操作后，下拉菜单不应自动关闭。
+- **问题描述**: “仅选此项”悬停显示且无图标；移除操作标签提示文字；添加复选框；“反选”逻辑修正；“全选”/“反选”保持菜单打开。
 - **发生时间**: 2024-05-29
-- **影响范围**: `src/components/layout/header.tsx` 业务类型筛选器UI和交互。
+- **影响范围**: `src/components/layout/header.tsx`。
 - **解决方案**:
-    1.  **“仅选此项”按钮**:
-        *   修改 `DropdownMenuCheckboxItem` 内部结构，使其包含业务类型名称和一个“仅选此项”按钮。
-        *   使用 `group` 和 `group-hover:opacity-100` (或类似 Tailwind CSS 工具类) 控制“仅选此项”按钮的可见性，使其在父条目悬停时出现。
-        *   移除“仅选此项”按钮的图标。
-        *   确保按钮点击事件 `e.stopPropagation()` 以防止触发复选框的选中/取消。
-    2.  **顶部操作文本**:
-        *   将 "全选 (待确认)" 改为 "全选"。
-        *   将 "反选 (待确认)" 改为 "反选"。
-        *   将 "清除 (立即生效)" 改为 "清除"。
-    3.  **复选框**:
-        *   在每个业务类型条目中，使用 `DropdownMenuCheckboxItem` 来渲染，确保其 `checked` 状态与 `pendingSelectedTypes` 同步。
-        *   `onCheckedChange` 事件用于更新 `pendingSelectedTypes`。
-        *   使用 `onSelect={(e) => e.preventDefault()}` 防止菜单在点击复选框时关闭。
-    4.  **“反选”逻辑修正**:
-        *   `handleInvertSelectionPending` 函数逻辑更新为：获取所有业务类型中，当前未在 `pendingSelectedTypes` 中的那些类型，作为新的 `pendingSelectedTypes`。该函数还需接受 `event` 参数并调用 `event.preventDefault()` 以保持下拉菜单打开。
-    5.  **“全选”/“反选”保持菜单打开**:
-        *   修改 `handleSelectAllPending` 和 `handleInvertSelectionPending` 函数，使其接受 `event` 参数并在函数体开头调用 `event.preventDefault()`。
-        *   更新“全选”和“反选” `DropdownMenuItem` 的 `onSelect` prop，使其调用处理函数时传递事件对象 `(e) => handleSelectAllPending(e)` 和 `(e) => handleInvertSelectionPending(e)`。
-    6.  确保其他相关逻辑（如清除、确认/取消机制）保持不变并与新的复选框交互兼容。
+    1.  调整“仅选此项”按钮的显示逻辑和外观。
+    2.  移除顶部操作按钮标签中的 “(待确认)” / “(立即生效)” UI文字。
+    3.  在每个业务类型条目中正确使用 `DropdownMenuCheckboxItem` 实现复选框。
+    4.  修正了 `handleInvertSelectionPending` 函数的逻辑。
+    5.  修改了 `handleSelectAllPending` 和 `handleInvertSelectionPending` 函数，使其通过 `event.preventDefault()` 保持下拉菜单打开，以便用户确认。
 - **状态**: 已解决
-- **备注**: 进一步提升了筛选器的整洁度和交互的直观性，修正了核心功能。确保需要确认的操作（全选、反选、勾选）在执行后保持下拉菜单打开。
 
 ---
 ### 23. KPI看板环比数据对比逻辑修正
-- **问题描述**: KPI看板在“环比数据”模式下，其显示的环比变化是“当前期PoP值”与“对比期YTD累计值”的比较。应修正为“当前期PoP值”与“对比期PoP值”的比较。
+- **问题描述**: KPI看板“环比数据”模式下，对比基准应为“对比期PoP值”，而非“对比期YTD值”。
 - **发生时间**: 2024-05-29
-- **影响范围**: `src/lib/data-utils.ts` 中的 `processDataForSelectedPeriod` 和 `calculateKpis` 函数。KPI看板 (`src/components/sections/kpi-dashboard-section.tsx`) 的数据准确性。
-- **解决方案**:
-    1.  **`src/lib/data-utils.ts` - `processDataForSelectedPeriod`**:
-        *   当全局 `analysisMode` 为 `'periodOverPeriod'` 时，为 `momMetrics` (对比周期的指标) 计算其自身的PoP值。这涉及到获取“对比周期”的YTD数据，以及“对比周期的上一周期”（即“上上期”）的YTD数据，然后调用 `aggregateAndCalculateMetrics` 传入这两个YTD周期和 `'periodOverPeriod'` 模式。
-    2.  **`src/lib/data-utils.ts` - `calculateKpis`**:
-        *   确保在为“保费”指标的颜色变化逻辑确定 `vcrForPremiumGrowthColor` 时，如果当前分析模式是 `'periodOverPeriod'`，则需要回溯计算当前周期和当前选择下的 YTD 变动成本率。
-        *   确保 `createKpiComparisonFields` 函数在 `compValue` 为 `NaN` 或 `null` 时正确处理。
-    3.  **文档更新**: `FIELD_DICTIONARY_V4.md`, `PRODUCT_REQUIREMENTS_DOCUMENT.md`, `README.md` 已更新以反映此计算逻辑。
+- **影响范围**: `src/lib/data-utils.ts` (`processDataForSelectedPeriod`, `calculateKpis`)。KPI看板数据准确性。
+- **解决方案**: 修改 `processDataForSelectedPeriod`，确保当全局分析模式为PoP时，`momMetrics` 也计算为PoP值。
 - **状态**: 已解决
-- **备注**: 确保了KPI看板在“环比数据”模式下提供准确的“当周发生额 vs. 上一期当周发生额”对比。
 
 ---
 ### 24. 气泡图保单件数显示合计值问题
-- **问题描述**: 气泡图中，每个业务类型的“保单件数”（如果作为气泡大小指标）显示的是所有业务类型的合计保单件数，而不是该业务类型自身的保单件数。
+- **问题描述**: 气泡图中，各业务类型的“保单件数”显示的是合计总数，而非自身件数。
 - **发生时间**: 2024-05-29
-- **影响范围**: `src/lib/data-utils.ts` 中的 `aggregateAndCalculateMetrics` 函数。气泡图 (`src/components/sections/bubble-chart-section.tsx`) 的数据准确性。
-- **解决方案**:
-    1.  **`src/lib/data-utils.ts` - `aggregateAndCalculateMetrics`**:
-        *   修改函数逻辑，当 `isSingleTypeCumulative` (表示正在为单个业务类型计算累计值) 为 `true` 时：
-            *   `metrics.policy_count` (保单件数) 应根据该单个业务类型的 `premium_written` (跟单保费) 和 `avg_premium_per_policy` (单均保费，优先从JSON获取) 来计算。
-            *   `metrics.avg_premium_per_policy` 也应优先使用该单个业务类型JSON中的预计算值。
-        *   确保后续的通用 `policy_count` 和 `avg_premium_per_policy` 计算逻辑（用于聚合情况）不会覆盖掉单个业务类型已经计算好的这些值。这通过将通用计算逻辑包裹在 `if (!isSingleTypeCumulative)` 条件中实现。
-        *   确保 `metrics.expense_ratio` 和 `metrics.loss_ratio` 在 `isSingleTypeCumulative` 为 `true` 时，也优先使用JSON中的预计算值（如果有效），否则基于该单个业务类型的基础数据计算。
+- **影响范围**: `src/lib/data-utils.ts` (`aggregateAndCalculateMetrics`)。气泡图数据准确性。
+- **解决方案**: 在 `aggregateAndCalculateMetrics` 中，当 `isSingleTypeCumulative` 为true时，确保 `policy_count` 和 `avg_premium_per_policy` 基于该单个业务类型的JSON数据计算，并阻止通用聚合逻辑覆盖这些值。
 - **状态**: 已解决
-- **备注**: 此修复确保了在处理单个业务类型数据时，所有指标（包括保单件数）都正确地反映该业务类型自身的情况，而不是全局合计或错误聚合。
+
+---
+### 25. 应用静态化改造：移除Server Actions及API路由依赖
+- **问题描述**: 为实现纯静态部署 (如 Firebase Hosting)，需要移除所有服务器端依赖，包括 Server Actions (Genkit AI flows) 和 API 路由 (数据库连接)。
+- **发生时间**: 2024-05-29
+- **影响范围**: 整体应用架构，数据源功能，AI分析功能，`src/app/page.tsx`, `src/components/layout/header.tsx`, 及所有AI flow文件和DB相关文件。
+- **解决方案**:
+    1.  **移除数据库支持**:
+        *   从 `src/components/layout/header.tsx` 中移除了数据源选择UI。
+        *   修改 `src/app/page.tsx`，移除了 `dataSource` state，固定从 `/data/insurance_data.json` 加载数据。
+        *   `src/app/api/insurance-data/route.ts` 和 `src/lib/db.ts` 变为未使用代码。
+    2.  **禁用动态AI分析**:
+        *   修改 `src/app/page.tsx` 中所有 `handle...AiSummary` 函数，使其不再调用实际的AI flow，而是设置提示信息（如“AI 功能在此静态演示中不可用。”）并更新UI加载状态。
+        *   这意味着 `src/ai/flows/*.ts` 文件中的 Server Actions 不再被调用。
+    3.  **更新文档**: `PRODUCT_REQUIREMENTS_DOCUMENT.md` 和 `README.md` 已更新，反映应用已变为纯静态版本，移除了DB支持和动态AI功能。
+- **状态**: 已解决
+- **备注**: 应用现在适合纯静态托管。AI和数据库功能被移除或禁用以符合静态部署模型。若需恢复这些功能，需要配合后端服务（如Firebase Functions或Cloud Run）部署AI Flows和数据库API。
 
     
 

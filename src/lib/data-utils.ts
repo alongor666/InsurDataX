@@ -152,7 +152,7 @@ export const aggregateAndCalculateMetrics = (
       }
       metrics.avg_premium_per_policy = single_avg_prem_policy_json;
 
-      if (metrics.avg_premium_per_policy !== 0 && metrics.premium_written !== undefined) {
+      if (metrics.avg_premium_per_policy !== undefined && metrics.avg_premium_per_policy !== 0 && metrics.premium_written !== undefined) {
         metrics.policy_count = Math.round((metrics.premium_written * 10000) / metrics.avg_premium_per_policy);
       } else {
         metrics.policy_count = 0;
@@ -195,7 +195,6 @@ export const aggregateAndCalculateMetrics = (
                 total_loss_amount: (currentYtdEntry.total_loss_amount || 0) - (prevYtdEntry?.total_loss_amount || 0),
                 expense_amount_raw: (currentYtdEntry.expense_amount_raw || 0) - (prevYtdEntry?.expense_amount_raw || 0),
                 claim_count: (currentYtdEntry.claim_count || 0) - (prevYtdEntry?.claim_count || 0),
-                // policy_count_earned PoP will be derived from PoP policy_count and PoP premium_earned_ratio
                 loss_ratio: null, expense_ratio: null, variable_cost_ratio: null, premium_earned_ratio: null, claim_frequency: null, avg_loss_per_case: null, avg_commercial_index: null, avg_premium_per_policy: null
             };
         });
@@ -261,13 +260,11 @@ export const aggregateAndCalculateMetrics = (
           metrics.avg_premium_per_policy = metrics.policy_count !== 0 ? (current_premium_written * 10000) / metrics.policy_count : 0;
       }
   }
-  // If isSingleTypeCumulative, metrics.policy_count and metrics.avg_premium_per_policy were set inside that block.
-
-  // The rest of the calculations use the (now correctly scoped) metrics.
-  if (!isSingleTypeCumulative || metrics.expense_ratio === undefined) { // Recalculate for aggregate/PoP or if not set for single
+  
+  if (!isSingleTypeCumulative || metrics.expense_ratio === undefined) { 
       metrics.expense_ratio = current_premium_written !== 0 ? (current_expense_amount_raw / current_premium_written) * 100 : 0;
   }
-  if (!isSingleTypeCumulative || metrics.loss_ratio === undefined) { // Recalculate for aggregate/PoP or if not set for single
+  if (!isSingleTypeCumulative || metrics.loss_ratio === undefined) { 
       metrics.loss_ratio = current_premium_earned !== 0 ? (current_total_loss_amount / current_premium_earned) * 100 : 0;
   }
 
@@ -297,7 +294,7 @@ export const aggregateAndCalculateMetrics = (
       if (typeof metrics[k] === 'number' && isNaN(metrics[k] as number)) {
           (metrics[k] as any) = 0;
       }
-      if (key === 'avg_commercial_index' && metrics[k] === null) { // Keep null if explicitly set for avg_commercial_index
+      if (key === 'avg_commercial_index' && metrics[k] === null) { 
           return;
       }
        if (metrics[k] === null && key !== 'avg_commercial_index') {
@@ -336,23 +333,21 @@ export const processDataForSelectedPeriod = (
   if (!currentPeriodData) return [];
 
   let actualComparisonPeriodIdForKpi: string | null = selectedComparisonPeriodKeyForKpi;
-  if (!actualComparisonPeriodIdForKpi) { // Default MoM for KPIs if no specific comparison period is chosen
+  if (!actualComparisonPeriodIdForKpi) { 
       actualComparisonPeriodIdForKpi = currentPeriodData.comparison_period_id_mom || null;
   }
   const comparisonPeriodDataForKpi = actualComparisonPeriodIdForKpi
     ? allV4Data.find(p => p.period_id === actualComparisonPeriodIdForKpi)
     : undefined;
 
-  // These are YTD entries for the *current* period, filtered by selected business types if any.
   const currentPeriodFilteredYtdBusinessEntries = filterRawBusinessData(currentPeriodData, selectedBusinessTypes);
-  // These are *all* YTD entries for the current period, used as a base for single type lookup or aggregate policy count.
   const originalYtdEntriesForCurrentPeriod = (currentPeriodData.business_data || []).filter(
     bd => bd.business_type && bd.business_type.toLowerCase() !== '合计' && bd.business_type.toLowerCase() !== 'total'
   );
 
 
   let previousPeriodYtdForCurrentPoP: V4BusinessDataEntry[] | undefined = undefined;
-  if (analysisMode === 'periodOverPeriod') { // Only need this if calculating current metrics as PoP
+  if (analysisMode === 'periodOverPeriod') { 
     const currentPeriodPreviousMomId = currentPeriodData.comparison_period_id_mom;
     const currentPeriodPreviousMomData = currentPeriodPreviousMomId
         ? allV4Data.find(p => p.period_id === currentPeriodPreviousMomId)
@@ -364,22 +359,20 @@ export const processDataForSelectedPeriod = (
   
   const currentAggregatedMetrics = aggregateAndCalculateMetrics(
     currentPeriodFilteredYtdBusinessEntries,
-    analysisMode, // This mode determines if currentAggMetrics are YTD or PoP
-    originalYtdEntriesForCurrentPeriod, // Base YTD for current period (used for single type details or aggregate derivations)
-    analysisMode === 'periodOverPeriod' ? previousPeriodYtdForCurrentPoP : undefined // Previous YTD if current metrics are PoP
+    analysisMode, 
+    originalYtdEntriesForCurrentPeriod, 
+    analysisMode === 'periodOverPeriod' ? previousPeriodYtdForCurrentPoP : undefined 
   );
 
 
   let momAggregatedMetrics: AggregatedBusinessMetrics | null = null;
   if (comparisonPeriodDataForKpi) {
-    // YTD entries for the *comparison* period, filtered by selected business types.
     const comparisonPeriodFilteredYtdBusinessEntries = filterRawBusinessData(comparisonPeriodDataForKpi, selectedBusinessTypes);
-    // All YTD entries for the *comparison* period.
     const originalYtdForComparisonPeriod = (comparisonPeriodDataForKpi.business_data || []).filter(
         bd => bd.business_type && bd.business_type.toLowerCase() !== '合计' && bd.business_type.toLowerCase() !== 'total'
     );
 
-    if (analysisMode === 'periodOverPeriod') { // If main view is PoP, comparison should also be PoP
+    if (analysisMode === 'periodOverPeriod') { 
       const comparisonPeriodPreviousMomId = comparisonPeriodDataForKpi.comparison_period_id_mom;
       const comparisonPeriodPreviousMomData = comparisonPeriodPreviousMomId
         ? allV4Data.find(p => p.period_id === comparisonPeriodPreviousMomId)
@@ -388,18 +381,18 @@ export const processDataForSelectedPeriod = (
       if (comparisonPeriodPreviousMomData) {
         const previousYtdForComparisonPoP = filterRawBusinessData(comparisonPeriodPreviousMomData, selectedBusinessTypes);
         momAggregatedMetrics = aggregateAndCalculateMetrics(
-          comparisonPeriodFilteredYtdBusinessEntries, // These are YTD for the comparison period
-          'periodOverPeriod', // Calculate as PoP
-          originalYtdForComparisonPeriod, // Base YTD for comparison period
-          previousYtdForComparisonPoP // Previous YTD for comparison period's PoP calculation
+          comparisonPeriodFilteredYtdBusinessEntries, 
+          'periodOverPeriod', 
+          originalYtdForComparisonPeriod, 
+          previousYtdForComparisonPoP 
         );
       } else {
-        momAggregatedMetrics = null; // Cannot calculate PoP for comparison if its previous period is missing
+        momAggregatedMetrics = null; 
       }
-    } else { // Main view is Cumulative, so comparison should be Cumulative
+    } else { 
       momAggregatedMetrics = aggregateAndCalculateMetrics(
         comparisonPeriodFilteredYtdBusinessEntries,
-        'cumulative', // Calculate as Cumulative
+        'cumulative', 
         originalYtdForComparisonPeriod
       );
     }
@@ -412,7 +405,7 @@ export const processDataForSelectedPeriod = (
   const yoyAggregatedMetrics = yoyEquivalentPeriodData
     ? aggregateAndCalculateMetrics(
         filterRawBusinessData(yoyEquivalentPeriodData, selectedBusinessTypes),
-        'cumulative', // YoY is always cumulative comparison
+        'cumulative', 
         (yoyEquivalentPeriodData.business_data || []).filter(bd => bd.business_type && bd.business_type.toLowerCase() !== '合计' && bd.business_type.toLowerCase() !== 'total')
       )
     : null;
@@ -430,17 +423,16 @@ export const processDataForSelectedPeriod = (
   } else if (selectedBusinessTypes.length > 0 && selectedBusinessTypes.length < allIndividualTypesInCurrentPeriodOriginal.length) {
     businessLineId = "自定义合计";
     displayBusinessLineName = "自定义合计";
-  } else { // All business types selected or no specific selection (implies aggregate of all)
+  } else { 
     businessLineId = "合计";
     displayBusinessLineName = "合计";
   }
 
   let currentYtdPremiumWrittenForShareCalc = currentAggregatedMetrics.premium_written;
-  // If currentAggregatedMetrics are PoP, we need YTD for premium_share calculation
   if (analysisMode === 'periodOverPeriod') { 
       const ytdMetricsForShare = aggregateAndCalculateMetrics(
-          currentPeriodFilteredYtdBusinessEntries, // YTD entries for selected types
-          'cumulative', // Calculate as YTD
+          currentPeriodFilteredYtdBusinessEntries, 
+          'cumulative', 
           originalYtdEntriesForCurrentPeriod
       );
       currentYtdPremiumWrittenForShareCalc = ytdMetricsForShare.premium_written;
@@ -465,7 +457,7 @@ export const processDataForSelectedPeriod = (
     loss_ratio: currentAggregatedMetrics.loss_ratio,
     expense_ratio: currentAggregatedMetrics.expense_ratio,
     variable_cost_ratio: currentAggregatedMetrics.variable_cost_ratio,
-    premium_share: premium_share, // Premium share is always based on YTD premium_written
+    premium_share: premium_share, 
     vcr_color: getDynamicColorByVCR(currentAggregatedMetrics.variable_cost_ratio),
   };
 
@@ -521,7 +513,7 @@ const formatKpiChangeValues = (
             const formattedAbs = formatDisplayValue(Math.abs(changeResult.absolute), metricIdForAbsFormat);
             if (changeResult.absolute > 0.00001) changeAbsStr = `+${formattedAbs}`;
             else if (changeResult.absolute < -0.00001) changeAbsStr = `-${formattedAbs}`;
-            else changeAbsStr = formattedAbs; // Should be '0' or '-' if rawValue was 0 or NaN
+            else changeAbsStr = formattedAbs; 
         }
     }
 
@@ -529,9 +521,9 @@ const formatKpiChangeValues = (
 
     if (changeResult.absolute !== undefined && Math.abs(changeResult.absolute) < 0.00001 && !isRateChange) {
         effectiveChangeType = 'neutral';
-         if (changeAbsStr && changeAbsStr !== '-') changeAbsStr = formatDisplayValue(0, metricIdForAbsFormat); // Display '0' instead of tiny scientific
+         if (changeAbsStr && changeAbsStr !== '-') changeAbsStr = formatDisplayValue(0, metricIdForAbsFormat); 
     }
-    if (isRateChange && changeResult.absolute !== undefined && Math.abs(changeResult.absolute) < 0.05 ) { // 0.05 pp tolerance for 'neutral'
+    if (isRateChange && changeResult.absolute !== undefined && Math.abs(changeResult.absolute) < 0.05 ) { 
          effectiveChangeType = 'neutral';
          if (changeAbsStr && changeAbsStr !== '-') changeAbsStr = `0.0 pp`;
     }
@@ -572,7 +564,7 @@ export const calculateKpis = (
              return { comparisonChange: '-', comparisonChangeAbsolute: '-', comparisonChangeType: 'neutral' };
         }
     }
-    if (compValue === undefined || compValue === null || isNaN(compValue)) { // Added isNaN for compValue
+    if (compValue === undefined || compValue === null || isNaN(compValue)) { 
          return { comparisonChange: '-', comparisonChangeAbsolute: '-', comparisonChangeType: 'neutral' };
     }
 
@@ -587,11 +579,8 @@ export const calculateKpis = (
   };
 
   let premWrittenIsGrowthGoodForColor = true;
-  let vcrForPremiumGrowthColor = current.variable_cost_ratio; // Default to current context's VCR
+  let vcrForPremiumGrowthColor = current.variable_cost_ratio; 
 
-  // For "保费" KPI card's change color, always use YTD VCR of the *current period and selection*
-  // If current metrics are already YTD (analysisMode == 'cumulative'), vcrForPremiumGrowthColor is already correct.
-  // If current metrics are PoP, we need to calculate the YTD VCR for the current period and selection.
   if (analysisMode === 'periodOverPeriod') {
       if (activePeriodIdForKpiCalc && allV4DataForKpiCalc && allV4DataForKpiCalc.length > 0) {
           const activePeriodRawData = allV4DataForKpiCalc.find(
@@ -605,9 +594,9 @@ export const calculateKpis = (
               );
               
               const ytdMetricsForCurrentContext = aggregateAndCalculateMetrics(
-                  ytdEntriesForActivePeriod, // These are YTD entries, filtered by selection
-                  'cumulative', // Explicitly calculate as cumulative
-                  originalBaseYtdEntriesForActivePeriod // All YTD entries for the period
+                  ytdEntriesForActivePeriod, 
+                  'cumulative', 
+                  originalBaseYtdEntriesForActivePeriod 
               );
               vcrForPremiumGrowthColor = ytdMetricsForCurrentContext.variable_cost_ratio;
           }
@@ -703,11 +692,8 @@ export const calculateKpis = (
     },
     {
       id: 'premium_share', title: '保费占比',
-      value: formatDisplayValue(data.premium_share, 'premium_share'), // premium_share is directly on ProcessedDataForPeriod
+      value: formatDisplayValue(data.premium_share, 'premium_share'), 
       rawValue: data.premium_share, icon: 'PieChart',
-      // For premium_share comparison, it should be based on YTD values of current and comparison period
-      // data.momMetrics.premium_share would need to be pre-calculated if available
-      // Let's assume comparisonMetrics has a premium_share if it's calculated correctly for the comp period
       ...createKpiComparisonFields(data.premium_share, comparisonMetrics?.premium_share, 'premium_share', true, true),
     },
     {
@@ -737,11 +723,11 @@ export const calculateKpis = (
 
 
 (globalThis as any).allV4DataForKpiWorkaround = [];
-(globalThis as any)._activePeriodIdForKpiCalc = '';
+// (globalThis as any)._activePeriodIdForKpiCalc = ''; // Removed as it's no longer used by calculateKpis globally
 
 export function setGlobalV4DataForKpiWorkaround(allV4Data: V4PeriodData[], activePeriodId: string) {
   (globalThis as any).allV4DataForKpiWorkaround = allV4Data;
-  (globalThis as any)._activePeriodIdForKpiCalc = activePeriodId;
+  // (globalThis as any)._activePeriodIdForKpiCalc = activePeriodId; // This line is removed
 }
 (globalThis as any)._selectedBusinessTypesForExport = [];
 export function setSelectedBusinessTypesForExport(types: string[]) {
@@ -871,7 +857,5 @@ export function exportToCSV(
     link.click();
     document.body.removeChild(link);
 }
-
-    
 
     
