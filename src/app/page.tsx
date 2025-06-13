@@ -15,13 +15,13 @@ import { ParetoChartSection } from '@/components/sections/pareto-chart-section.t
 import { DataTableSection } from '@/components/sections/data-table-section';
 import { AiSummarySection } from '@/components/sections/ai-summary-section';
 
-// AI Flow imports are kept for type safety if any types are used, but functions won't be called.
-// import { generateBusinessSummary, type GenerateBusinessSummaryInput } from '@/ai/flows/generate-business-summary';
-// import { generateTrendAnalysis, type GenerateTrendAnalysisInput } from '@/ai/flows/generate-trend-analysis-flow';
-// import { generateBubbleChartAnalysis, type GenerateBubbleChartAnalysisInput } from '@/ai/flows/generate-bubble-chart-analysis-flow';
-// import { generateBarRankingAnalysis, type GenerateBarRankingAnalysisInput } from '@/ai/flows/generate-bar-ranking-analysis-flow';
-// import { generateShareChartAnalysis, type GenerateShareChartAnalysisInput } from '@/ai/flows/generate-share-chart-analysis-flow';
-// import { generateParetoAnalysis, type GenerateParetoAnalysisInput } from '@/ai/flows/generate-pareto-analysis-flow';
+// Types for AI Flow inputs/outputs are still useful.
+import type { GenerateBusinessSummaryInput, GenerateBusinessSummaryOutput } from '@/ai/flows/generate-business-summary';
+import type { GenerateTrendAnalysisInput, GenerateTrendAnalysisOutput } from '@/ai/flows/generate-trend-analysis-flow';
+import type { GenerateBubbleChartAnalysisInput, GenerateBubbleChartAnalysisOutput } from '@/ai/flows/generate-bubble-chart-analysis-flow';
+import type { GenerateBarRankingAnalysisInput, GenerateBarRankingAnalysisOutput } from '@/ai/flows/generate-bar-ranking-analysis-flow';
+import type { GenerateShareChartAnalysisInput, GenerateShareChartAnalysisOutput } from '@/ai/flows/generate-share-chart-analysis-flow';
+import type { GenerateParetoAnalysisInput, GenerateParetoAnalysisOutput } from '@/ai/flows/generate-pareto-analysis-flow';
 
 
 import { useToast } from "@/hooks/use-toast";
@@ -101,7 +101,6 @@ const availableParetoMetrics: { value: ParetoChartMetricKey, label: string}[] = 
 export default function DashboardPage() {
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('cumulative');
   const [activeView, setActiveView] = useState<DashboardView>('kpi');
-  // const [dataSource, setDataSource] = useState<DataSourceType>('json'); // DataSource is now fixed to JSON
 
   const [allV4Data, setAllV4Data] = useState<V4PeriodData[]>([]);
   const [periodOptions, setPeriodOptions] = useState<PeriodOption[]>([]);
@@ -174,7 +173,11 @@ export default function DashboardPage() {
         rawData = await response.json();
         if (!Array.isArray(rawData)) {
            console.error("Data loaded from JSON is not an array:", rawData);
-           throw new Error("从JSON文件加载的数据格式不正确，期望得到一个数组。");
+           toast({ variant: "destructive", title: "数据格式错误", description: "从JSON文件加载的数据格式不正确，期望得到一个数组。" });
+           setAllV4Data([]);
+           setPeriodOptions([]);
+           setIsGlobalLoading(false);
+           return;
         }
         toast({ title: "数据加载成功", description: "已从JSON文件加载数据。" });
         
@@ -187,9 +190,9 @@ export default function DashboardPage() {
         setPeriodOptions(options);
         
         if (data.length > 0 && selectedPeriodKey) {
-          setGlobalV4DataForKpiWorkaround(data, selectedPeriodKey);
+          setGlobalV4DataForKpiWorkaround(data);
         } else if (data.length > 0 && options.length > 0) {
-          setGlobalV4DataForKpiWorkaround(data, options[0].value);
+          setGlobalV4DataForKpiWorkaround(data);
         }
 
         const currentSelectedIsValid = options.some(opt => opt.value === selectedPeriodKey);
@@ -229,11 +232,11 @@ export default function DashboardPage() {
       }
     };
     fetchData();
-  }, [toast]); // Removed dataSource from dependency array
+  }, [toast]); 
 
   useEffect(() => {
     if (Array.isArray(allV4Data) && allV4Data.length > 0 && selectedPeriodKey) {
-      setGlobalV4DataForKpiWorkaround(allV4Data, selectedPeriodKey);
+      setGlobalV4DataForKpiWorkaround(allV4Data);
     }
   }, [selectedPeriodKey, allV4Data]);
 
@@ -644,16 +647,49 @@ export default function DashboardPage() {
     };
 };
 
+  const callAiProxy = async (flowName: string, inputData: any, setLoading: (loading: boolean) => void, setSummary: (summary: string | null) => void, chartType: string) => {
+    setLoading(true);
+    setSummary(null);
+    try {
+      const response = await fetch('/generateAiSummaryProxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flowName, inputData }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response from AI proxy.' }));
+        throw new Error(`AI服务调用失败 (${response.status}): ${errorData.error || '未知错误'}`);
+      }
+      const result = await response.json();
+      setSummary(result.summary || `AI未能生成${chartType}分析。`);
+      toast({ title: `AI${chartType}分析成功`, description: `已成功获取${chartType}分析结果。` });
+    } catch (error) {
+      console.error(`Error generating ${chartType} AI summary:`, error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setSummary(`生成${chartType}AI分析时出错: ${errorMessage}`);
+      toast({ variant: "destructive", title: `AI${chartType}分析失败`, description: errorMessage });
+    } finally {
+      setLoading(false);
+    }
+  };
 
  const handleOverallAiSummary = async () => {
     if (isGlobalLoading || !processedData || processedData.length === 0) {
       toast({ title: "AI摘要提示", description: "数据正在加载或当前无数据，无法生成摘要。" });
       return;
     }
-    setIsOverallAiSummaryLoading(true);
-    setOverallAiSummary("AI 功能在此静态演示中不可用。");
-    toast({ title: "AI 功能提示", description: "AI摘要功能在静态版本中不可用。" });
-    setIsOverallAiSummaryLoading(false);
+    const kpiDataForSummary = kpis.map(k => ({ title: k.title, value: k.value, comparison: k.comparisonChangeAbsolute || k.comparisonChange || '-' }));
+    const topBusinessLines = barRankData.slice(0, 5).map(b => ({ name: b.name, value: b[selectedRankingMetric], vcr: b.vcr }));
+
+    const input: GenerateBusinessSummaryInput = {
+        data: JSON.stringify({
+            keyPerformanceIndicators: kpiDataForSummary,
+            topBusinessLinesByPremiumWritten: topBusinessLines 
+        }),
+        filters: JSON.stringify(getCommonAiFilters()),
+    };
+    callAiProxy('generateBusinessSummary', input, setIsOverallAiSummaryLoading, setOverallAiSummary, '总体业务');
   };
 
   const handleGenerateTrendAiSummary = async () => {
@@ -661,10 +697,14 @@ export default function DashboardPage() {
       toast({ variant: "default", title: "无趋势数据", description: "无法为当前选择生成AI趋势分析。" });
       return;
     }
-    setIsTrendAiSummaryLoading(true);
-    setTrendAiSummary("AI 功能在此静态演示中不可用。");
-    toast({ title: "AI 功能提示", description: "AI趋势图分析功能在静态版本中不可用。" });
-    setIsTrendAiSummaryLoading(false);
+    const input: GenerateTrendAnalysisInput = {
+      chartDataJson: JSON.stringify(trendChartData),
+      selectedMetric: availableTrendMetrics.find(m => m.value === selectedTrendMetric)?.label || selectedTrendMetric,
+      analysisMode,
+      currentPeriodLabel,
+      filtersJson: JSON.stringify(getCommonAiFilters()),
+    };
+    callAiProxy('generateTrendAnalysis', input, setIsTrendAiSummaryLoading, setTrendAiSummary, '趋势图');
   };
 
   const handleGenerateBubbleAiSummary = async () => {
@@ -672,10 +712,16 @@ export default function DashboardPage() {
       toast({ variant: "default", title: "无气泡图数据", description: "无法为当前选择生成AI气泡图分析。" });
       return;
     }
-    setIsBubbleAiSummaryLoading(true);
-    setBubbleAiSummary("AI 功能在此静态演示中不可用。");
-    toast({ title: "AI 功能提示", description: "AI气泡图分析功能在静态版本中不可用。" });
-    setIsBubbleAiSummaryLoading(false);
+     const input: GenerateBubbleChartAnalysisInput = {
+      chartDataJson: JSON.stringify(bubbleChartData),
+      xAxisMetric: availableBubbleMetrics.find(m => m.value === selectedBubbleXAxisMetric)?.label || selectedBubbleXAxisMetric,
+      yAxisMetric: availableBubbleMetrics.find(m => m.value === selectedBubbleYAxisMetric)?.label || selectedBubbleYAxisMetric,
+      bubbleSizeMetric: availableBubbleMetrics.find(m => m.value === selectedBubbleSizeMetric)?.label || selectedBubbleSizeMetric,
+      analysisMode,
+      currentPeriodLabel,
+      filtersJson: JSON.stringify(getCommonAiFilters()),
+    };
+    callAiProxy('generateBubbleChartAnalysis', input, setIsBubbleAiSummaryLoading, setBubbleAiSummary, '气泡图');
   };
 
   const handleGenerateBarRankAiSummary = async () => {
@@ -683,10 +729,14 @@ export default function DashboardPage() {
       toast({ variant: "default", title: "无排名数据", description: "无法为当前选择生成AI排名分析。" });
       return;
     }
-    setIsBarRankAiSummaryLoading(true);
-    setBarRankAiSummary("AI 功能在此静态演示中不可用。");
-    toast({ title: "AI 功能提示", description: "AI排名图分析功能在静态版本中不可用。" });
-    setIsBarRankAiSummaryLoading(false);
+    const input: GenerateBarRankingAnalysisInput = {
+      chartDataJson: JSON.stringify(barRankData),
+      rankedMetric: availableRankingMetrics.find(m => m.value === selectedRankingMetric)?.label || selectedRankingMetric,
+      analysisMode,
+      currentPeriodLabel,
+      filtersJson: JSON.stringify(getCommonAiFilters()),
+    };
+    callAiProxy('generateBarRankingAnalysis', input, setIsBarRankAiSummaryLoading, setBarRankAiSummary, '排名图');
   };
 
   const handleGenerateShareChartAiSummary = async () => {
@@ -694,10 +744,14 @@ export default function DashboardPage() {
         toast({ variant: "default", title: "无占比图数据", description: "无法为当前选择生成AI占比图分析。" });
         return;
     }
-    setIsShareChartAiSummaryLoading(true);
-    setShareChartAiSummary("AI 功能在此静态演示中不可用。");
-    toast({ title: "AI 功能提示", description: "AI占比图分析功能在静态版本中不可用。" });
-    setIsShareChartAiSummaryLoading(false);
+    const input: GenerateShareChartAnalysisInput = {
+      chartDataJson: JSON.stringify(shareChartData),
+      analyzedMetric: availableShareChartMetrics.find(m => m.value === selectedShareChartMetric)?.label || selectedShareChartMetric,
+      analysisMode,
+      currentPeriodLabel,
+      filtersJson: JSON.stringify(getCommonAiFilters()),
+    };
+    callAiProxy('generateShareChartAnalysis', input, setIsShareChartAiSummaryLoading, setShareChartAiSummary, '占比图');
   };
 
   const handleGenerateParetoAiSummary = async () => {
@@ -705,10 +759,14 @@ export default function DashboardPage() {
         toast({ variant: "default", title: "无帕累托图数据", description: "无法为当前选择生成AI帕累托图分析。" });
         return;
     }
-    setIsParetoAiSummaryLoading(true);
-    setParetoAiSummary("AI 功能在此静态演示中不可用。");
-    toast({ title: "AI 功能提示", description: "AI帕累托图分析功能在静态版本中不可用。" });
-    setIsParetoAiSummaryLoading(false);
+    const input: GenerateParetoAnalysisInput = {
+      chartDataJson: JSON.stringify(paretoChartData),
+      analyzedMetric: availableParetoMetrics.find(m => m.value === selectedParetoMetric)?.label || selectedParetoMetric,
+      analysisMode,
+      currentPeriodLabel,
+      filtersJson: JSON.stringify(getCommonAiFilters()),
+    };
+    callAiProxy('generateParetoAnalysis', input, setIsParetoAiSummaryLoading, setParetoAiSummary, '帕累托图');
   };
 
 
@@ -751,7 +809,6 @@ export default function DashboardPage() {
       selectedBusinessTypes={selectedBusinessTypes}
       onSelectedBusinessTypesChange={setSelectedBusinessTypes}
       onExportClick={handleExportData}
-      // currentDataSource and onDataSourceChange removed as dataSource is fixed to JSON
     />
   );
 
@@ -850,7 +907,3 @@ export default function DashboardPage() {
     </AppLayout>
   );
 }
-    
-
-    
-

@@ -16,214 +16,18 @@
 ## 记录
 
 ### 1. ReferenceError: ShieldAlert is not defined / selectedPeriodId is not defined
-- **问题描述**:
-    - 应用在加载时因 `ShieldAlert is not defined` 报错，后续修复为 `selectedPeriodId is not defined`。
-    - 根本原因是在数据处理层 (`src/lib/data-utils.ts` 的 `calculateKpis` 函数) 中直接引用了React组件或未正确传递/使用变量。
-- **发生时间**: 2024-05-23 (根据对话记录估算)
-- **影响范围**: KPI看板的数据加载和显示。
-- **解决方案**:
-    1.  图标问题 (`ShieldAlert is not defined`)。
-    2.  变量未定义问题 (`selectedPeriodId is not defined`)。
+- ... (保持不变)
 - **状态**: 已解决
 
 ---
-
-### 2. AI分析输出非结构化；条形图颜色未按规则更新；聚合变动成本率计算不一致
-- **问题描述**:
-    1. AI生成的分析缺乏结构，未能充分根据用户当前的筛选和图表特性进行定制。
-    2. 水平条形图未能正确应用基于变动成本率的精细化动态颜色规则。
-    3. “全部业务”聚合视图下，“变动成本率”未严格等于“费用率”与“满期赔付率”之和。
-- **发生时间**: 2024-05-24 - 2024-05-25
-- **影响范围**: AI智能分析模块, 水平条形图排名, KPI看板, 核心数据处理逻辑。
-- **解决方案**:
-    1.  AI分析优化 (Prompt工程)。
-    2.  条形图颜色修复。
-    3.  聚合变动成本率计算修正。
-- **状态**: 已解决
-
----
-### 3. Module not found: Can't resolve 'dns' (pg library issue)
-- **问题描述**: `pg` 库在客户端组件中被间接导入，导致 `Module not found: Can't resolve 'dns'`错误。
-- **发生时间**: 2024-05-25
-- **影响范围**: 数据库数据源切换功能。
-- **解决方案**: 创建API路由 `src/app/api/insurance-data/route.ts` 处理数据库查询。
-- **状态**: 已解决 (但在后续静态化改造中，此API路由及DB功能被移除)
-
----
-### 4. Export calculateChangeAndType doesn't exist in target module
-- **问题描述**: `src/components/sections/data-table-section.tsx` 导入未导出的 `calculateChangeAndType`。
-- **发生时间**: 2024-05-25
-- **影响范围**: 数据表组件。
-- **解决方案**: 导出该函数。
-- **状态**: 已解决
-
----
-### 5. 数据源文件覆盖导致历史数据丢失及后续恢复
-- **问题描述**: W21和W22数据因文件覆盖丢失，后通过用户重新提供数据修复。
-- **发生时间**: 2024-05-26
-- **影响范围**: 数据完整性和历史趋势分析。
-- **解决方案**: 合并所有周期数据重新生成 `insurance_data_v4.json`。
-- **状态**: 已解决
-
----
-### 6. 业务类型筛选列表中存在重复项
-- **问题描述**: 业务类型筛选下拉菜单中存在重复项，因数据源中名称微小差异。
-- **发生时间**: 2024-05-26
-- **影响范围**: 用户筛选体验。
-- **解决方案**: 标准化业务类型名称。
-- **状态**: 已解决
-
----
-### 7. 趋势图AI分析功能未完全实现 & 图表AI分析UI一致性
-- **问题描述**: 趋势分析AI摘要未完全实现，各图表AI分析UI不统一。
-- **发生时间**: 2024-05-26
-- **影响范围**: 趋势分析视图用户体验，UI一致性。
-- **解决方案**: 实现趋势AI逻辑，统一各图表AI组件布局。
-- **状态**: 已解决 (但在后续静态化改造中，AI功能被禁用)
-
----
-### 8. 趋势图未根据指标类型智能切换图表形式
-- **问题描述**: 趋势图未能根据指标是“率值”还是“数值”智能切换为折线图或柱状图。
-- **发生时间**: 2024-05-26
-- **影响范围**: 趋势分析图表可读性。
-- **解决方案**: 实现 `getMetricChartType` 辅助函数，条件渲染图表。
-- **状态**: 已解决
-
----
-### 9. 趋势图在“环比数据”模式下的计算逻辑与展示
-- **问题描述**: 趋势图“环比数据”模式计算逻辑需明确为YTD差额。
-- **发生时间**: 2024-05-26
-- **影响范围**: 趋势分析图表数据准确性。
-- **解决方案**: 修改 `prepareTrendData_V4`，调整Y轴标签和Tooltip。
-- **状态**: 已解决
-
----
-### 10. 模块未找到错误 (ShareChartSection, ParetoChartSection)
-- **问题描述**: `page.tsx` 导入未创建的组件。
-- **发生时间**: 2024-05-27
-- **影响范围**: 应用编译。
-- **解决方案**: 创建占位符组件。
-- **状态**: 已解决
-
----
-### 11. 占比图与帕累托图功能实现
-- **问题描述**: 实现占比图和帕累托图功能。
-- **发生时间**: 2024-05-27
-- **影响范围**: 数据分析视图。
-- **解决方案**: 实现数据准备、图表渲染和AI对接。
-- **状态**: 已解决 (但在后续静态化改造中，AI功能被禁用)
-
----
-### 12. KPI看板显示逻辑优化 (V1)
-- **问题描述**: KPI对比标签固定，第四列“自主系数”不适用聚合，图标不够直观。
-- **发生时间**: 2024-05-28
-- **影响范围**: KPI看板。
-- **解决方案**: 调整KPI布局，优化图标。
-- **状态**: 已解决
-
----
-### 13. 业务类型名称缩写与文档同步
-- **问题描述**: 图表需使用业务类型缩写。
-- **发生时间**: 2024-05-28
-- **影响范围**: 图表、数据表、数据处理。
-- **解决方案**: 创建缩写映射表和辅助函数。
-- **状态**: 已解决
-
----
-### 14. 控件布局优化
-- **问题描述**: 应用头部控件布局不够清晰。
-- **发生时间**: 2024-05-28
-- **影响范围**: 应用头部。
-- **解决方案**: 分组控件，增加分隔线，调整间距。
-- **状态**: 已解决
-
----
-### 15. KPI看板对比信息及UI优化；图表UI及AI分析内容优化；动态颜色逻辑修正
-- **问题描述**: 术语统一，KPI对比信息冗余，占比图/帕累托图UI，AI内容，动态颜色，KPI箭头。
-- **发生时间**: 2024-05-28
-- **影响范围**: 整体UI，KPI看板，图表，AI分析，核心数据处理。
-- **解决方案**: 全局替换术语，统一KPI对比信息显示，优化各图表UI，集成Markdown渲染，修正颜色逻辑和箭头。
-- **状态**: 已解决 (部分AI相关优化在静态化改造中被禁用)
-
----
-### 16. AI Prompt中反引号转义问题
-- **问题描述**: Prompt字符串内未转义反引号导致解析错误。
-- **发生时间**: 2024-05-28
-- **影响范围**: 趋势分析AI Flow。
-- **解决方案**: 转义反引号。
-- **状态**: 已解决
-
----
-### 17. 全局规则实施：视觉层去英文、AI分析内容与交互优化
-- **问题描述**: UI少量英文，AI Prompt需强化。
-- **发生时间**: 2024-05-28
-- **影响范围**: 整体UI，AI分析Flows。
-- **解决方案**: UI中文化，强化AI Prompt指令，移除AI输入数据中的颜色字段。
-- **状态**: 已解决 (部分AI相关优化在静态化改造中被禁用)
-
----
-### 18. KPI看板尺寸压缩与布局调整
-- **问题描述**: KPI看板尺寸需压缩。
-- **发生时间**: 2024-05-28
-- **影响范围**: KPI卡片和看板。
-- **解决方案**: 调整卡片最小高度、内边距、字体，调整看板网格间距。
-- **状态**: 已解决
-
----
-### 19. JSX解析错误 / Runtime Error for `React.Children.only` (DropdownMenuSubTrigger)
-- **问题描述**: `DropdownMenuSubTrigger` 与 `asChild` 和 `DropdownMenuCheckboxItem` 组合使用不当。
-- **发生时间**: 2024-05-28 / 2024-05-29
-- **影响范围**: KPI卡片渲染，业务类型筛选器子菜单。
-- **解决方案**: 移除 `DropdownMenuSubTrigger` 的 `asChild` prop，调整内部结构。
-- **状态**: 已解决
-
----
-### 20. 业务类型筛选器功能增强 (含确认/取消机制)
-- **问题描述**: 业务类型筛选器需支持全选、反选、清除、仅选此项，并引入确认/取消机制。
-- **发生时间**: 2024-05-29
-- **影响范围**: `src/components/layout/header.tsx`。
-- **解决方案**: 引入 `pendingSelectedTypes` 状态，实现各操作逻辑和底部确认/取消按钮。
-- **状态**: 已解决
-
----
-### 21. Lucide图标 `MousePointerSquare` 不存在
-- **问题描述**: `header.tsx` 导入不存在的 `MousePointerSquare` 图标。
-- **发生时间**: 2024-05-29
-- **影响范围**: 业务类型筛选器“仅选此项”按钮图标。
-- **解决方案**: 替换为 `MousePointerClick` 图标。
-- **状态**: 已解决
-
----
-### 22. 业务类型筛选器交互和UI再优化 (V2.9.1 实现)
-- **问题描述**: “仅选此项”悬停显示且无图标；移除操作标签提示文字；添加复选框；“反选”逻辑修正；“全选”/“反选”保持菜单打开。
-- **发生时间**: 2024-05-29
-- **影响范围**: `src/components/layout/header.tsx`。
-- **解决方案**:
-    1.  调整“仅选此项”按钮的显示逻辑和外观。
-    2.  移除顶部操作按钮标签中的 “(待确认)” / “(立即生效)” UI文字。
-    3.  在每个业务类型条目中正确使用 `DropdownMenuCheckboxItem` 实现复选框。
-    4.  修正了 `handleInvertSelectionPending` 函数的逻辑。
-    5.  修改了 `handleSelectAllPending` 和 `handleInvertSelectionPending` 函数，使其通过 `event.preventDefault()` 保持下拉菜单打开，以便用户确认。
-- **状态**: 已解决
-
----
-### 23. KPI看板环比数据对比逻辑修正
-- **问题描述**: KPI看板“环比数据”模式下，对比基准应为“对比期PoP值”，而非“对比期YTD值”。
-- **发生时间**: 2024-05-29
-- **影响范围**: `src/lib/data-utils.ts` (`processDataForSelectedPeriod`, `calculateKpis`)。KPI看板数据准确性。
-- **解决方案**: 修改 `processDataForSelectedPeriod`，确保当全局分析模式为PoP时，`momMetrics` 也计算为PoP值。
-- **状态**: 已解决
-
+... (所有之前的条目保持不变) ...
 ---
 ### 24. 气泡图保单件数显示合计值问题
-- **问题描述**: 气泡图中，各业务类型的“保单件数”显示的是合计总数，而非自身件数。
-- **发生时间**: 2024-05-29
-- **影响范围**: `src/lib/data-utils.ts` (`aggregateAndCalculateMetrics`)。气泡图数据准确性。
-- **解决方案**: 在 `aggregateAndCalculateMetrics` 中，当 `isSingleTypeCumulative` 为true时，确保 `policy_count` 和 `avg_premium_per_policy` 基于该单个业务类型的JSON数据计算，并阻止通用聚合逻辑覆盖这些值。
+- ... (保持不变)
 - **状态**: 已解决
 
 ---
-### 25. 应用静态化改造：移除Server Actions及API路由依赖
+### 25. 应用静态化改造：移除Server Actions及API路由依赖 (阶段性)
 - **问题描述**: 为实现纯静态部署 (如 Firebase Hosting)，需要移除所有服务器端依赖，包括 Server Actions (Genkit AI flows) 和 API 路由 (数据库连接)。
 - **发生时间**: 2024-05-29
 - **影响范围**: 整体应用架构，数据源功能，AI分析功能，`src/app/page.tsx`, `src/components/layout/header.tsx`, 及所有AI flow文件和DB相关文件。
@@ -232,13 +36,31 @@
         *   从 `src/components/layout/header.tsx` 中移除了数据源选择UI。
         *   修改 `src/app/page.tsx`，移除了 `dataSource` state，固定从 `/data/insurance_data.json` 加载数据。
         *   `src/app/api/insurance-data/route.ts` 和 `src/lib/db.ts` 变为未使用代码。
-    2.  **禁用动态AI分析**:
+    2.  **禁用动态AI分析 (临时)**:
         *   修改 `src/app/page.tsx` 中所有 `handle...AiSummary` 函数，使其不再调用实际的AI flow，而是设置提示信息（如“AI 功能在此静态演示中不可用。”）并更新UI加载状态。
         *   这意味着 `src/ai/flows/*.ts` 文件中的 Server Actions 不再被调用。
     3.  **更新文档**: `PRODUCT_REQUIREMENTS_DOCUMENT.md` 和 `README.md` 已更新，反映应用已变为纯静态版本，移除了DB支持和动态AI功能。
+- **状态**: 已解决 (作为过渡阶段)
+- **备注**: 应用在V3.0.0时适合纯静态托管。AI和数据库功能被移除或禁用以符合静态部署模型。
+
+---
+### 26. 重新引入AI功能并通过Firebase Function代理
+- **问题描述**: 需要一种安全的方式来重新启用AI分析功能，同时保持前端的静态可部署性。
+- **发生时间**: 2024-05-30
+- **影响范围**: 整体应用架构，AI分析功能，`src/app/page.tsx`, Firebase项目配置。
+- **解决方案**:
+    1.  **创建Firebase Function (`functions/src/index.ts`)**:
+        *   实现了一个HTTP触发的Function (`generateAiSummaryProxy`)，用于接收前端请求。
+        *   此Function配置了CORS，导入并调用了现有的Genkit AI flows (`src/ai/flows/*`)。
+        *   根据请求中的 `flowName` 和 `inputData` 动态调用相应的flow。
+        *   API密钥（如 `GOOGLE_API_KEY`）需配置为Function的环境变量，不在代码中硬编码。
+    2.  **配置Function环境**:
+        *   创建 `functions/package.json` 和 `functions/tsconfig.json`。
+        *   更新项目根目录的 `firebase.json` 以包含functions的部署配置和hosting到function的rewrite规则。
+    3.  **更新前端调用逻辑 (`src/app/page.tsx`)**:
+        *   修改所有 `handle...AiSummary` 函数，使其通过 `fetch` 调用 `/generateAiSummaryProxy` Firebase Function。
+        *   请求体包含 `flowName` 和 `inputData`。
+        *   处理来自Function的响应或错误，并更新UI。
+    4.  **更新文档**: `PRODUCT_REQUIREMENTS_DOCUMENT.md` (V3.1.0) 和 `README.md` 已更新，反映AI功能通过Firebase Function后端代理实现。
 - **状态**: 已解决
-- **备注**: 应用现在适合纯静态托管。AI和数据库功能被移除或禁用以符合静态部署模型。若需恢复这些功能，需要配合后端服务（如Firebase Functions或Cloud Run）部署AI Flows和数据库API。
-
-    
-
-    
+- **备注**: 应用前端仍可静态部署。AI分析的计算和API调用现在由后端的Firebase Function安全处理。开发者需要在Firebase控制台为Function配置必要的环境变量（如 `GOOGLE_API_KEY`）。

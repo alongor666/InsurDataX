@@ -1,7 +1,7 @@
 
-# 车险经营分析周报应用 (纯静态版)
+# 车险经营分析周报应用 (带后端AI代理)
 
-本项目是一个基于 Next.js, React, ShadCN UI, Tailwind CSS 构建的车险经营分析仪表盘应用。**当前版本为纯静态版本，专为静态托管设计，AI分析功能已禁用，数据源固定为本地JSON文件。**
+本项目是一个基于 Next.js, React, ShadCN UI, Tailwind CSS 构建的车险经营分析仪表盘应用。**AI分析功能通过后端的 Firebase Function 代理实现，数据源固定为本地JSON文件。**
 
 ## 目标
 
@@ -27,9 +27,10 @@
     * 支持当前数据周期选择。
     * 支持自定义对比周期选择。
     * **业务类型筛选 (增强版)**: 支持全选、反选、清除、仅选此项、复选框勾选，部分操作需确认。
-    * **数据源**: 固定为本地JSON文件 (`public/data/insurance_data.json`)。数据源切换功能已移除。
-- **AI智能分析 (已禁用)**:
-    * 总体业务摘要和各图表的独立AI解读功能在此静态版本中已禁用。相关UI会提示功能不可用。
+    * **数据源**: 固定为本地JSON文件 (`public/data/insurance_data.json`)。
+- **AI智能分析 (通过Firebase Function)**:
+    * 总体业务摘要和各图表的独立AI解读功能通过后端的Firebase Function调用Genkit flow实现。
+    * **重要**: 需要在Firebase Function中配置 `GOOGLE_API_KEY` (或其他AI服务商的API密钥) 环境变量。
 - **动态颜色提示**: 图表根据变动成本率动态调整颜色。
 - **数据导出**: 支持将数据表内容导出为CSV。
 - **全局数值格式化**: 应用内数值显示遵循统一规则。
@@ -45,52 +46,51 @@
     - Recharts (图表库)
     - Lucide React (图标)
     - react-markdown (Markdown渲染)
-- **AI 功能 (已禁用)**:
-    - Genkit (Google AI) - 相关代码保留，但调用已移除。
+- **后端 (AI代理)**:
+    - Firebase Functions (Node.js)
+    - Genkit (Google AI)
+    - CORS
 - **数据**:
     - 本地 JSON 文件 (`public/data/insurance_data.json`) 作为**唯一**数据源。
-    - PostgreSQL 连接逻辑已不再被应用调用。
 
 ## 项目结构
 
 - `src/app/`: Next.js 页面和布局。
 - `src/components/`: 应用的React组件。
-- `src/ai/`: Genkit相关的AI Flow和配置 (在此静态版本中，flows不被调用)。
+- `src/ai/`: Genkit相关的AI Flow和配置。
 - `src/lib/`: 工具函数和核心逻辑。
     - `data-utils.ts`: 数据处理、聚合、KPI计算等。
-    - `db.ts`: PostgreSQL数据库连接逻辑（在此静态版本中未使用）。
 - `src/data/`: 数据类型定义。
 - `public/data/`: 存放应用的原始数据文件 (`insurance_data.json`)。
+- `functions/`: Firebase Functions的源代码。
+    - `src/index.ts`: AI代理Function的实现。
+    - `package.json`: Functions的依赖。
 - `PRODUCT_REQUIREMENTS_DOCUMENT.md`: 产品需求文档。
 - `FIELD_DICTIONARY_V4.md`: 字段字典与计算逻辑。
 - `ISSUES_LOG.md`: 问题与解决日志。
 
-## 运行项目 (静态版)
+## 运行项目
 
-1.  确保已安装 Node.js 和 npm/yarn。
-2.  安装依赖:
-    ```bash
-    npm install
-    # 或
-    yarn install
-    ```
-3.  启动开发服务器 (主要用于UI和纯前端逻辑开发):
-    ```bash
-    npm run dev
-    # 或
-    yarn dev
-    ```
-    应用通常会在 `http://localhost:9002` 启动。
-4.  构建用于静态部署的应用:
-    ```bash
-    npm run build
-    # 这会根据 next.config.ts 中的 output: "export" 生成 out 文件夹
-    ```
-    `out` 文件夹中的内容可以直接部署到任何静态文件托管服务。
+1.  确保已安装 Node.js 和 npm/yarn，以及 Firebase CLI。
+2.  **前端应用**:
+    *   进入项目根目录。
+    *   安装依赖: `npm install` 或 `yarn install`
+    *   启动开发服务器: `npm run dev` 或 `yarn dev` (通常在 `http://localhost:9002`)
+    *   构建静态文件: `npm run build` (会生成到 `out` 目录)
+3.  **后端 Firebase Function (AI代理)**:
+    *   进入 `functions` 目录。
+    *   安装依赖: `npm install`
+    *   (可选) 编译TypeScript: `npm run build` (如果 `functions/package.json` 中有此脚本)
+    *   **环境变量**: 确保为Function配置了API密钥。对于本地模拟器，可以在项目根目录创建 `.env.local` 文件并添加 `GOOGLE_API_KEY=your_actual_api_key`，然后在 `functions/.env` 或 `functions/.env.local` (如果支持) 中引用，或者直接在模拟器启动命令中设置。更推荐的做法是使用 Firebase CLI 配置环境变量：`firebase functions:config:set google.api_key="YOUR_API_KEY"` (查阅 Firebase 文档获取最新命令)。
+4.  **本地模拟与测试**:
+    *   在项目根目录运行 Firebase Emulators: `firebase emulators:start` (确保已配置 `firebase.json` 来模拟hosting和functions)。
+    *   前端应用会调用模拟器中的Function。
+5.  **部署到 Firebase**:
+    *   在项目根目录运行: `firebase deploy`
+    *   这将同时部署 Next.js 静态站点到 Firebase Hosting 和 Firebase Function。
 
 ## 文档
 
-- **产品需求文档**: `PRODUCT_REQUIREMENTS_DOCUMENT.md` (V3.0.0 - 静态版)
+- **产品需求文档**: `PRODUCT_REQUIREMENTS_DOCUMENT.md`
 - **字段字典与计算逻辑**: `FIELD_DICTIONARY_V4.md`
 - **问题与解决日志**: `ISSUES_LOG.md`
-
