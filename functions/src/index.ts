@@ -12,13 +12,13 @@ if (!admin.apps.length) {
   admin.initializeApp();
 }
 
-// Dynamically import Genkit flows
-import { generateBusinessSummary, type GenerateBusinessSummaryInput } from '@/ai/flows/generate-business-summary';
-import { generateTrendAnalysis, type GenerateTrendAnalysisInput } from '@/ai/flows/generate-trend-analysis-flow';
-import { generateBubbleChartAnalysis, type GenerateBubbleChartAnalysisInput } from '@/ai/flows/generate-bubble-chart-analysis-flow';
-import { generateBarRankingAnalysis, type GenerateBarRankingAnalysisInput } from '@/ai/flows/generate-bar-ranking-analysis-flow';
-import { generateShareChartAnalysis, type GenerateShareChartAnalysisInput } from '@/ai/flows/generate-share-chart-analysis-flow';
-import { generateParetoAnalysis, type GenerateParetoAnalysisInput } from '@/ai/flows/generate-pareto-analysis-flow';
+// Dynamically import Genkit flows from the local 'ai/flows' directory
+import { generateBusinessSummary, type GenerateBusinessSummaryInput } from './ai/flows/generate-business-summary';
+import { generateTrendAnalysis, type GenerateTrendAnalysisInput } from './ai/flows/generate-trend-analysis-flow';
+import { generateBubbleChartAnalysis, type GenerateBubbleChartAnalysisInput } from './ai/flows/generate-bubble-chart-analysis-flow';
+import { generateBarRankingAnalysis, type GenerateBarRankingAnalysisInput } from './ai/flows/generate-bar-ranking-analysis-flow';
+import { generateShareChartAnalysis, type GenerateShareChartAnalysisInput } from './ai/flows/generate-share-chart-analysis-flow';
+import { generateParetoAnalysis, type GenerateParetoAnalysisInput } from './ai/flows/generate-pareto-analysis-flow';
 
 
 // Configure CORS
@@ -90,4 +90,3 @@ export const generateAiSummaryProxy = functions
       }
     });
   });
-

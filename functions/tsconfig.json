@@ -1,3 +1,4 @@
+
 {
   "compilerOptions": {
     "module": "commonjs",
@@ -10,13 +11,13 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["../src/*"] 
-    }
+    "baseUrl": ".", // Base URL is the 'functions' directory
+    // "paths" alias that reached outside is removed to ensure self-contained function code.
+    // If you had internal aliases within 'functions/src', they would go here.
+    // e.g., "@local_utils/*": ["src/utils/*"]
   },
   "compileOnSave": true,
   "include": [
-    "src"
+    "src" // Includes everything in 'functions/src'
   ]
 }
