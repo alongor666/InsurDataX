@@ -3,11 +3,11 @@
 
 import type { ParetoChartDataItem, ParetoChartMetricKey } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
-import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
+// ChartAiSummary removed
 import { AreaChart as AreaChartIcon, Palette } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChartContainer, ChartTooltip, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
-import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'; // Removed Legend import as we use ChartLegend
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'; 
 import type { TooltipProps } from 'recharts';
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import { formatDisplayValue } from '@/lib/data-utils';
@@ -17,12 +17,9 @@ interface ParetoChartSectionProps {
   availableMetrics: { value: ParetoChartMetricKey, label: string }[];
   selectedMetric: ParetoChartMetricKey;
   onMetricChange: (metric: ParetoChartMetricKey) => void;
-  aiSummary: string | null;
-  isAiSummaryLoading: boolean;
-  onGenerateAiSummary: () => Promise<void>;
+  // aiSummary, isAiSummaryLoading, onGenerateAiSummary props removed
 }
 
-// Simplified rules for chart display, mainly for tick optimization.
 const METRIC_FORMAT_RULES_FOR_CHARTS: Record<string, { type: string, originalUnit?: string }> = {
   'premium_written': { type: 'integer_wanyuan', originalUnit: '万元' },
   'premium_earned': { type: 'integer_wanyuan', originalUnit: '万元' },
@@ -36,8 +33,7 @@ const METRIC_FORMAT_RULES_FOR_CHARTS: Record<string, { type: string, originalUni
 
 const CustomTooltipContent = ({ active, payload, label, selectedMetricKey, availableMetricsList }: TooltipProps<ValueType, NameType> & { selectedMetricKey?: ParetoChartMetricKey, availableMetricsList?: { value: ParetoChartMetricKey, label: string }[] }) => {
   if (active && payload && payload.length && selectedMetricKey && availableMetricsList) {
-    const dataPoint = payload[0]?.payload as ParetoChartDataItem; // Bar data
-    // const lineDataPoint = payload.find(p => p.dataKey === 'cumulativePercentage')?.payload as ParetoChartDataItem; // Line data, not strictly needed if dataPoint has all
+    const dataPoint = payload[0]?.payload as ParetoChartDataItem; 
 
     const metricConfig = availableMetricsList.find(m => m.value === selectedMetricKey);
 
@@ -78,9 +74,6 @@ export function ParetoChartSection({
   availableMetrics,
   selectedMetric,
   onMetricChange,
-  aiSummary,
-  isAiSummaryLoading,
-  onGenerateAiSummary,
 }: ParetoChartSectionProps) {
 
   const metricSelector = (
@@ -102,7 +95,7 @@ export function ParetoChartSection({
   const hasData = data && data.length > 0;
   const selectedMetricConfig = availableMetrics.find(m => m.value === selectedMetric);
   const chartConfig = {
-      value: { label: selectedMetricConfig?.label || selectedMetric, color: "hsl(var(--chart-1))" }, // Changed key to 'value' to match Bar dataKey
+      value: { label: selectedMetricConfig?.label || selectedMetric, color: "hsl(var(--chart-1))" }, 
       cumulativePercentage: { label: "累计占比 (%)", color: "hsl(var(--chart-2))" }
   };
   
@@ -123,14 +116,12 @@ export function ParetoChartSection({
         <div className="h-[400px] w-full"> 
           <ChartContainer config={chartConfig} className="h-full w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 50 }}> {/* Increased bottom margin */}
+              <ComposedChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 50 }}> 
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis 
                     dataKey="name" 
-                    tick={{ fontSize: 11 }} // Slightly smaller font for horizontal display
-                    // angle={0} // Ensure horizontal
-                    // textAnchor="middle" // Anchor horizontal labels correctly
-                    height={70} // Increased height for XAxis horizontal labels
+                    tick={{ fontSize: 11 }} 
+                    height={70} 
                     interval={0} 
                 />
                 <YAxis 
@@ -179,13 +170,8 @@ export function ParetoChartSection({
           </ChartContainer>
         </div>
       )}
-      <ChartAiSummary
-        summary={aiSummary}
-        isLoading={isAiSummaryLoading}
-        onGenerateSummary={onGenerateAiSummary}
-        hasData={hasData}
-        chartTypeLabel="帕累托图"
-      />
+      {/* ChartAiSummary component removed */}
     </SectionWrapper>
   );
 }
+

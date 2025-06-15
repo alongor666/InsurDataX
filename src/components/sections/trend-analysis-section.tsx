@@ -3,7 +3,7 @@
 
 import type { ChartDataItem } from '@/data/types'; 
 import { SectionWrapper } from '@/components/shared/section-wrapper';
-import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
+// ChartAiSummary removed
 import { LineChart as LucideLineChart, Palette, BarChart2 } from 'lucide-react'; 
 import { ChartContainer, ChartTooltip, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { CartesianGrid, Line, Bar, LineChart as RechartsLineChart, BarChart as RechartsBarChart, XAxis, YAxis, TooltipProps, Cell, LabelList } from "recharts"; 
@@ -18,10 +18,8 @@ interface TrendAnalysisSectionProps {
   availableMetrics: { value: TrendMetricKey, label: string }[]; 
   onMetricChange: (metric: TrendMetricKey) => void; 
   selectedMetric: TrendMetricKey; 
-  aiSummary: string | null;
-  isAiSummaryLoading: boolean;
-  onGenerateAiSummary: () => Promise<void>;
-  analysisMode: AnalysisMode; // Added analysisMode prop
+  analysisMode: AnalysisMode; 
+  // aiSummary, isAiSummaryLoading, onGenerateAiSummary props removed
 }
 
 const METRIC_FORMAT_RULES_FOR_CHARTS: Record<string, { type: string, originalUnit?: string }> = {
@@ -120,10 +118,7 @@ export function TrendAnalysisSection({
   availableMetrics, 
   onMetricChange, 
   selectedMetric,
-  aiSummary,
-  isAiSummaryLoading,
-  onGenerateAiSummary,
-  analysisMode // Destructure analysisMode
+  analysisMode 
 }: TrendAnalysisSectionProps) {
   
   const businessLineNames = useMemo(() => {
@@ -153,10 +148,9 @@ export function TrendAnalysisSection({
   const yAxisFormatter = (value: number) => {
     const ruleForSelectedMetric = METRIC_FORMAT_RULES_FOR_CHARTS[selectedMetric];
     if (analysisMode === 'periodOverPeriod' && ruleForSelectedMetric?.type === 'percentage') {
-        return value.toFixed(1); // Raw number for the tick, unit (pp) is on axis label
+        return value.toFixed(1); 
     }
-    // For other cases, formatDisplayValue handles it (including adding % for cumulative rates)
-    // K/M formatting for large numbers can be added here if desired, but formatDisplayValue provides base.
+    
     if ((ruleForSelectedMetric?.type === 'integer_wanyuan' || ruleForSelectedMetric?.type === 'integer_yuan') && Math.abs(value) >= 1000000) return (value / 1000000).toFixed(1) + 'M';
     if ((ruleForSelectedMetric?.type === 'integer_wanyuan' || ruleForSelectedMetric?.type === 'integer_yuan') && Math.abs(value) >= 1000) return (value / 1000).toFixed(0) + 'K';
     
@@ -261,13 +255,7 @@ export function TrendAnalysisSection({
           </ChartContainer>
         </div>
       )}
-      <ChartAiSummary
-        summary={aiSummary}
-        isLoading={isAiSummaryLoading}
-        onGenerateSummary={onGenerateAiSummary}
-        hasData={hasData}
-        chartTypeLabel="趋势图"
-      />
+      {/* ChartAiSummary component removed */}
     </SectionWrapper>
   );
 }

@@ -1,3 +1,4 @@
+
 /**
  * @fileOverview Firebase Functions for AI proxy.
  */
@@ -12,15 +13,14 @@ if (!admin.apps.length) {
 }
 
 // Dynamically import Genkit flows
-// Note: Adjust paths if your Genkit flows are structured differently
-// or if you have a central 'ai.ts' for Genkit initialization.
-// Assuming flows can be imported from the main src directory.
+// Only the overall business summary flow is needed now.
 import { generateBusinessSummary, type GenerateBusinessSummaryInput } from '@/ai/flows/generate-business-summary';
-import { generateTrendAnalysis, type GenerateTrendAnalysisInput } from '@/ai/flows/generate-trend-analysis-flow';
-import { generateBubbleChartAnalysis, type GenerateBubbleChartAnalysisInput } from '@/ai/flows/generate-bubble-chart-analysis-flow';
-import { generateBarRankingAnalysis, type GenerateBarRankingAnalysisInput } from '@/ai/flows/generate-bar-ranking-analysis-flow';
-import { generateShareChartAnalysis, type GenerateShareChartAnalysisInput } from '@/ai/flows/generate-share-chart-analysis-flow';
-import { generateParetoAnalysis, type GenerateParetoAnalysisInput } from '@/ai/flows/generate-pareto-analysis-flow';
+// Removed imports for:
+// generateTrendAnalysis, GenerateTrendAnalysisInput
+// generateBubbleChartAnalysis, GenerateBubbleChartAnalysisInput
+// generateBarRankingAnalysis, GenerateBarRankingAnalysisInput
+// generateShareChartAnalysis, GenerateShareChartAnalysisInput
+// generateParetoAnalysis, GenerateParetoAnalysisInput
 
 // Configure CORS
 const corsHandler = cors({ origin: true });
@@ -31,12 +31,10 @@ interface AiProxyRequest {
 }
 
 export const generateAiSummaryProxy = functions
-  .region('us-central1') // Specify your desired region
+  .region('us-central1') 
   .runWith({
-    timeoutSeconds: 300, // Increase timeout for potentially long AI calls
-    memory: '1GB',      // Adjust memory as needed
-    // IMPORTANT: Set your GOOGLE_API_KEY (or other AI provider keys) in Firebase Function environment variables
-    // For local testing with emulators, you can use .env.local or set them in your shell
+    timeoutSeconds: 300, 
+    memory: '1GB',      
   })
   .https.onRequest(async (request, response) => {
     corsHandler(request, response, async () => {
@@ -60,23 +58,9 @@ export const generateAiSummaryProxy = functions
           case 'generateBusinessSummary':
             result = await generateBusinessSummary(inputData as GenerateBusinessSummaryInput);
             break;
-          case 'generateTrendAnalysis':
-            result = await generateTrendAnalysis(inputData as GenerateTrendAnalysisInput);
-            break;
-          case 'generateBubbleChartAnalysis':
-            result = await generateBubbleChartAnalysis(inputData as GenerateBubbleChartAnalysisInput);
-            break;
-          case 'generateBarRankingAnalysis':
-            result = await generateBarRankingAnalysis(inputData as GenerateBarRankingAnalysisInput);
-            break;
-          case 'generateShareChartAnalysis':
-            result = await generateShareChartAnalysis(inputData as GenerateShareChartAnalysisInput);
-            break;
-          case 'generateParetoAnalysis':
-            result = await generateParetoAnalysis(inputData as GenerateParetoAnalysisInput);
-            break;
+          // Cases for other flows (trend, bubble, etc.) have been removed
           default:
-            response.status(400).send(`Unknown flowName: ${flowName}`);
+            response.status(400).send(`Unknown or unsupported flowName: ${flowName}`);
             return;
         }
 
@@ -93,3 +77,4 @@ export const generateAiSummaryProxy = functions
       }
     });
   });
+

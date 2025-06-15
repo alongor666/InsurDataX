@@ -3,14 +3,14 @@
 
 import type { BubbleChartDataItem, BubbleMetricKey } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
-import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
+// ChartAiSummary removed
 import { ScatterChart as LucideScatterChart, Palette } from 'lucide-react'; 
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 import { CartesianGrid, Scatter, ScatterChart as RechartsScatterChart, XAxis, YAxis, ZAxis, TooltipProps } from "recharts";
 import type {NameType, ValueType} from 'recharts/types/component/DefaultTooltipContent';
 import { useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatDisplayValue } from '@/lib/data-utils'; // Import the new formatter
+import { formatDisplayValue } from '@/lib/data-utils'; 
 
 interface BubbleChartSectionProps {
   data: BubbleChartDataItem[];
@@ -21,9 +21,7 @@ interface BubbleChartSectionProps {
   onYAxisMetricChange: (metric: BubbleMetricKey) => void;
   selectedSizeMetric: BubbleMetricKey;
   onSizeMetricChange: (metric: BubbleMetricKey) => void;
-  aiSummary: string | null;
-  isAiSummaryLoading: boolean;
-  onGenerateAiSummary: () => Promise<void>;
+  // aiSummary, isAiSummaryLoading, onGenerateAiSummary props removed
 }
 
 const CustomTooltip = ({ active, payload, xAxisMetric, yAxisMetric, sizeMetric, availableMetricsList }: TooltipProps<ValueType, NameType> & { xAxisMetric: BubbleMetricKey, yAxisMetric: BubbleMetricKey, sizeMetric: BubbleMetricKey, availableMetricsList: { value: BubbleMetricKey, label: string }[] }) => {
@@ -46,8 +44,6 @@ const CustomTooltip = ({ active, payload, xAxisMetric, yAxisMetric, sizeMetric, 
   return null;
 };
 
-// Simplified rules for chart display, mainly for tick optimization.
-// The main formatting comes from formatDisplayValue.
 const METRIC_FORMAT_RULES_FOR_CHARTS: Record<string, { type: string, originalUnit?: string }> = {
   'loss_ratio': { type: 'percentage' },
   'expense_ratio': { type: 'percentage' },
@@ -75,7 +71,6 @@ export function BubbleChartSection({
   selectedXAxisMetric, onXAxisMetricChange,
   selectedYAxisMetric, onYAxisMetricChange,
   selectedSizeMetric, onSizeMetricChange,
-  aiSummary, isAiSummaryLoading, onGenerateAiSummary 
 }: BubbleChartSectionProps) {
   
   const uniqueBusinessLines = useMemo(() => {
@@ -112,7 +107,6 @@ export function BubbleChartSection({
   
   const xAxisInfo = getMetricLabelAndUnit(selectedXAxisMetric);
   const yAxisInfo = getMetricLabelAndUnit(selectedYAxisMetric);
-  // Size metric label for ZAxis name, not displayed visually but good for config
   const sizeMetricLabel = getMetricLabelAndUnit(selectedSizeMetric).label;
 
 
@@ -198,13 +192,8 @@ export function BubbleChartSection({
           </ChartContainer>
         </div>
       )}
-      <ChartAiSummary
-        summary={aiSummary}
-        isLoading={isAiSummaryLoading}
-        onGenerateSummary={onGenerateAiSummary}
-        hasData={hasData}
-        chartTypeLabel="气泡图"
-      />
+      {/* ChartAiSummary component removed */}
     </SectionWrapper>
   );
 }
+

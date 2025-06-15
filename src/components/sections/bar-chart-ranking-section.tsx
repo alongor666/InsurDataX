@@ -4,44 +4,35 @@
 import type { ChartDataItem } from '@/data/types';
 import type { RankingMetricKey } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
-import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
+// ChartAiSummary removed
 import { BarChartHorizontal, Palette } from 'lucide-react';
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 import { Bar, BarChart as RechartsBarChart, CartesianGrid, XAxis, YAxis, TooltipProps, ResponsiveContainer, LabelList, Cell } from "recharts";
 import type {NameType, ValueType} from 'recharts/types/component/DefaultTooltipContent';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatDisplayValue } from '@/lib/data-utils'; // Import the new formatter
+import { formatDisplayValue } from '@/lib/data-utils'; 
 
 interface BarChartRankingSectionProps {
   data: ChartDataItem[];
   availableMetrics: { value: RankingMetricKey, label: string }[];
   onMetricChange: (metric: RankingMetricKey) => void;
   selectedMetric: RankingMetricKey;
-  aiSummary: string | null;
-  isAiSummaryLoading: boolean;
-  onGenerateAiSummary: () => Promise<void>;
+  // aiSummary, isAiSummaryLoading, onGenerateAiSummary props removed
 }
 
-// Formatter for LabelList, uses formatDisplayValue
 const valueFormatterForLabelList = (value: number, metricKey: RankingMetricKey): string => {
   return formatDisplayValue(value, metricKey);
 };
 
-// Formatter for XAxis ticks, uses formatDisplayValue
 const xAxisTickFormatter = (value: number, metricKey: RankingMetricKey): string => {
-  // For axes, we might want simpler integers for very large numbers,
-  // but formatDisplayValue will handle the core formatting (decimals, %, etc.)
-  // The "no unit" rule applies here too. Context comes from axis title.
   const ruleType = (METRIC_FORMAT_RULES_FOR_CHARTS as any)[metricKey]?.type;
-  if(ruleType === 'percentage' && Math.abs(value) > 1000) return (value/1000).toFixed(0) + 'k%'; // simple K for large %
+  if(ruleType === 'percentage' && Math.abs(value) > 1000) return (value/1000).toFixed(0) + 'k%'; 
   if ((ruleType === 'integer_wanyuan' || ruleType === 'integer_yuan') && Math.abs(value) >= 1000000) return (value / 1000000).toFixed(1) + 'M';
   if ((ruleType === 'integer_wanyuan' || ruleType === 'integer_yuan') && Math.abs(value) >= 1000) return (value / 1000).toFixed(0) + 'K';
   
   return formatDisplayValue(value, metricKey);
 };
 
-// Simplified rules for chart display, mainly for tick optimization.
-// The main formatting comes from formatDisplayValue.
 const METRIC_FORMAT_RULES_FOR_CHARTS: Record<string, { type: string, originalUnit?: string }> = {
   'loss_ratio': { type: 'percentage' },
   'expense_ratio': { type: 'percentage' },
@@ -69,8 +60,6 @@ const CustomTooltip = ({ active, payload, label, selectedMetricKey, availableMet
     const metricConfig = availableMetricsList.find(m => m.value === selectedMetricKey);
     const value = payload[0].value as number;
     
-    // Tooltip shows the formatted value (which is unit-less by rule)
-    // The metric label (from metricConfig.label) provides context for the unit.
     const formattedValue = formatDisplayValue(value, selectedMetricKey);
     
     return (
@@ -96,9 +85,6 @@ export function BarChartRankingSection({
   availableMetrics, 
   onMetricChange, 
   selectedMetric,
-  aiSummary,
-  isAiSummaryLoading,
-  onGenerateAiSummary
 }: BarChartRankingSectionProps) {
   
   const selectedMetricConfig = availableMetrics.find(m => m.value === selectedMetric);
@@ -123,7 +109,6 @@ export function BarChartRankingSection({
   const hasData = data && data.length > 0;
   const yAxisWidth = hasData ? Math.max(...data.map(d => d.name.length * 8), 100, 120) : 120; 
 
-  // Determine X-axis label based on selected metric's original unit
   let xAxisLabelContent = "";
   const selectedMetricOriginalUnit = METRIC_FORMAT_RULES_FOR_CHARTS[selectedMetric]?.originalUnit;
   if (selectedMetricOriginalUnit && selectedMetricOriginalUnit !== 'none') {
@@ -181,13 +166,8 @@ export function BarChartRankingSection({
           </ChartContainer>
         </div>
       )}
-       <ChartAiSummary
-        summary={aiSummary}
-        isLoading={isAiSummaryLoading}
-        onGenerateSummary={onGenerateAiSummary}
-        hasData={hasData}
-        chartTypeLabel="排名图"
-      />
+       {/* ChartAiSummary component removed */}
     </SectionWrapper>
   );
 }
+
