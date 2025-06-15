@@ -15,8 +15,13 @@ import { ParetoChartSection } from '@/components/sections/pareto-chart-section.t
 import { DataTableSection } from '@/components/sections/data-table-section';
 import { AiSummarySection } from '@/components/sections/ai-summary-section';
 
-// Types for AI Flow inputs/outputs. Only business summary remains.
+// Types for AI Flow inputs/outputs
 import type { GenerateBusinessSummaryInput, GenerateBusinessSummaryOutput } from '@/ai/flows/generate-business-summary';
+import type { GenerateTrendAnalysisInput, GenerateTrendAnalysisOutput } from '@/ai/flows/generate-trend-analysis-flow';
+import type { GenerateBubbleChartAnalysisInput, GenerateBubbleChartAnalysisOutput } from '@/ai/flows/generate-bubble-chart-analysis-flow';
+import type { GenerateBarRankingAnalysisInput, GenerateBarRankingAnalysisOutput } from '@/ai/flows/generate-bar-ranking-analysis-flow';
+import type { GenerateShareChartAnalysisInput, GenerateShareChartAnalysisOutput } from '@/ai/flows/generate-share-chart-analysis-flow';
+import type { GenerateParetoAnalysisInput, GenerateParetoAnalysisOutput } from '@/ai/flows/generate-pareto-analysis-flow';
 
 
 import { useToast } from "@/hooks/use-toast";
@@ -129,6 +134,17 @@ export default function DashboardPage() {
   const [overallAiSummary, setOverallAiSummary] = useState<string | null>(null);
   const [isOverallAiSummaryLoading, setIsOverallAiSummaryLoading] = useState(false);
 
+  const [trendAiSummary, setTrendAiSummary] = useState<string | null>(null);
+  const [isTrendAiSummaryLoading, setIsTrendAiSummaryLoading] = useState(false);
+  const [bubbleAiSummary, setBubbleAiSummary] = useState<string | null>(null);
+  const [isBubbleAiSummaryLoading, setIsBubbleAiSummaryLoading] = useState(false);
+  const [barRankAiSummary, setBarRankAiSummary] = useState<string | null>(null);
+  const [isBarRankAiSummaryLoading, setIsBarRankAiSummaryLoading] = useState(false);
+  const [shareAiSummary, setShareAiSummary] = useState<string | null>(null);
+  const [isShareAiSummaryLoading, setIsShareAiSummaryLoading] = useState(false);
+  const [paretoAiSummary, setParetoAiSummary] = useState<string | null>(null);
+  const [isParetoAiSummaryLoading, setIsParetoAiSummaryLoading] = useState(false);
+
   const [isGlobalLoading, setIsGlobalLoading] = useState(true);
 
   const { toast } = useToast();
@@ -141,6 +157,11 @@ export default function DashboardPage() {
     const fetchData = async () => {
       setIsGlobalLoading(true);
       setOverallAiSummary(null);
+      setTrendAiSummary(null);
+      setBubbleAiSummary(null);
+      setBarRankAiSummary(null);
+      setShareAiSummary(null);
+      setParetoAiSummary(null);
       try {
         let rawData: any;
         toast({ title: "数据加载中", description: "正在从JSON文件加载数据..." });
@@ -278,8 +299,13 @@ export default function DashboardPage() {
       setShareChartData([]);
       setParetoChartData([]);
     }
-    // Reset only the overall AI summary when data context changes
+    // Reset AI summaries when data context changes
     setOverallAiSummary(null);
+    setTrendAiSummary(null);
+    setBubbleAiSummary(null);
+    setBarRankAiSummary(null);
+    setShareAiSummary(null);
+    setParetoAiSummary(null);
 
   }, [isGlobalLoading, analysisMode, selectedPeriodKey, selectedComparisonPeriodKey, allV4Data, selectedBusinessTypes, selectedTrendMetric, selectedRankingMetric, selectedBubbleXAxisMetric, selectedBubbleYAxisMetric, selectedBubbleSizeMetric, selectedShareChartMetric, selectedParetoMetric, toast]);
 
@@ -399,7 +425,7 @@ export default function DashboardPage() {
 
     if (typesToProcessForBubbles.length > 0) {
         dataForBubbleChart = typesToProcessForBubbles.map(bt => {
-            const singleTypeProcessed = processDataForSelectedPeriod(allRawData, currentPeriodId, null, 'cumulative', [bt]);
+            const singleTypeProcessed = processDataForSelectedPeriod(allRawData, currentPeriodId, null, 'cumulative', [bt]); // Bubble chart always uses cumulative for individual bubbles
             return singleTypeProcessed[0];
         }).filter(d => d && d.currentMetrics && d.businessLineId !== '合计' && d.businessLineId !== '自定义合计');
     }
@@ -655,6 +681,7 @@ export default function DashboardPage() {
       return;
     }
     const kpiDataForSummary = kpis.map(k => ({ title: k.title, value: k.value, comparison: k.comparisonChangeAbsolute || k.comparisonChange || '-' }));
+    // Use barRankData for top business lines as it's already sorted and contains VCR
     const topBusinessLines = barRankData.slice(0, 5).map(b => ({ name: b.name, value: b[selectedRankingMetric], vcr: b.vcr }));
 
     const input: GenerateBusinessSummaryInput = {
@@ -665,6 +692,83 @@ export default function DashboardPage() {
         filters: JSON.stringify(getCommonAiFilters()),
     };
     callAiProxy('generateBusinessSummary', input, setIsOverallAiSummaryLoading, setOverallAiSummary, '总体业务');
+  };
+
+  const handleGenerateTrendAiSummary = async () => {
+    if (!trendChartData || trendChartData.length === 0) {
+      toast({ title: "AI趋势分析提示", description: "趋势图无数据，无法生成分析。" });
+      return;
+    }
+    const input: GenerateTrendAnalysisInput = {
+      chartDataJson: JSON.stringify(trendChartData),
+      selectedMetric: availableTrendMetrics.find(m => m.value === selectedTrendMetric)?.label || selectedTrendMetric,
+      analysisMode,
+      currentPeriodLabel,
+      filtersJson: JSON.stringify(getCommonAiFilters()),
+    };
+    callAiProxy('generateTrendAnalysis', input, setIsTrendAiSummaryLoading, setTrendAiSummary, '趋势图');
+  };
+
+  const handleGenerateBubbleAiSummary = async () => {
+    if (!bubbleChartData || bubbleChartData.length === 0) {
+      toast({ title: "AI气泡图分析提示", description: "气泡图无数据，无法生成分析。" });
+      return;
+    }
+    const input: GenerateBubbleChartAnalysisInput = {
+      chartDataJson: JSON.stringify(bubbleChartData),
+      xAxisMetric: availableBubbleMetrics.find(m => m.value === selectedBubbleXAxisMetric)?.label || selectedBubbleXAxisMetric,
+      yAxisMetric: availableBubbleMetrics.find(m => m.value === selectedBubbleYAxisMetric)?.label || selectedBubbleYAxisMetric,
+      bubbleSizeMetric: availableBubbleMetrics.find(m => m.value === selectedBubbleSizeMetric)?.label || selectedBubbleSizeMetric,
+      analysisMode,
+      currentPeriodLabel,
+      filtersJson: JSON.stringify(getCommonAiFilters()),
+    };
+    callAiProxy('generateBubbleChartAnalysis', input, setIsBubbleAiSummaryLoading, setBubbleAiSummary, '气泡图');
+  };
+
+  const handleGenerateBarRankAiSummary = async () => {
+    if (!barRankData || barRankData.length === 0) {
+      toast({ title: "AI排名图分析提示", description: "排名图无数据，无法生成分析。" });
+      return;
+    }
+    const input: GenerateBarRankingAnalysisInput = {
+      chartDataJson: JSON.stringify(barRankData),
+      rankedMetric: availableRankingMetrics.find(m => m.value === selectedRankingMetric)?.label || selectedRankingMetric,
+      analysisMode,
+      currentPeriodLabel,
+      filtersJson: JSON.stringify(getCommonAiFilters()),
+    };
+    callAiProxy('generateBarRankingAnalysis', input, setIsBarRankAiSummaryLoading, setBarRankAiSummary, '排名图');
+  };
+
+  const handleGenerateShareAiSummary = async () => {
+    if (!shareChartData || shareChartData.length === 0) {
+      toast({ title: "AI占比图分析提示", description: "占比图无数据，无法生成分析。" });
+      return;
+    }
+    const input: GenerateShareChartAnalysisInput = {
+      chartDataJson: JSON.stringify(shareChartData),
+      analyzedMetric: availableShareChartMetrics.find(m => m.value === selectedShareChartMetric)?.label || selectedShareChartMetric,
+      analysisMode,
+      currentPeriodLabel,
+      filtersJson: JSON.stringify(getCommonAiFilters()),
+    };
+    callAiProxy('generateShareChartAnalysis', input, setIsShareAiSummaryLoading, setShareAiSummary, '占比图');
+  };
+
+  const handleGenerateParetoAiSummary = async () => {
+     if (!paretoChartData || paretoChartData.length === 0) {
+      toast({ title: "AI帕累托图分析提示", description: "帕累托图无数据，无法生成分析。" });
+      return;
+    }
+    const input: GenerateParetoAnalysisInput = {
+      chartDataJson: JSON.stringify(paretoChartData),
+      analyzedMetric: availableParetoMetrics.find(m => m.value === selectedParetoMetric)?.label || selectedParetoMetric,
+      analysisMode,
+      currentPeriodLabel,
+      filtersJson: JSON.stringify(getCommonAiFilters()),
+    };
+    callAiProxy('generateParetoAnalysis', input, setIsParetoAiSummaryLoading, setParetoAiSummary, '帕累托图');
   };
 
   const handleExportData = () => {
@@ -739,6 +843,9 @@ export default function DashboardPage() {
                 onMetricChange={setSelectedTrendMetric}
                 selectedMetric={selectedTrendMetric}
                 analysisMode={analysisMode}
+                aiSummary={trendAiSummary}
+                isAiSummaryLoading={isTrendAiSummaryLoading}
+                onGenerateAiSummary={handleGenerateTrendAiSummary}
                 key={`trend-json-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedTrendMetric}-${selectedPeriodKey}-${selectedComparisonPeriodKey}`}
               />
             )}
@@ -752,6 +859,9 @@ export default function DashboardPage() {
                 onYAxisMetricChange={setSelectedBubbleYAxisMetric}
                 selectedSizeMetric={selectedBubbleSizeMetric}
                 onSizeMetricChange={setSelectedBubbleSizeMetric}
+                aiSummary={bubbleAiSummary}
+                isAiSummaryLoading={isBubbleAiSummaryLoading}
+                onGenerateAiSummary={handleGenerateBubbleAiSummary}
                 key={`bubble-json-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedPeriodKey}-${selectedComparisonPeriodKey}-${selectedBubbleXAxisMetric}-${selectedBubbleYAxisMetric}-${selectedBubbleSizeMetric}`}
               />
             }
@@ -762,6 +872,9 @@ export default function DashboardPage() {
                 availableMetrics={availableRankingMetrics}
                 onMetricChange={setSelectedRankingMetric}
                 selectedMetric={selectedRankingMetric}
+                aiSummary={barRankAiSummary}
+                isAiSummaryLoading={isBarRankAiSummaryLoading}
+                onGenerateAiSummary={handleGenerateBarRankAiSummary}
                 key={`barrank-json-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedRankingMetric}-${selectedPeriodKey}-${selectedComparisonPeriodKey}`}
               />
             )}
@@ -771,6 +884,9 @@ export default function DashboardPage() {
                 availableMetrics={availableShareChartMetrics}
                 selectedMetric={selectedShareChartMetric}
                 onMetricChange={setSelectedShareChartMetric}
+                aiSummary={shareAiSummary}
+                isAiSummaryLoading={isShareAiSummaryLoading}
+                onGenerateAiSummary={handleGenerateShareAiSummary}
                 key={`sharechart-json-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedShareChartMetric}-${selectedPeriodKey}-${selectedComparisonPeriodKey}`}
               />
             )}
@@ -780,6 +896,9 @@ export default function DashboardPage() {
                 availableMetrics={availableParetoMetrics}
                 selectedMetric={selectedParetoMetric}
                 onMetricChange={setSelectedParetoMetric}
+                aiSummary={paretoAiSummary}
+                isAiSummaryLoading={isParetoAiSummaryLoading}
+                onGenerateAiSummary={handleGenerateParetoAiSummary}
                 key={`paretochart-json-${selectedBusinessTypes.join('-')}-${analysisMode}-${selectedParetoMetric}-${selectedPeriodKey}-${selectedComparisonPeriodKey}`}
               />
             )}

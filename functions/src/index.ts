@@ -13,14 +13,13 @@ if (!admin.apps.length) {
 }
 
 // Dynamically import Genkit flows
-// Only the overall business summary flow is needed now.
 import { generateBusinessSummary, type GenerateBusinessSummaryInput } from '@/ai/flows/generate-business-summary';
-// Removed imports for:
-// generateTrendAnalysis, GenerateTrendAnalysisInput
-// generateBubbleChartAnalysis, GenerateBubbleChartAnalysisInput
-// generateBarRankingAnalysis, GenerateBarRankingAnalysisInput
-// generateShareChartAnalysis, GenerateShareChartAnalysisInput
-// generateParetoAnalysis, GenerateParetoAnalysisInput
+import { generateTrendAnalysis, type GenerateTrendAnalysisInput } from '@/ai/flows/generate-trend-analysis-flow';
+import { generateBubbleChartAnalysis, type GenerateBubbleChartAnalysisInput } from '@/ai/flows/generate-bubble-chart-analysis-flow';
+import { generateBarRankingAnalysis, type GenerateBarRankingAnalysisInput } from '@/ai/flows/generate-bar-ranking-analysis-flow';
+import { generateShareChartAnalysis, type GenerateShareChartAnalysisInput } from '@/ai/flows/generate-share-chart-analysis-flow';
+import { generateParetoAnalysis, type GenerateParetoAnalysisInput } from '@/ai/flows/generate-pareto-analysis-flow';
+
 
 // Configure CORS
 const corsHandler = cors({ origin: true });
@@ -58,7 +57,21 @@ export const generateAiSummaryProxy = functions
           case 'generateBusinessSummary':
             result = await generateBusinessSummary(inputData as GenerateBusinessSummaryInput);
             break;
-          // Cases for other flows (trend, bubble, etc.) have been removed
+          case 'generateTrendAnalysis':
+            result = await generateTrendAnalysis(inputData as GenerateTrendAnalysisInput);
+            break;
+          case 'generateBubbleChartAnalysis':
+            result = await generateBubbleChartAnalysis(inputData as GenerateBubbleChartAnalysisInput);
+            break;
+          case 'generateBarRankingAnalysis':
+            result = await generateBarRankingAnalysis(inputData as GenerateBarRankingAnalysisInput);
+            break;
+          case 'generateShareChartAnalysis':
+            result = await generateShareChartAnalysis(inputData as GenerateShareChartAnalysisInput);
+            break;
+          case 'generateParetoAnalysis':
+            result = await generateParetoAnalysis(inputData as GenerateParetoAnalysisInput);
+            break;
           default:
             response.status(400).send(`Unknown or unsupported flowName: ${flowName}`);
             return;

@@ -73,24 +73,19 @@
 - **备注**: 应用前端仍可静态部署。AI分析的计算和API调用现在由后端的Firebase Function安全处理。开发者需要在Firebase控制台为Function配置必要的环境变量（如 `GOOGLE_API_KEY`）。 Firebase `hosting` 配置中需添加针对 `/generateAiSummaryProxy` 的 `rewrite` 规则到 function，且此规则需在 SPA 的 `**` 规则之前。
 
 ---
-### 27. AI摘要功能整合与简化
-- **问题描述**: 需要将AI智能业务摘要功能整合到KPI看板视图下方，并移除所有图表（趋势、气泡、排名、占比、帕累托）的独立AI分析模块和按钮，以简化用户界面和AI交互。
-- **发生时间**: 2024-05-31
-- **影响范围**: `src/app/page.tsx`, `src/components/sections/*` (所有图表组件), `functions/src/index.ts`, `src/ai/dev.ts`, `PRODUCT_REQUIREMENTS_DOCUMENT.md`, `README.md`. 多个AI flow文件 (`generate-trend-analysis-flow.ts` 等) 变为未使用。
-- **解决方案**:
-    1.  **`src/app/page.tsx` 修改**:
-        *   将 `AiSummarySection` 组件（用于显示总体业务摘要）的渲染逻辑移至 `activeView === 'kpi'` 条件块内，使其显示在 `KpiDashboardSection` 组件之后。
-        *   移除了所有与图表特定AI摘要相关的state变量（如 `trendAiSummary`, `isTrendAiSummaryLoading` 等）。
-        *   移除了所有图表特定AI摘要的处理器函数（如 `handleGenerateTrendAiSummary` 等）。
-        *   从各图表分析组件 (`TrendAnalysisSection`, `BubbleChartSection` 等) 的props中移除了AI摘要相关的属性。
-        *   更新了 `useEffect` 钩子，现在只在数据上下文变化时重置 `overallAiSummary`。
-    2.  **图表组件修改 (`src/components/sections/*.tsx`)**:
-        *   从 `TrendAnalysisSection`, `BubbleChartSection`, `BarChartRankingSection`, `ShareChartSection`, `ParetoChartSection` 中移除了 `ChartAiSummary` 组件的引用及其相关props。
-    3.  **后端与Genkit配置修改**:
-        *   **`functions/src/index.ts`**: 移除了对已废弃的图表特定AI flow的导入和处理逻辑（`switch`语句中的对应`case`）。Firebase Function现在仅处理 `generateBusinessSummary` flow。
-        *   **`src/ai/dev.ts`**: 移除了对已废弃的图表特定AI flow文件的导入。
-    4.  **文档更新**:
-        *   `PRODUCT_REQUIREMENTS_DOCUMENT.md` 和 `README.md` 已更新，说明AI摘要功能现在统一整合到KPI看板视图，取代了原有的各图表独立AI分析。
-- **状态**: 已解决
-- **备注**: 此更改显著简化了AI功能。应用头部的“AI摘要”按钮现在专注于触发KPI看板下方的总体业务摘要。图表特定的AI flow文件 (`generate-trend-analysis-flow.ts`, `generate-bubble-chart-analysis-flow.ts`, `generate-bar-ranking-analysis-flow.ts`, `generate-share-chart-analysis-flow.ts`, `generate-pareto-analysis-flow.ts`) 已不再被引用，可以从项目中删除。
+### 27. AI摘要功能整合与简化 (已回滚)
+- **问题描述**: (V3.2.0) 曾尝试将AI智能业务摘要功能整合到KPI看板视图下方，并移除所有图表的独立AI分析模块。**此更改已被V3.3.0回滚。**
+- **发生时间**: 2024-05-31 (V3.2.0), 2024-05-31 (V3.3.0 回滚)
+- **影响范围**: `src/app/page.tsx`, `src/components/sections/*` (所有图表组件), `functions/src/index.ts`, `src/ai/dev.ts`, `PRODUCT_REQUIREMENTS_DOCUMENT.md`, `README.md`. 多个AI flow文件 (`generate-trend-analysis-flow.ts` 等) 的使用状态发生变化。
+- **V3.2.0 解决方案 (已回滚)**:
+    *   将 `AiSummarySection` 移至KPI看板下方。
+    *   移除了图表特定的AI摘要状态、处理器和UI。
+    *   Firebase Function 和 Genkit dev入口仅处理总体业务摘要flow。
+- **V3.3.0 回滚与当前解决方案**:
+    *   恢复了 `src/app/page.tsx` 中各个图表（趋势、气泡、排名、占比、帕累托）的独立AI摘要状态变量、处理器函数和相关的类型导入。
+    *   各个图表组件 (`src/components/sections/*.tsx`) 重新引入了 `ChartAiSummary` 组件，并传递必要的props以显示和触发各自的AI分析。
+    *   Firebase Function (`functions/src/index.ts`) 和 Genkit开发入口 (`src/ai/dev.ts`) 已更新，重新导入并处理所有图表特定的AI flow。
+    *   文档 (`PRODUCT_REQUIREMENTS_DOCUMENT.md`, `README.md`) 已更新，反映AI摘要功能现在重新分散到KPI看板和每个独立图表中。
+- **状态**: 已解决 (V3.3.0 - 各图表独立AI分析已恢复)
+- **备注**: 应用头部的“AI摘要”按钮专注于触发KPI看板下方的总体业务摘要。各个图表下方现在拥有其独立的AI分析模块和触发按钮。所有图表特定的AI flow文件 (`generate-trend-analysis-flow.ts`, `generate-bubble-chart-analysis-flow.ts`, `generate-bar-ranking-analysis-flow.ts`, `generate-share-chart-analysis-flow.ts`, `generate-pareto-analysis-flow.ts`) 已重新被引用和使用。
 

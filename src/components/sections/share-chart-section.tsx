@@ -3,7 +3,7 @@
 
 import type { ShareChartDataItem, ShareChartMetricKey } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
-// ChartAiSummary removed
+import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { PieChart as PieChartIconLucide, Palette } from 'lucide-react'; 
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend as RechartsLegend, ResponsiveContainer } from 'recharts';
@@ -17,7 +17,9 @@ interface ShareChartSectionProps {
   availableMetrics: { value: ShareChartMetricKey, label: string }[];
   selectedMetric: ShareChartMetricKey;
   onMetricChange: (metric: ShareChartMetricKey) => void;
-  // aiSummary, isAiSummaryLoading, onGenerateAiSummary props removed
+  aiSummary: string | null;
+  isAiSummaryLoading: boolean;
+  onGenerateAiSummary: () => Promise<void>;
 }
 
 const CustomTooltipContent = ({ active, payload, coordinate, selectedMetricKey, availableMetricsList }: TooltipProps<ValueType, NameType> & { selectedMetricKey?: ShareChartMetricKey, availableMetricsList?: { value: ShareChartMetricKey, label: string }[] }) => {
@@ -90,6 +92,9 @@ export function ShareChartSection({
   availableMetrics,
   selectedMetric,
   onMetricChange,
+  aiSummary,
+  isAiSummaryLoading,
+  onGenerateAiSummary
 }: ShareChartSectionProps) {
 
   const metricSelector = (
@@ -156,7 +161,13 @@ export function ShareChartSection({
           </ChartContainer>
         </div>
       )}
-      {/* ChartAiSummary component removed */}
+      <ChartAiSummary 
+        summary={aiSummary} 
+        isLoading={isAiSummaryLoading} 
+        onGenerateSummary={onGenerateAiSummary}
+        hasData={hasData}
+        chartTypeLabel="占比图"
+      />
     </SectionWrapper>
   );
 }

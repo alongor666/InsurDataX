@@ -4,7 +4,7 @@
 import type { ChartDataItem } from '@/data/types';
 import type { RankingMetricKey } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
-// ChartAiSummary removed
+import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { BarChartHorizontal, Palette } from 'lucide-react';
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 import { Bar, BarChart as RechartsBarChart, CartesianGrid, XAxis, YAxis, TooltipProps, ResponsiveContainer, LabelList, Cell } from "recharts";
@@ -17,7 +17,9 @@ interface BarChartRankingSectionProps {
   availableMetrics: { value: RankingMetricKey, label: string }[];
   onMetricChange: (metric: RankingMetricKey) => void;
   selectedMetric: RankingMetricKey;
-  // aiSummary, isAiSummaryLoading, onGenerateAiSummary props removed
+  aiSummary: string | null;
+  isAiSummaryLoading: boolean;
+  onGenerateAiSummary: () => Promise<void>;
 }
 
 const valueFormatterForLabelList = (value: number, metricKey: RankingMetricKey): string => {
@@ -85,6 +87,9 @@ export function BarChartRankingSection({
   availableMetrics, 
   onMetricChange, 
   selectedMetric,
+  aiSummary,
+  isAiSummaryLoading,
+  onGenerateAiSummary
 }: BarChartRankingSectionProps) {
   
   const selectedMetricConfig = availableMetrics.find(m => m.value === selectedMetric);
@@ -166,7 +171,13 @@ export function BarChartRankingSection({
           </ChartContainer>
         </div>
       )}
-       {/* ChartAiSummary component removed */}
+       <ChartAiSummary 
+        summary={aiSummary} 
+        isLoading={isAiSummaryLoading} 
+        onGenerateSummary={onGenerateAiSummary}
+        hasData={hasData}
+        chartTypeLabel="排名图"
+      />
     </SectionWrapper>
   );
 }
