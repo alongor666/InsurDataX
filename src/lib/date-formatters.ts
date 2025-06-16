@@ -66,6 +66,7 @@ function getWeekDateObjects(year: number, weekNumber: number): { start: Date; en
 /**
  * Gets a formatted date range string for a given year and week.
  * Example output: "W24 (06/08-06/14)" for Sunday to Saturday
+ * This function is kept for potential other uses or for detailed views.
  * @param year The year.
  * @param weekNumber The week number.
  * @returns Formatted string or the original week number if dates can't be calculated.
@@ -81,27 +82,30 @@ export function getFormattedWeekDateRange(year: number, weekNumber: number): str
 }
 
 /**
- * Formats a period label (e.g., "2025年第24周") into a concise X-axis tick label.
- * Example output: "W24 (06/08-06/14)"
+ * Formats a period label (e.g., "2025年第24周") into a concise X-axis tick label
+ * displaying the last day of the week (Saturday) in "YY-MM-DD" format.
+ * Example output: "25-06-14"
  * @param periodLabel The full period label.
- * @returns A concise formatted string for chart axis.
+ * @returns A formatted string of the week's end date for chart axis.
  */
 export function formatPeriodLabelForAxis(periodLabel: string): string {
   const parsed = parsePeriodLabelToYearWeek(periodLabel);
   if (parsed) {
-    return getFormattedWeekDateRange(parsed.year, parsed.week);
+    const dates = getWeekDateObjects(parsed.year, parsed.week);
+    if (dates && dates.end) {
+      return format(dates.end, 'yy-MM-dd');
+    }
   }
-  // Fallback for labels that don't match primary format, try to extract week number
+  // Fallback for labels that don't match primary format or if date calculation fails
   const weekMatch = periodLabel.match(/第?(\d{1,2})周/);
   if (weekMatch && weekMatch[1]) {
-    return `W${weekMatch[1]}`;
+    return `W${weekMatch[1]}`; // Fallback to week number if date parsing fails
   }
-  // Final fallback: if still a string, return last 5 chars, otherwise original value
   return typeof periodLabel === 'string' ? periodLabel.slice(-5) : String(periodLabel);
 }
 
 /**
- * Formats a period label for display in tooltips, including year.
+ * Formats a period label for display in tooltips, including year and full date range.
  * Example output: "2025年 W24 (06/08-06/14)"
  * @param periodLabel The full period label.
  * @returns A detailed formatted string for tooltips.
