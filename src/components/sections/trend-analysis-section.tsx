@@ -12,6 +12,7 @@ import { useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { TrendMetricKey, AnalysisMode } from '@/data/types'; 
 import { formatDisplayValue } from '@/lib/data-utils'; 
+import { formatPeriodLabelForAxis, formatPeriodLabelForTooltip } from '@/lib/date-formatters';
 
 interface TrendAnalysisSectionProps {
   data: ChartDataItem[];
@@ -76,10 +77,11 @@ const RenderCustomizedDot = (props: any) => {
 const CustomTooltip = ({ active, payload, label, metricId, analysisModeForTooltip }: TooltipProps<ValueType, NameType> & { metricId: TrendMetricKey, analysisModeForTooltip: AnalysisMode }) => {
   if (active && payload && payload.length) {
     const ruleForSelectedMetric = METRIC_FORMAT_RULES_FOR_CHARTS[metricId];
+    const formattedLabel = typeof label === 'string' ? formatPeriodLabelForTooltip(label) : label;
     return (
       <div className="rounded-lg border bg-background p-2 shadow-sm">
         <div className="grid grid-cols-1 gap-1.5">
-          <p className="text-sm font-medium text-foreground">{label}</p>
+          <p className="text-sm font-medium text-foreground">{formattedLabel}</p>
           {payload.map((entry, index) => {
             let displayValue = "";
             const value = entry.value as number | undefined;
@@ -204,18 +206,29 @@ export function TrendAnalysisSection({
         <div className="h-[350px] w-full">
           <ChartContainer config={chartConfig} className="h-full w-full">
             {chartType === 'line' ? (
-              <RechartsLineChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 20 }}>
+              <RechartsLineChart data={data} margin={{ top: 5, right: 30, left: 5, bottom: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => typeof value === 'string' ? value.slice(-5) : value} />
+                <XAxis 
+                  dataKey="name" 
+                  tickLine={false} 
+                  axisLine={false} 
+                  tickMargin={10} 
+                  tickFormatter={(value) => typeof value === 'string' ? formatPeriodLabelForAxis(value) : value} 
+                  interval={data.length > 12 ? Math.floor(data.length / 10) : 0} // Adjust interval based on data length
+                  angle={data.length > 6 ? -30 : 0} // Rotate labels if many data points
+                  dy={data.length > 6 ? 10 : 5} // Adjust vertical distance for rotated labels
+                  className="text-xs"
+                />
                 <YAxis 
                   tickFormatter={yAxisFormatter} 
                   tickLine={false} 
                   axisLine={false} 
                   tickMargin={8} 
                   label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', offset: 10, fontSize: 12 }}
+                  className="text-xs"
                 />
                 <ChartTooltip content={<CustomTooltip metricId={selectedMetric} analysisModeForTooltip={analysisMode} />} cursor={{stroke: 'hsl(var(--muted))'}}/>
-                <ChartLegend content={<ChartLegendContent />} />
+                <ChartLegend content={<ChartLegendContent />} wrapperStyle={{paddingTop: '10px'}} />
                 {businessLineNames.map((lineName) => (
                   <Line
                     key={lineName}
@@ -229,18 +242,29 @@ export function TrendAnalysisSection({
                 ))}
               </RechartsLineChart>
             ) : ( 
-              <RechartsBarChart data={data} margin={{ top: 20, right: 20, left: -10, bottom: 20 }} barCategoryGap="20%">
+              <RechartsBarChart data={data} margin={{ top: 20, right: 30, left: 5, bottom: 40 }} barCategoryGap="20%">
                 <CartesianGrid strokeDasharray="3 3" vertical={false}/>
-                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => typeof value === 'string' ? value.slice(-5) : value} />
+                <XAxis 
+                  dataKey="name" 
+                  tickLine={false} 
+                  axisLine={false} 
+                  tickMargin={10} 
+                  tickFormatter={(value) => typeof value === 'string' ? formatPeriodLabelForAxis(value) : value} 
+                  interval={data.length > 12 ? Math.floor(data.length / 10) : 0}
+                  angle={data.length > 6 ? -30 : 0}
+                  dy={data.length > 6 ? 10 : 5}
+                  className="text-xs"
+                />
                 <YAxis 
                     tickFormatter={yAxisFormatter} 
                     tickLine={false} 
                     axisLine={false} 
                     tickMargin={8} 
                     label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', offset: 10, fontSize: 12 }}
+                    className="text-xs"
                 />
                 <ChartTooltip content={<CustomTooltip metricId={selectedMetric} analysisModeForTooltip={analysisMode} />} cursor={{fill: 'hsl(var(--muted))'}}/>
-                <ChartLegend content={<ChartLegendContent />} />
+                <ChartLegend content={<ChartLegendContent />} wrapperStyle={{paddingTop: '10px'}}/>
                 {businessLineNames.map((barName) => (
                   <Bar key={barName} dataKey={barName} radius={[4, 4, 0, 0]} >
                      {data.map((entry, index) => (

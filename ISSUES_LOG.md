@@ -22,57 +22,6 @@
 ---
 ... (所有之前的条目保持不变) ...
 ---
-### 24. 气泡图保单件数显示合计值问题
-- **问题描述**: 气泡图（以及可能的其他单业务线指标展示场景）中，“保单件数”指标错误地显示了所有业务线的总和，而不是当前单个业务线的保单件数。
-- **发生时间**: 2024-05-29
-- **影响范围**: 气泡图、数据表（单业务线视图）、以及任何依赖 `aggregateAndCalculateMetrics` 函数正确计算单业务线 `policy_count` 的地方。
-- **解决方案**:
-    1.  **修正 `aggregateAndCalculateMetrics` (在 `src/lib/data-utils.ts`中)**:
-        *   当 `isSingleTypeCumulative` 为 `true` 时，确保 `metrics.policy_count` 是基于 `singleEntryJson` 的 `premium_written` 和 `avg_premium_per_policy` 计算得出的。
-        *   修改了后续通用的 `policy_count` 和 `avg_premium_per_policy` 计算逻辑，将其包裹在 `if (!isSingleTypeCumulative)` 条件块中，以防止在处理单个业务类型时覆盖已正确计算的特定值。
-- **状态**: 已解决
-- **备注**: 确保了单业务线在累计模式下的`policy_count`遵循字段字典的定义，即优先使用该业务线的JSON预计算值（若`avg_premium_per_policy`有效）或基于其自身保费和单均保费计算。
-
----
-### 25. 应用静态化改造：移除Server Actions及API路由依赖 (阶段性)
-- **问题描述**: 为实现纯静态部署 (如 Firebase Hosting)，需要移除所有服务器端依赖，包括 Server Actions (Genkit AI flows) 和 API 路由 (数据库连接)。
-- **发生时间**: 2024-05-29
-- **影响范围**: 整体应用架构，数据源功能，AI分析功能，`src/app/page.tsx`, `src/components/layout/header.tsx`, 及所有AI flow文件和DB相关文件。
-- **解决方案**:
-    1.  **移除数据库支持**:
-        *   从 `src/components/layout/header.tsx` 中移除了数据源选择UI。
-        *   修改 `src/app/page.tsx`，移除了 `dataSource` state，固定从 `/data/insurance_data.json` 加载数据。
-        *   `src/app/api/insurance-data/route.ts` 和 `src/lib/db.ts` 变为未使用代码。
-    2.  **禁用动态AI分析 (临时)**:
-        *   修改 `src/app/page.tsx` 中所有 `handle...AiSummary` 函数，使其不再调用实际的AI flow，而是设置提示信息（如“AI 功能在此静态演示中不可用。”）并更新UI加载状态。
-        *   这意味着 `src/ai/flows/*.ts` 文件中的 Server Actions 不再被调用。
-    3.  **更新文档**: `PRODUCT_REQUIREMENTS_DOCUMENT.md` 和 `README.md` 已更新，反映应用已变为纯静态版本，移除了DB支持和动态AI功能。
-- **状态**: 已解决 (作为过渡阶段)
-- **备注**: 应用在V3.0.0时适合纯静态托管。AI和数据库功能被移除或禁用以符合静态部署模型。
-
----
-### 26. 重新引入AI功能并通过Firebase Function代理
-- **问题描述**: 需要一种安全的方式来重新启用AI分析功能，同时保持前端的静态可部署性。
-- **发生时间**: 2024-05-30
-- **影响范围**: 整体应用架构，AI分析功能，`src/app/page.tsx`, Firebase项目配置。
-- **解决方案**:
-    1.  **创建Firebase Function (`functions/src/index.ts`)**:
-        *   实现了一个HTTP触发的Function (`generateAiSummaryProxy`)，用于接收前端请求。
-        *   此Function配置了CORS，导入并调用了现有的Genkit AI flows (`src/ai/flows/*`)。
-        *   根据请求中的 `flowName` 和 `inputData` 动态调用相应的flow。
-        *   API密钥（如 `GOOGLE_API_KEY`）需配置为Function的环境变量，不在代码中硬编码。
-    2.  **配置Function环境**:
-        *   创建 `functions/package.json` 和 `functions/tsconfig.json`。
-        *   更新项目根目录的 `firebase.json` 以包含functions的部署配置和hosting到function的rewrite规则。
-    3.  **更新前端调用逻辑 (`src/app/page.tsx`)**:
-        *   修改所有 `handle...AiSummary` 函数，使其通过 `fetch` 调用 `/generateAiSummaryProxy` Firebase Function。
-        *   请求体包含 `flowName` 和 `inputData`。
-        *   处理来自Function的响应或错误，并更新UI。
-    4.  **更新文档**: `PRODUCT_REQUIREMENTS_DOCUMENT.md` (V3.1.0) 和 `README.md` 已更新，反映AI功能通过Firebase Function后端代理实现。
-- **状态**: 已解决
-- **备注**: 应用前端仍可静态部署。AI分析的计算和API调用现在由后端的Firebase Function安全处理。开发者需要在Firebase控制台为Function配置必要的环境变量（如 `GOOGLE_API_KEY`）。 Firebase `hosting` 配置中需添加针对 `/generateAiSummaryProxy` 的 `rewrite` 规则到 function，且此规则需在 SPA 的 `**` 规则之前。
-
----
 ### 27. AI摘要功能整合与简化 (已回滚)
 - **问题描述**: (V3.2.0) 曾尝试将AI智能业务摘要功能整合到KPI看板视图下方，并移除所有图表的独立AI分析模块。**此更改已被V3.3.0回滚。**
 - **发生时间**: 2024-05-31 (V3.2.0), 2024-05-31 (V3.3.0 回滚)
@@ -89,3 +38,37 @@
 - **状态**: 已解决 (V3.3.0 - 各图表独立AI分析已恢复)
 - **备注**: 应用头部的“AI摘要”按钮专注于触发KPI看板下方的总体业务摘要。各个图表下方现在拥有其独立的AI分析模块和触发按钮。所有图表特定的AI flow文件 (`generate-trend-analysis-flow.ts`, `generate-bubble-chart-analysis-flow.ts`, `generate-bar-ranking-analysis-flow.ts`, `generate-share-chart-analysis-flow.ts`, `generate-pareto-analysis-flow.ts`) 已重新被引用和使用。
 
+---
+### 28. Firebase Function 404错误 (AI代理调用失败)
+- **问题描述**: 前端调用 `/generateAiSummaryProxy` Firebase Function 时返回 404 错误。
+- **发生时间**: 2024-05-31
+- **影响范围**: 所有AI分析功能。`src/app/page.tsx` 中的 `callAiProxy` 函数，`firebase.json`。
+- **解决方案**:
+    1.  **修正 `firebase.json` 中的 `rewrites` 规则**:
+        *   为 `/generateAiSummaryProxy` 添加了特定的function rewrite规则：`{ "source": "/generateAiSummaryProxy", "function": "generateAiSummaryProxy" }`。
+        *   **关键**：确保此规则在SPA的catch-all规则 (`{ "source": "**", "destination": "/index.html" }`) **之前**。
+    2.  **确保 `functions` 配置存在**: 在 `firebase.json` 中添加了基础的 `functions` 配置块，指明源代码目录和运行时。
+    3.  **Function代码自包含 (后续发现)**: 问题部分原因也与Function代码依赖项目根目录 `src/` 下的文件有关，导致部署时找不到依赖。通过将AI flow及genkit配置复制到 `functions/src/ai/` 目录下，并更新导入路径为相对路径，使得Function可以独立部署。同时更新了`functions/tsconfig.json`移除非必要路径别名，并为`functions/package.json`添加build脚本，在`firebase.json`的`predeploy`中调用。
+- **状态**: 已解决 (结合了第29条的解决方案)
+- **备注**: Firebase Hosting的规则顺序很重要。同时，Firebase Functions部署时只打包其指定目录 (`functions`) 内的内容，外部依赖会导致运行时错误，进而可能表现为404（函数未能成功初始化）。
+
+---
+### 29. 趋势图X轴标签可读性及图表溢出问题
+- **问题描述**:
+    1.  趋势分析图表的X轴标签仅显示周期（如“2025年第24周”），用户无法直观了解该周对应的具体起止日期。
+    2.  趋势图表有时会超出其容器范围，影响页面布局。
+- **发生时间**: 2024-06-01
+- **影响范围**: `src/components/sections/trend-analysis-section.tsx`, `src/lib/date-formatters.ts` (新创建), 相关文档。
+- **解决方案**:
+    1.  **创建日期格式化工具 (`src/lib/date-formatters.ts`)**:
+        *   `parsePeriodLabelToYearWeek`: 从 "YYYY年第WW周" 格式的标签中解析出年和周数。
+        *   `getFormattedWeekDateRange`: 根据年和周数，计算并返回格式化的周起止日期字符串（如 "W24 (06/09-06/14)"，周一至周六）。
+        *   `formatPeriodLabelForAxis`: 供X轴tickFormatter使用，生成简洁的日期范围标签。
+        *   `formatPeriodLabelForTooltip`: 供Tooltip使用，生成包含年份的详细日期范围标签。
+    2.  **更新 `TrendAnalysisSection` 组件**:
+        *   **X轴标签**: 使用 `formatPeriodLabelForAxis` 格式化X轴的周期标签。
+        *   **Tooltip内容**: 使用 `formatPeriodLabelForTooltip` 增强Tooltip中周期标签的日期显示。
+        *   **布局与边距**: 调整X轴的 `tickMargin`, `angle`, `dy` 以及图表整体的 `margin`（特别是 `bottom` 和 `right`），为新的、可能更长的标签提供足够空间，并尝试通过 `interval` 属性优化标签密度以防止溢出。
+    3.  **文档更新**: 更新PRD和README，说明趋势图日期显示的改进。
+- **状态**: 已解决
+- **备注**: 数据JSON中每周数据截至周六。日期计算将周一定为周始，周六为周止。这显著提升了趋势图的时间维度可读性。

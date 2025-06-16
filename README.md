@@ -1,7 +1,7 @@
 
 # 车险经营分析周报应用 (带后端AI代理)
 
-本项目是一个基于 Next.js, React, ShadCN UI, Tailwind CSS 构建的车险经营分析仪表盘应用。**AI分析功能通过后端的 Firebase Function 代理实现，数据源固定为本地JSON文件。KPI看板和每个独立图表均提供AI智能业务摘要功能。**
+本项目是一个基于 Next.js, React, ShadCN UI, Tailwind CSS 构建的车险经营分析仪表盘应用。AI分析功能通过后端的 Firebase Function 代理实现，数据源固定为本地JSON文件。KPI看板和每个独立图表均提供AI智能业务摘要功能。
 
 ## 目标
 
@@ -17,6 +17,8 @@
 - **趋势分析**:
     - 根据所选指标类型智能切换图表：率值类指标使用折线图，数值类指标使用柱状图。
     - **环比数据模式**：图表上每个点的值代表 `当前期对应指标的YTD值 - 上一期对应指标的YTD值`。
+    - **X轴标签优化**: X轴的周期标签会显示对应的具体日期范围（例如 "W24 (06/09-06/14)"），增强时间可读性。Tooltip中的周期显示也会同步优化。
+    - **布局优化**: 确保图表内容在容器内正确显示，避免溢出。
     - 线条/柱子颜色根据变动成本率动态变化。
     - **独立的AI图表分析**: 图表下方提供独立的AI分析模块和按钮。
 - **对比气泡图**: 多维度比较不同业务类型的表现。气泡颜色根据变动成本率动态变化。**独立的AI图表分析**: 图表下方提供独立的AI分析模块和按钮。
@@ -50,6 +52,7 @@
     - Recharts (图表库)
     - Lucide React (图标)
     - react-markdown (Markdown渲染)
+    - date-fns (日期处理)
 - **后端 (AI代理)**:
     - Firebase Functions (Node.js)
     - Genkit (Google AI)
@@ -64,6 +67,7 @@
 - `src/ai/`: Genkit相关的AI Flow和配置 (包括 `generate-business-summary.ts` 和各图表分析flow)。
 - `src/lib/`: 工具函数和核心逻辑。
     - `data-utils.ts`: 数据处理、聚合、KPI计算等。
+    - `date-formatters.ts`: 日期格式化和周期计算工具。
 - `src/data/`: 数据类型定义。
 - `public/data/`: 存放应用的原始数据文件 (`insurance_data.json`)。
 - `functions/`: Firebase Functions的源代码。
