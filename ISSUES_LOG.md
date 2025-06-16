@@ -22,82 +22,6 @@
 ---
 ... (所有之前的条目保持不变) ...
 ---
-### 27. AI摘要功能整合与简化 (已回滚)
-- **问题描述**: (V3.2.0) 曾尝试将AI智能业务摘要功能整合到KPI看板视图下方，并移除所有图表的独立AI分析模块。**此更改已被V3.3.0回滚。**
-- **发生时间**: 2024-05-31 (V3.2.0), 2024-05-31 (V3.3.0 回滚)
-- **影响范围**: `src/app/page.tsx`, `src/components/sections/*` (所有图表组件), `functions/src/index.ts`, `src/ai/dev.ts`, `PRODUCT_REQUIREMENTS_DOCUMENT.md`, `README.md`. 多个AI flow文件 (`generate-trend-analysis-flow.ts` 等) 的使用状态发生变化。
-- **V3.2.0 解决方案 (已回滚)**:
-    *   将 `AiSummarySection` 移至KPI看板下方。
-    *   移除了图表特定的AI摘要状态、处理器和UI。
-    *   Firebase Function 和 Genkit dev入口仅处理总体业务摘要flow。
-- **V3.3.0 回滚与当前解决方案**:
-    *   恢复了 `src/app/page.tsx` 中各个图表（趋势、气泡、排名、占比、帕累托）的独立AI摘要状态变量、处理器函数和相关的类型导入。
-    *   各个图表组件 (`src/components/sections/*.tsx`) 重新引入了 `ChartAiSummary` 组件，并传递必要的props以显示和触发各自的AI分析。
-    *   Firebase Function (`functions/src/index.ts`) 和 Genkit开发入口 (`src/ai/dev.ts`) 已更新，重新导入并处理所有图表特定的AI flow。
-    *   文档 (`PRODUCT_REQUIREMENTS_DOCUMENT.md`, `README.md`) 已更新，反映AI摘要功能现在重新分散到KPI看板和每个独立图表中。
-- **状态**: 已解决 (V3.3.0 - 各图表独立AI分析已恢复)
-- **备注**: 应用头部的“AI摘要”按钮专注于触发KPI看板下方的总体业务摘要。各个图表下方现在拥有其独立的AI分析模块和触发按钮。所有图表特定的AI flow文件 (`generate-trend-analysis-flow.ts`, `generate-bubble-chart-analysis-flow.ts`, `generate-bar-ranking-analysis-flow.ts`, `generate-share-chart-analysis-flow.ts`, `generate-pareto-analysis-flow.ts`) 已重新被引用和使用。
-
----
-### 28. Firebase Function 404错误 (AI代理调用失败)
-- **问题描述**: 前端调用 `/generateAiSummaryProxy` Firebase Function 时返回 404 错误。
-- **发生时间**: 2024-05-31
-- **影响范围**: 所有AI分析功能。`src/app/page.tsx` 中的 `callAiProxy` 函数，`firebase.json`。
-- **解决方案**:
-    1.  **修正 `firebase.json` 中的 `rewrites` 规则**:
-        *   为 `/generateAiSummaryProxy` 添加了特定的function rewrite规则：`{ "source": "/generateAiSummaryProxy", "function": "generateAiSummaryProxy" }`。
-        *   **关键**：确保此规则在SPA的catch-all规则 (`{ "source": "**", "destination": "/index.html" }`) **之前**。
-    2.  **确保 `functions` 配置存在**: 在 `firebase.json` 中添加了基础的 `functions` 配置块，指明源代码目录和运行时。
-    3.  **Function代码自包含 (后续发现)**: 问题部分原因也与Function代码依赖项目根目录 `src/` 下的文件有关，导致部署时找不到依赖。通过将AI flow及genkit配置复制到 `functions/src/ai/` 目录下，并更新导入路径为相对路径，使得Function可以独立部署。同时更新了`functions/tsconfig.json`移除非必要路径别名，并为`functions/package.json`添加build脚本，在`firebase.json`的`predeploy`中调用。
-- **状态**: 已解决 (结合了第29条和后续的Function代码自包含解决方案)
-- **备注**: Firebase Hosting的规则顺序很重要。同时，Firebase Functions部署时只打包其指定目录 (`functions`) 内的内容，外部依赖会导致运行时错误，进而可能表现为404（函数未能成功初始化）。
-
----
-### 29. 趋势图X轴标签可读性及图表溢出问题 (迭代1 - 日期范围显示)
-- **问题描述**:
-    1.  趋势分析图表的X轴标签仅显示周期（如“2025年第24周”），用户无法直观了解该周对应的具体起止日期。
-    2.  趋势图表有时会超出其容器范围，影响页面布局。
-- **发生时间**: 2024-06-01
-- **影响范围**: `src/components/sections/trend-analysis-section.tsx`, `src/lib/date-formatters.ts` (新创建), 相关文档。
-- **解决方案 (迭代1 - 周一开始，周六结束)**:
-    1.  **创建日期格式化工具 (`src/lib/date-formatters.ts`)**:
-        *   `parsePeriodLabelToYearWeek`: 解析 "YYYY年第WW周" 格式。
-        *   `getFormattedWeekDateRange`: 计算并返回 "W24 (MM/DD-MM/DD)" 格式。
-        *   `formatPeriodLabelForAxis`: 用于X轴tickFormatter。
-        *   `formatPeriodLabelForTooltip`: 用于Tooltip。
-    2.  **更新 `TrendAnalysisSection` 组件**: 使用新的格式化函数，调整图表边距和X轴属性。
-    3.  **文档更新**: 说明趋势图日期显示的改进。
-- **状态**: 已演进至迭代4
-- **备注**: 数据JSON中每周数据截至周六。迭代1的日期计算将周一定为周始，周六为周止。
-
----
-### 30. 趋势图X轴标签周定义修正 (迭代2 - 周日至周六范围)
-- **问题描述**: 迭代1的周起止日期计算逻辑未完全符合用户定义的“上周日到本周六”。
-- **发生时间**: 2024-06-02 (基于用户反馈)
-- **影响范围**: `src/lib/date-formatters.ts`.
-- **解决方案 (迭代2 - 周日至周六)**:
-    1.  **修正 `src/lib/date-formatters.ts` 中的 `getWeekDateObjects` 函数**:
-        *   `startOfWeek` 调用时，`weekStartsOn` 参数修改为 `0` (周日)。
-        *   结束日期 (`endDate`) 调整为从 `startDate` (周日) 开始加上6天。
-- **状态**: 已演进至迭代4
-- **备注**: 确保了日期范围计算遵循用户指定的周定义。
-
----
-### 31. 趋势图X轴标签水平显示与图表溢出问题 (迭代3 - 布局与角度)
-- **问题描述**:
-    1. 在“累计”分析模式下，趋势图的X轴标签倾斜显示，用户期望水平显示。
-    2. 趋势图表（特别是X轴标签部分）有时会超出其容器的右边界，导致显示不完整。
-- **发生时间**: 2024-06-02
-- **影响范围**: `src/components/sections/trend-analysis-section.tsx`, 相关文档。
-- **解决方案 (迭代3)**:
-    1.  **`TrendAnalysisSection` 组件更新**:
-        *   **X轴标签角度**: 调整 `XAxis` 的 `angle` 和 `dy` 属性逻辑，确保“累计”模式下水平显示。
-        *   **图表边距调整**: 增加 `RechartsLineChart` 和 `RechartsBarChart` 的 `margin.right` 值，防止溢出。
-    2.  **文档更新**: 更新PRD和README中关于图表布局优化的说明。
-- **状态**: 已演进至迭代4
-- **备注**: 改善了特定模式下的标签显示和整体布局稳定性。
-
----
 ### 32. 趋势图X轴标签格式优化 (迭代4 - 显示当周最后一天YY-MM-DD)
 - **问题描述**: 用户反馈希望趋势图X轴标签更简洁，仅显示当周的最后一天（周六），格式为 "YY-MM-DD"。
 - **发生时间**: 2024-06-03
@@ -109,3 +33,21 @@
 - **状态**: 已解决
 - **备注**: Tooltip将继续显示完整的周起止日期范围。此更改旨在提高X轴的可读性和简洁性。
 
+---
+### 33. 新增原型级用户名/密码登录功能
+- **问题描述**: 需要为应用增加一个基础的登录机制来保护仪表盘内容的访问。
+- **发生时间**: (当前日期)
+- **影响范围**: 全局应用访问，`src/app/layout.tsx`, `src/app/page.tsx`, `src/app/login/page.tsx` (新), `src/contexts/auth-provider.tsx` (新), `src/components/layout/header.tsx`, 相关文档。
+- **解决方案**:
+    1.  **创建 `AuthProvider`**: 在 `src/contexts/auth-provider.tsx` 中实现一个认证上下文，用于管理 `isAuthenticated` 状态、`isLoadingAuth` 状态，并提供 `login` 和 `logout` 方法。
+        *   `login` 方法使用硬编码的凭证 (`admin`/`password`) 进行校验。
+        *   登录状态通过在 `localStorage` 中设置/移除一个简单的标记 (`insuranceAppSessionToken`) 来模拟。
+        *   `AuthProvider` 在加载时检查 `localStorage` 来恢复登录状态。
+        *   它还负责处理路由保护：如果用户未认证且不在登录页，则重定向到 `/login`；如果用户已认证且在登录页，则重定向到 `/`。
+    2.  **创建登录页面**: 在 `src/app/login/page.tsx` 创建一个包含用户名、密码输入框和登录按钮的表单。该页面使用 `useAuth` 来调用 `login` 方法。
+    3.  **更新根布局**: 在 `src/app/layout.tsx` 中，使用 `<AuthProvider>` 包裹 `{children}`，使整个应用都受认证上下文管理。
+    4.  **更新主页**: `src/app/page.tsx` 中，依赖 `useAuth` 的 `isAuthenticated` 和 `isLoadingAuth` 来控制数据加载和内容显示。
+    5.  **更新应用头部**: 在 `src/components/layout/header.tsx` 中，使用 `useAuth` 来获取认证状态和 `logout` 方法。添加一个“登出”按钮，仅在用户认证后显示。
+    6.  **文档更新**: PRD 和 README 已更新，增加了关于原型登录功能、使用方法（硬编码凭证）和其非生产安全性的说明。
+- **状态**: 已实现 (原型级别)
+- **备注**: 此登录功能为原型演示目的，**不适用于生产环境**，因其使用硬编码凭证且会话管理简单。生产应用应使用 Firebase Authentication 或其他专业身份验证服务。

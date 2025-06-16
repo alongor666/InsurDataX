@@ -4,8 +4,8 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
-import type { AnalysisMode, PeriodOption, DashboardView } from '@/data/types'; // Removed DataSourceType
-import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon, AreaChart, Check, Undo2, Eraser, MousePointerClick, CheckSquare, Square } from 'lucide-react';
+import type { AnalysisMode, PeriodOption, DashboardView } from '@/data/types';
+import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon, AreaChart, Check, Undo2, Eraser, MousePointerClick, CheckSquare, Square, LogOut } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -23,8 +23,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Separator } from '@/components/ui/separator';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/auth-provider'; // Import useAuth
 
 interface AppHeaderProps {
   analysisMode: AnalysisMode;
@@ -42,7 +43,6 @@ interface AppHeaderProps {
   selectedBusinessTypes: string[];
   onSelectedBusinessTypesChange: (types: string[]) => void;
   onExportClick: () => void;
-  // currentDataSource and onDataSourceChange removed
 }
 
 export function AppHeader({
@@ -63,6 +63,7 @@ export function AppHeader({
   onExportClick,
 }: AppHeaderProps) {
 
+  const { isAuthenticated, logout, isLoadingAuth } = useAuth(); // Use the auth context
   const [businessTypeDropdownOpen, setBusinessTypeDropdownOpen] = useState(false);
   const [pendingSelectedTypes, setPendingSelectedTypes] = useState<string[]>(selectedBusinessTypes);
 
@@ -122,10 +123,30 @@ export function AppHeader({
     { label: "帕累托图", value: "pareto", icon: AreaChart },
     { label: "数据表", value: "data_table", icon: Rows3 },
   ];
-
-  // DataSource selection removed
   
   const comparisonPeriodOptions = periodOptions.filter(option => option.value !== selectedPeriod);
+
+  if (isLoadingAuth || !isAuthenticated) {
+     // Optionally render a minimal header or nothing if not authenticated and not on login page
+     // AuthProvider handles redirection, so this state is usually brief or not hit if already redirected.
+     // However, to prevent flash of full header before redirect:
+    return (
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-16 items-center justify-between">
+          <Link href="/" className="mr-6 flex items-center space-x-2">
+            <span className="font-headline text-xl font-bold text-primary">车险经营分析周报</span>
+          </Link>
+          {isAuthenticated && !isLoadingAuth && (
+             <Button onClick={logout} variant="outline" size="sm" className="h-9 text-xs md:text-sm">
+              <LogOut className="mr-1 md:mr-1.5 h-4 w-4" />
+              登出
+            </Button>
+          )}
+        </div>
+      </header>
+    );
+  }
+
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -136,7 +157,6 @@ export function AppHeader({
 
         <div className="flex flex-wrap items-center justify-start md:justify-end flex-grow gap-x-2.5 gap-y-2 md:gap-x-3">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 md:gap-x-3">
-            {/* Data Source Select removed */}
             <Select value={selectedPeriod} onValueChange={onPeriodChange} disabled={periodOptions.length === 0}>
               <SelectTrigger className="w-auto md:w-[160px] h-9 text-xs md:text-sm">
                 <SelectValue placeholder={periodOptions.length > 0 ? "选择当前周期" : "加载周期中..."} />
@@ -254,6 +274,10 @@ export function AppHeader({
               <Download className="mr-1 md:mr-1.5 h-4 w-4" />
               导出
             </Button>
+             <Button onClick={logout} variant="outline" size="sm" className="h-9 text-xs md:text-sm">
+                <LogOut className="mr-1 md:mr-1.5 h-4 w-4" />
+                登出
+            </Button>
           </div>
         </div>
       </div>
@@ -277,7 +301,3 @@ export function AppHeader({
     </header>
   );
 }
-    
-    
-
-    

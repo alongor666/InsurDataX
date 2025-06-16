@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import type { AnalysisMode, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod, V4PeriodData, PeriodOption, DashboardView, TrendMetricKey, RankingMetricKey, BubbleMetricKey, AggregatedBusinessMetrics, CoreAggregatedMetricKey, ShareChartMetricKey, ShareChartDataItem, ParetoChartMetricKey, ParetoChartDataItem } from '@/data/types';
+import type { AnalysisMode, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod, V4PeriodData, PeriodOption, DashboardView, TrendMetricKey, RankingMetricKey, BubbleMetricKey, AggregatedBusinessMetrics, CoreAggregatedMetricKey, ShareChartMetricKey, ShareChartDataItem, ParetoChartMetricKey, ParetoChartDataItem, V4BusinessDataEntry } from '@/data/types';
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { AppHeader } from '@/components/layout/header';
@@ -14,6 +14,7 @@ import { ShareChartSection } from '@/components/sections/share-chart-section';
 import { ParetoChartSection } from '@/components/sections/pareto-chart-section.tsx';
 import { DataTableSection } from '@/components/sections/data-table-section';
 import { AiSummarySection } from '@/components/sections/ai-summary-section';
+import { useAuth } from '@/contexts/auth-provider'; // Import useAuth
 
 // Types for AI Flow inputs/outputs
 import type { GenerateBusinessSummaryInput, GenerateBusinessSummaryOutput } from '@/ai/flows/generate-business-summary';
@@ -99,6 +100,7 @@ const availableParetoMetrics: { value: ParetoChartMetricKey, label: string}[] = 
 
 
 export default function DashboardPage() {
+  const { isAuthenticated, isLoadingAuth } = useAuth(); // Use auth context
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('cumulative');
   const [activeView, setActiveView] = useState<DashboardView>('kpi');
 
@@ -165,7 +167,7 @@ export default function DashboardPage() {
       try {
         let rawData: any;
         toast({ title: "数据加载中", description: "正在从JSON文件加载数据..." });
-        const response = await fetch('/data/insurance_data.json');
+        const response = await fetch('/data/insurance_data.json'); // Fixed path
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status} when fetching JSON.`);
         }
@@ -230,8 +232,12 @@ export default function DashboardPage() {
         setIsGlobalLoading(false);
       }
     };
-    fetchData();
-  }, [toast]); 
+    if (isAuthenticated) { // Only fetch data if authenticated
+      fetchData();
+    } else if (!isLoadingAuth) { // If not loading auth and not authenticated, means user is on login or being redirected
+      setIsGlobalLoading(false); // Stop global loading as auth provider handles UI
+    }
+  }, [toast, isAuthenticated, isLoadingAuth]); // Add isAuthenticated and isLoadingAuth
 
   useEffect(() => {
     if (Array.isArray(allV4Data) && allV4Data.length > 0 && selectedPeriodKey) {
@@ -241,7 +247,7 @@ export default function DashboardPage() {
 
 
   useEffect(() => {
-    if (isGlobalLoading || !Array.isArray(allV4Data) || allV4Data.length === 0 || !selectedPeriodKey) {
+    if (isGlobalLoading || !Array.isArray(allV4Data) || allV4Data.length === 0 || !selectedPeriodKey || !isAuthenticated) {
       setProcessedData([]);
       setKpis([]);
       setTrendChartData([]);
@@ -307,7 +313,7 @@ export default function DashboardPage() {
     setShareAiSummary(null);
     setParetoAiSummary(null);
 
-  }, [isGlobalLoading, analysisMode, selectedPeriodKey, selectedComparisonPeriodKey, allV4Data, selectedBusinessTypes, selectedTrendMetric, selectedRankingMetric, selectedBubbleXAxisMetric, selectedBubbleYAxisMetric, selectedBubbleSizeMetric, selectedShareChartMetric, selectedParetoMetric, toast]);
+  }, [isGlobalLoading, analysisMode, selectedPeriodKey, selectedComparisonPeriodKey, allV4Data, selectedBusinessTypes, selectedTrendMetric, selectedRankingMetric, selectedBubbleXAxisMetric, selectedBubbleYAxisMetric, selectedBubbleSizeMetric, selectedShareChartMetric, selectedParetoMetric, toast, isAuthenticated]);
 
 
  const prepareTrendData_V4 = (
@@ -511,7 +517,7 @@ export default function DashboardPage() {
     }
 
     if (grandTotalMetricValue === 0 && mode === 'cumulative') return []; 
-    if (mode === 'periodOverPeriod' && grandTotalMetricValue === 0 && currentRawPeriod.business_data.some(bd => bd[metricKey as keyof V4BusinessDataEntry] !== 0) ) {
+    if (mode === 'periodOverPeriod' && grandTotalMetricValue === 0 && currentRawPeriod.business_data.some(bd => (bd as any)[metricKey as keyof V4BusinessDataEntry] !== 0) ) {
     }
 
     const typesForSlices = selBusinessTypes.length > 0 ? selBusinessTypes : allIndividualTypesInPeriod;
@@ -681,8 +687,13 @@ export default function DashboardPage() {
       return;
     }
     const kpiDataForSummary = kpis.map(k => ({ title: k.title, value: k.value, comparison: k.comparisonChangeAbsolute || k.comparisonChange || '-' }));
-    // Use barRankData for top business lines as it's already sorted and contains VCR
-    const topBusinessLines = barRankData.slice(0, 5).map(b => ({ name: b.name, value: b[selectedRankingMetric], vcr: b.vcr }));
+    
+    const topBusinessLines = barRankData.slice(0, 5).map(b => ({ 
+        name: b.name, 
+        value: (b as any)[selectedRankingMetric], // Ensure dynamic key access
+        vcr: b.vcr 
+    }));
+
 
     const input: GenerateBusinessSummaryInput = {
         data: JSON.stringify({
@@ -780,6 +791,17 @@ export default function DashboardPage() {
       toast({ variant: "destructive", title: "无数据可导出" });
     }
   };
+  
+  // If auth is loading, AuthProvider shows its own skeleton.
+  // If not authenticated and not on login page, AuthProvider handles redirection.
+  // So, if we reach here and !isAuthenticated, it's likely because AuthProvider is about to redirect.
+  // However, to be safe and prevent rendering the dashboard content if not authenticated:
+  if (!isLoadingAuth && !isAuthenticated) {
+    // AuthProvider should be handling the redirect to /login.
+    // This return is a safeguard or can show a "Redirecting..." message if needed.
+    return null; // Or a minimal loading/redirecting UI
+  }
+
 
   const headerElement = (
     <AppHeader
@@ -816,12 +838,12 @@ export default function DashboardPage() {
   return (
     <AppLayout header={headerElement}>
       <div className="space-y-6 md:space-y-8">
-        {isGlobalLoading && <p className="text-center text-muted-foreground py-8">数据加载中，请稍候...</p>}
-        {!isGlobalLoading && (!Array.isArray(allV4Data) || allV4Data.length === 0) && <p className="text-center text-destructive py-8">JSON数据文件为空、加载失败或格式错误。请检查 public/data/insurance_data.json 文件内容是否为有效的数组结构。</p>}
-        {!isGlobalLoading && Array.isArray(allV4Data) && allV4Data.length > 0 && !selectedPeriodKey && <p className="text-center text-muted-foreground py-8">请选择一个数据周期以开始分析。</p>}
+        {isGlobalLoading && isAuthenticated && <p className="text-center text-muted-foreground py-8">数据加载中，请稍候...</p>}
+        {!isGlobalLoading && isAuthenticated && (!Array.isArray(allV4Data) || allV4Data.length === 0) && <p className="text-center text-destructive py-8">JSON数据文件为空、加载失败或格式错误。请检查 public/data/insurance_data.json 文件内容是否为有效的数组结构。</p>}
+        {!isGlobalLoading && isAuthenticated && Array.isArray(allV4Data) && allV4Data.length > 0 && !selectedPeriodKey && <p className="text-center text-muted-foreground py-8">请选择一个数据周期以开始分析。</p>}
 
 
-        {!isGlobalLoading && Array.isArray(allV4Data) && allV4Data.length > 0 && selectedPeriodKey && (
+        {!isGlobalLoading && isAuthenticated && Array.isArray(allV4Data) && allV4Data.length > 0 && selectedPeriodKey && (
           <>
             {activeView === 'kpi' &&
               <>
@@ -909,4 +931,3 @@ export default function DashboardPage() {
     </AppLayout>
   );
 }
-

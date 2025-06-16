@@ -1,14 +1,20 @@
 
-# 车险经营分析周报应用 (带后端AI代理)
+# 车险经营分析周报应用 (带后端AI代理和原型登录)
 
-本项目是一个基于 Next.js, React, ShadCN UI, Tailwind CSS 构建的车险经营分析仪表盘应用。AI分析功能通过后端的 Firebase Function 代理实现，数据源固定为本地JSON文件。KPI看板和每个独立图表均提供AI智能业务摘要功能。
+本项目是一个基于 Next.js, React, ShadCN UI, Tailwind CSS 构建的车险经营分析仪表盘应用。AI分析功能通过后端的 Firebase Function 代理实现，数据源固定为本地JSON文件。**应用现在包含一个原型级别的用户名/密码登录功能来保护仪表盘的访问。** KPI看板和每个独立图表均提供AI智能业务摘要功能。
 
 ## 目标
 
-旨在为车险业务分析人员和管理层提供一个直观、高效的数据可视化分析平台，帮助他们快速洞察业务表现、识别风险与机遇。
+旨在为车险业务分析人员和管理层提供一个直观、高效的数据可视化分析平台，帮助他们快速洞察业务表现、识别风险与机遇，同时通过基础的登录机制对数据访问进行控制。
 
 ## 主要功能
 
+- **原型登录/登出**:
+    - 应用启动时会重定向到登录页面。
+    - 使用硬编码的凭证 (`admin` / `password`) 进行登录。
+    - 登录状态通过 `localStorage` 简单管理。
+    - 应用头部提供“登出”按钮。
+    - **注意**: 此登录功能为原型演示，不适用于生产环境。
 - **KPI看板**: 实时展示核心业务指标。默认显示最新一周的累计数据。
     - **对比逻辑**: KPI卡片显示与“对比周期”的变化。看板下方统一显示当前数据周期与所选对比周期的信息。
     - 布局为4x4网格。卡片最小高度优化，整体看板尺寸有所压缩。
@@ -17,7 +23,7 @@
 - **趋势分析**:
     - 根据所选指标类型智能切换图表：率值类指标使用折线图，数值类指标使用柱状图。
     - **环比数据模式**：图表上每个点的值代表 `当前期对应指标的YTD值 - 上一期对应指标的YTD值`。
-    - **X轴标签优化**: X轴的周期标签将显示当周的最后一天（周六）的日期，格式为 "YY-MM-DD"（例如 "25-06-14"），增强时间可读性。**在“累计”分析模式下，X轴标签将始终水平显示。** Tooltip中的周期显示会同步优化，显示完整的周起止范围。
+    - **X轴标签优化**: X轴的周期标签将显示当周的最后一天（周六）的日期，格式为 "YY-MM-DD"（例如 "25-06-14"），增强时间可读性。在“累计”分析模式下，X轴标签将始终水平显示。 Tooltip中的周期显示会同步优化，显示完整的周起止范围。
     - **布局优化**: 通过调整图表边距，确保图表内容在容器内正确显示，避免溢出。
     - 线条/柱子颜色根据变动成本率动态变化。
     - **独立的AI图表分析**: 图表下方提供独立的AI分析模块和按钮。
@@ -45,7 +51,7 @@
 
 - **前端**:
     - Next.js (App Router, **配置为静态导出 `output: "export"`**)
-    - React
+    - React (Context API 用于原型认证)
     - TypeScript
     - ShadCN UI (组件库)
     - Tailwind CSS (样式)
@@ -63,7 +69,10 @@
 ## 项目结构
 
 - `src/app/`: Next.js 页面和布局。
+    - `src/app/login/page.tsx`: 新增的登录页面。
 - `src/components/`: 应用的React组件。
+    - `src/components/auth/auth-provider.tsx`: 新增的认证提供者组件。
+- `src/contexts/`: React Context API 实现（例如 `auth-provider.tsx`）。
 - `src/ai/`: Genkit相关的AI Flow和配置 (包括 `generate-business-summary.ts` 和各图表分析flow)。 **注意：Firebase Function部署时会使用其内部 `functions/src/ai` 目录下的副本。**
 - `src/lib/`: 工具函数和核心逻辑。
     - `data-utils.ts`: 数据处理、聚合、KPI计算等。
@@ -93,7 +102,7 @@
     *   **环境变量**: 确保为Function配置了API密钥。对于本地模拟器，可以在项目根目录创建 `.env.local` 文件并添加 `GOOGLE_API_KEY=your_actual_api_key`。对于云端部署，使用 Firebase CLI 配置环境变量：`firebase functions:config:set google.api_key="YOUR_API_KEY"`。
 4.  **本地模拟与测试**:
     *   在项目根目录运行 Firebase Emulators: `firebase emulators:start` (确保已配置 `firebase.json` 来模拟hosting和functions)。
-    *   前端应用会调用模拟器中的Function。
+    *   前端应用会调用模拟器中的Function。首先访问登录页面（通常是 `/login`）。
 5.  **部署到 Firebase**:
     *   在项目根目录运行: `firebase deploy`
     *   这将同时部署 Next.js 静态站点到 Firebase Hosting 和 Firebase Function。
@@ -103,4 +112,3 @@
 - **产品需求文档**: `PRODUCT_REQUIREMENTS_DOCUMENT.md`
 - **字段字典与计算逻辑**: `FIELD_DICTIONARY_V4.md`
 - **问题与解决日志**: `ISSUES_LOG.md`
-
