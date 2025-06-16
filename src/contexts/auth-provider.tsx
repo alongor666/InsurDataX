@@ -3,12 +3,15 @@
 
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Skeleton } from '@/components/ui/skeleton'; // For loading state
+import { auth } from '@/lib/firebase'; // Import Firebase auth instance
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface AuthContextType {
+  currentUser: User | null;
   isAuthenticated: boolean;
-  login: (user: string, pass: string) => Promise<boolean>;
-  logout: () => void;
+  login: (email: string, pass: string) => Promise<boolean>; // Changed parameters
+  logout: () => Promise<void>;
   isLoadingAuth: boolean;
 }
 
@@ -22,64 +25,45 @@ export const useAuth = () => {
   return context;
 };
 
-const MOCK_SESSION_TOKEN_KEY = 'insuranceAppSessionToken';
-const MOCK_SESSION_TOKEN_VALUE = 'mockAuthTokenTrue';
-
-// Hardcoded credentials for prototype
-const PROTOTYPE_USERNAME = 'admin';
-const PROTOTYPE_PASSWORD = 'password';
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
-    try {
-      const token = localStorage.getItem(MOCK_SESSION_TOKEN_KEY);
-      if (token === MOCK_SESSION_TOKEN_VALUE) {
-        setIsAuthenticated(true);
-      }
-    } catch (error) {
-      console.error("Could not access localStorage:", error);
-      // Potentially run in an environment where localStorage is not available (e.g. SSR pre-render for certain parts)
-      // For this prototype, we assume client-side focus for auth.
-    }
-    setIsLoadingAuth(false);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setIsLoadingAuth(false);
+    });
+    return () => unsubscribe(); // Cleanup subscription on unmount
   }, []);
 
-  const login = async (user: string, pass: string): Promise<boolean> => {
+  const login = async (email: string, pass: string): Promise<boolean> => {
     setIsLoadingAuth(true);
-    // Simulate network delay for login process
-    await new Promise(resolve => setTimeout(resolve, 500)); 
-    if (user === PROTOTYPE_USERNAME && pass === PROTOTYPE_PASSWORD) {
-      try {
-        localStorage.setItem(MOCK_SESSION_TOKEN_KEY, MOCK_SESSION_TOKEN_VALUE);
-      } catch (error) {
-        console.error("Could not set item in localStorage:", error);
-        setIsLoadingAuth(false);
-        return false; // Login fails if localStorage is not writable
-      }
-      setIsAuthenticated(true);
-      setIsLoadingAuth(false);
-      router.push('/'); 
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+      // onAuthStateChanged will handle setting currentUser and redirecting
+      router.push('/'); // Manually redirect on successful login
       return true;
+    } catch (error) {
+      console.error("Firebase login error:", error);
+      setIsLoadingAuth(false);
+      return false;
     }
-    setIsAuthenticated(false);
-    setIsLoadingAuth(false);
-    return false;
   };
 
-  const logout = () => {
+  const logout = async () => {
     try {
-      localStorage.removeItem(MOCK_SESSION_TOKEN_KEY);
+      await signOut(auth);
+      // onAuthStateChanged will handle setting currentUser to null
+      router.push('/login'); // Manually redirect on logout
     } catch (error) {
-      console.error("Could not remove item from localStorage:", error);
+      console.error("Firebase logout error:", error);
     }
-    setIsAuthenticated(false);
-    router.push('/login');
   };
+
+  const isAuthenticated = !!currentUser;
 
   useEffect(() => {
     if (!isLoadingAuth) {
@@ -104,7 +88,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
   }
 
-  // If redirecting, show a minimal UI. The useEffect above handles the router.push.
   if (!isAuthenticated && pathname !== '/login') {
      return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground">
@@ -124,9 +107,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, isLoadingAuth }}>
+    <AuthContext.Provider value={{ currentUser, isAuthenticated, login, logout, isLoadingAuth }}>
       {children}
     </AuthContext.Provider>
   );
 };
-

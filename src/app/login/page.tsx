@@ -2,7 +2,9 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+// useRouter is not directly used for redirection here, AuthProvider handles it.
+// However, if you want to redirect *from* login page based on some other logic, keep it.
+// import { useRouter } from 'next/navigation'; 
 import { useAuth } from '@/contexts/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,25 +14,27 @@ import { ShieldCheck, LogIn } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState(''); // Changed from username to email
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const { login } = useAuth();
-  const router = useRouter();
+  // const router = useRouter(); // See comment above
   const { toast } = useToast();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoggingIn(true);
-    const success = await login(username, password);
+    // Using email for Firebase Auth, you can adjust if using username-password
+    const success = await login(email, password); 
     if (success) {
       // AuthProvider handles redirection via router.push on successful login
+      // or onAuthStateChanged listener.
       toast({ title: "登录成功", description: "欢迎回来!" });
     } else {
-      setError('用户名或密码错误。请重试。 (提示: admin/password)');
-      toast({ variant: "destructive", title: "登录失败", description: "用户名或密码无效。" });
+      setError('邮箱或密码错误，或用户不存在。请重试。');
+      toast({ variant: "destructive", title: "登录失败", description: "邮箱或密码无效，或者用户可能需要先注册。" });
       setIsLoggingIn(false);
     }
   };
@@ -48,13 +52,13 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="username">用户名</Label>
+              <Label htmlFor="email">邮箱</Label> {/* Changed from username */}
               <Input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="例如: admin"
+                id="email"
+                type="email" // Changed from text
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="例如: user@example.com"
                 required
                 disabled={isLoggingIn}
               />
@@ -66,7 +70,7 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="例如: password"
+                placeholder="请输入密码"
                 required
                 disabled={isLoggingIn}
               />
@@ -79,11 +83,13 @@ export default function LoginPage() {
           </form>
         </CardContent>
         <CardFooter className="mt-4 text-center text-xs text-muted-foreground">
-          <p>这是一个原型演示登录。请使用 admin / password。</p>
+          <p>此应用使用 Firebase Authentication。请使用已注册的账户登录。</p>
+           {/* Optionally, add a link to a registration page if you implement one */}
+           {/* <p className="mt-2">没有账户？ <a href="/register" className="text-primary hover:underline">注册</a></p> */}
         </CardFooter>
       </Card>
        <footer className="py-8 text-center text-xs text-muted-foreground/80">
-        © {new Date().getFullYear()} 车险经营分析周报应用 (原型)
+        © {new Date().getFullYear()} 车险经营分析周报应用
       </footer>
     </div>
   );

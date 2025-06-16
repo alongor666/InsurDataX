@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
 import type { AnalysisMode, PeriodOption, DashboardView } from '@/data/types';
-import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon, AreaChart, Check, Undo2, Eraser, MousePointerClick, CheckSquare, Square, LogOut } from 'lucide-react';
+import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon, AreaChart, Check, Undo2, Eraser, MousePointerClick, CheckSquare, Square, LogOut, UserCircle } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -21,11 +21,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuGroup, // Added for user menu
 } from "@/components/ui/dropdown-menu"
 import { Separator } from '@/components/ui/separator';
-import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'; // Ensure TooltipContent is imported
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/auth-provider'; // Import useAuth
+import { useAuth } from '@/contexts/auth-provider'; 
 
 interface AppHeaderProps {
   analysisMode: AnalysisMode;
@@ -63,7 +64,7 @@ export function AppHeader({
   onExportClick,
 }: AppHeaderProps) {
 
-  const { isAuthenticated, logout, isLoadingAuth } = useAuth(); // Use the auth context
+  const { currentUser, logout, isLoadingAuth } = useAuth(); 
   const [businessTypeDropdownOpen, setBusinessTypeDropdownOpen] = useState(false);
   const [pendingSelectedTypes, setPendingSelectedTypes] = useState<string[]>(selectedBusinessTypes);
 
@@ -126,17 +127,14 @@ export function AppHeader({
   
   const comparisonPeriodOptions = periodOptions.filter(option => option.value !== selectedPeriod);
 
-  if (isLoadingAuth || !isAuthenticated) {
-     // Optionally render a minimal header or nothing if not authenticated and not on login page
-     // AuthProvider handles redirection, so this state is usually brief or not hit if already redirected.
-     // However, to prevent flash of full header before redirect:
+  if (isLoadingAuth || !currentUser) { // Changed from !isAuthenticated to !currentUser for Firebase
     return (
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
           <Link href="/" className="mr-6 flex items-center space-x-2">
             <span className="font-headline text-xl font-bold text-primary">车险经营分析周报</span>
           </Link>
-          {isAuthenticated && !isLoadingAuth && (
+          {currentUser && !isLoadingAuth && ( // Check currentUser here as well
              <Button onClick={logout} variant="outline" size="sm" className="h-9 text-xs md:text-sm">
               <LogOut className="mr-1 md:mr-1.5 h-4 w-4" />
               登出
@@ -274,10 +272,25 @@ export function AppHeader({
               <Download className="mr-1 md:mr-1.5 h-4 w-4" />
               导出
             </Button>
-             <Button onClick={logout} variant="outline" size="sm" className="h-9 text-xs md:text-sm">
-                <LogOut className="mr-1 md:mr-1.5 h-4 w-4" />
-                登出
-            </Button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9">
+                  <UserCircle className="h-5 w-5" />
+                  <span className="sr-only">用户菜单</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel className="text-xs">
+                  {currentUser?.email || "用户"}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout} className="text-xs cursor-pointer">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  登出
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
