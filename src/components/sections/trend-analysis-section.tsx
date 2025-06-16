@@ -206,7 +206,7 @@ export function TrendAnalysisSection({
         <div className="h-[350px] w-full">
           <ChartContainer config={chartConfig} className="h-full w-full">
             {chartType === 'line' ? (
-              <RechartsLineChart data={data} margin={{ top: 5, right: 30, left: 5, bottom: 40 }}>
+              <RechartsLineChart data={data} margin={{ top: 5, right: 60, left: 5, bottom: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis 
                   dataKey="name" 
@@ -214,9 +214,9 @@ export function TrendAnalysisSection({
                   axisLine={false} 
                   tickMargin={10} 
                   tickFormatter={(value) => typeof value === 'string' ? formatPeriodLabelForAxis(value) : value} 
-                  interval={data.length > 12 ? Math.floor(data.length / 10) : 0} // Adjust interval based on data length
-                  angle={data.length > 6 ? -30 : 0} // Rotate labels if many data points
-                  dy={data.length > 6 ? 10 : 5} // Adjust vertical distance for rotated labels
+                  interval={data.length > 12 ? Math.floor(data.length / 10) : 0}
+                  angle={analysisMode === 'cumulative' ? 0 : (data.length > 6 ? -30 : 0)}
+                  dy={analysisMode === 'cumulative' ? 5 : (data.length > 6 ? 10 : 5)}
                   className="text-xs"
                 />
                 <YAxis 
@@ -242,7 +242,7 @@ export function TrendAnalysisSection({
                 ))}
               </RechartsLineChart>
             ) : ( 
-              <RechartsBarChart data={data} margin={{ top: 20, right: 30, left: 5, bottom: 40 }} barCategoryGap="20%">
+              <RechartsBarChart data={data} margin={{ top: 20, right: 60, left: 5, bottom: 40 }} barCategoryGap="20%">
                 <CartesianGrid strokeDasharray="3 3" vertical={false}/>
                 <XAxis 
                   dataKey="name" 
@@ -251,8 +251,8 @@ export function TrendAnalysisSection({
                   tickMargin={10} 
                   tickFormatter={(value) => typeof value === 'string' ? formatPeriodLabelForAxis(value) : value} 
                   interval={data.length > 12 ? Math.floor(data.length / 10) : 0}
-                  angle={data.length > 6 ? -30 : 0}
-                  dy={data.length > 6 ? 10 : 5}
+                  angle={analysisMode === 'cumulative' ? 0 : (data.length > 6 ? -30 : 0)}
+                  dy={analysisMode === 'cumulative' ? 5 : (data.length > 6 ? 10 : 5)}
                   className="text-xs"
                 />
                 <YAxis 
