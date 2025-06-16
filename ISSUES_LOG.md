@@ -49,17 +49,17 @@
         *   **关键**：确保此规则在SPA的catch-all规则 (`{ "source": "**", "destination": "/index.html" }`) **之前**。
     2.  **确保 `functions` 配置存在**: 在 `firebase.json` 中添加了基础的 `functions` 配置块，指明源代码目录和运行时。
     3.  **Function代码自包含 (后续发现)**: 问题部分原因也与Function代码依赖项目根目录 `src/` 下的文件有关，导致部署时找不到依赖。通过将AI flow及genkit配置复制到 `functions/src/ai/` 目录下，并更新导入路径为相对路径，使得Function可以独立部署。同时更新了`functions/tsconfig.json`移除非必要路径别名，并为`functions/package.json`添加build脚本，在`firebase.json`的`predeploy`中调用。
-- **状态**: 已解决 (结合了第29条的解决方案)
+- **状态**: 已解决 (结合了第29条和后续的Function代码自包含解决方案)
 - **备注**: Firebase Hosting的规则顺序很重要。同时，Firebase Functions部署时只打包其指定目录 (`functions`) 内的内容，外部依赖会导致运行时错误，进而可能表现为404（函数未能成功初始化）。
 
 ---
-### 29. 趋势图X轴标签可读性及图表溢出问题
+### 29. 趋势图X轴标签可读性及图表溢出问题 (迭代1)
 - **问题描述**:
     1.  趋势分析图表的X轴标签仅显示周期（如“2025年第24周”），用户无法直观了解该周对应的具体起止日期。
     2.  趋势图表有时会超出其容器范围，影响页面布局。
 - **发生时间**: 2024-06-01
 - **影响范围**: `src/components/sections/trend-analysis-section.tsx`, `src/lib/date-formatters.ts` (新创建), 相关文档。
-- **解决方案**:
+- **解决方案 (迭代1 - 周一至周六)**:
     1.  **创建日期格式化工具 (`src/lib/date-formatters.ts`)**:
         *   `parsePeriodLabelToYearWeek`: 从 "YYYY年第WW周" 格式的标签中解析出年和周数。
         *   `getFormattedWeekDateRange`: 根据年和周数，计算并返回格式化的周起止日期字符串（如 "W24 (06/09-06/14)"，周一至周六）。
@@ -70,5 +70,17 @@
         *   **Tooltip内容**: 使用 `formatPeriodLabelForTooltip` 增强Tooltip中周期标签的日期显示。
         *   **布局与边距**: 调整X轴的 `tickMargin`, `angle`, `dy` 以及图表整体的 `margin`（特别是 `bottom` 和 `right`），为新的、可能更长的标签提供足够空间，并尝试通过 `interval` 属性优化标签密度以防止溢出。
     3.  **文档更新**: 更新PRD和README，说明趋势图日期显示的改进。
+- **状态**: 部分解决 (日期显示逻辑需根据“周日-周六”规则再次调整)
+- **备注**: 数据JSON中每周数据截至周六。**迭代1的日期计算将周一定为周始，周六为周止。这与用户最新的“上周日到本周六”定义不符，需在迭代2中修正。**
+
+---
+### 30. 趋势图X轴标签可读性优化 - 周定义修正 (迭代2)
+- **问题描述**: 趋势图的周起止日期计算逻辑未完全符合用户定义的“上周日到本周六”。例如，用户指出第24周应为6月8日(周日)至6月14日(周六)。
+- **发生时间**: 2024-06-02 (基于用户反馈)
+- **影响范围**: `src/lib/date-formatters.ts`.
+- **解决方案 (迭代2 - 周日至周六)**:
+    1.  **修正 `src/lib/date-formatters.ts` 中的 `getWeekDateObjects` 函数**:
+        *   `startOfWeek` 调用时，将 `weekStartsOn` 参数从 `1` (周一) 修改为 `0` (周日)。
+        *   结束日期 (`endDate`) 的计算逻辑调整为从 `startDate` (周日) 开始加上6天，得到周六。
 - **状态**: 已解决
-- **备注**: 数据JSON中每周数据截至周六。日期计算将周一定为周始，周六为周止。这显著提升了趋势图的时间维度可读性。
+- **备注**: 此修正确保了日期范围的计算严格遵循用户指定的周定义。其他依赖此函数的格式化方法（如 `formatPeriodLabelForAxis`, `formatPeriodLabelForTooltip`）将自动使用正确的日期范围。

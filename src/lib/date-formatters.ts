@@ -1,5 +1,5 @@
 
-import { parse, startOfWeek, endOfWeek, format, getYear as dfGetYear, getISOWeek as dfGetISOWeek, setYear, setISOWeek } from 'date-fns';
+import { startOfWeek, endOfWeek, format, getYear as dfGetYear, getISOWeek as dfGetISOWeek, setYear, setISOWeek, addDays } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 
 /**
@@ -33,8 +33,7 @@ export function parsePeriodLabelToYearWeek(periodLabel: string): { year: number;
 
 /**
  * Calculates the start and end dates of a given week in a given year.
- * Assumes week starts on Monday and ends on Sunday based on common ISO week behavior.
- * Then adjusts end date to Saturday as per user requirement.
+ * Week starts on Sunday (0) and ends on Saturday (6).
  * @param year The year.
  * @param weekNumber The week number (1-53).
  * @returns An object with start and end Date objects, or null if input is invalid.
@@ -45,21 +44,16 @@ function getWeekDateObjects(year: number, weekNumber: number): { start: Date; en
   }
   try {
     // Create a date in the target year, then set the ISO week.
-    // date-fns's setISOWeek and startOfWeek/endOfWeek (with weekStartsOn: 1 for Monday) are robust.
-    let dateInYear = new Date(year, 0, 4); // January 4th is always in week 1
-    let targetDate = setISOWeek(setYear(dateInYear, year), weekNumber);
+    // date-fns's setISOWeek and startOfWeek/endOfWeek are robust.
+    // We use ISO week for consistency, then adjust to Sunday-Saturday.
+    let dateInYear = new Date(year, 0, 4); // January 4th is always in week 1 for ISO
+    let targetDateForIsoWeek = setISOWeek(setYear(dateInYear, year), weekNumber);
     
-    const startDate = startOfWeek(targetDate, { weekStartsOn: 1 /* Monday */ });
-    // User specified data is up to Saturday of that week.
-    // So, if startOfWeek gives Monday, end is Monday + 5 days = Saturday.
-    const endDate = new Date(startDate);
-    endDate.setDate(startDate.getDate() + 5);
-
-    // Sanity check: ensure the calculated week's year matches the input year,
-    // especially for weeks at the beginning/end of the year.
-    // If end date's year is different, it means week 53 might spill or week 1 started late.
-    // For simplicity here, we trust date-fns's ISO week logic handles this.
-    // If strict "week must end within the year" is needed, further checks are required.
+    // Get the Sunday of that ISO week (or the week containing targetDateForIsoWeek)
+    const startDate = startOfWeek(targetDateForIsoWeek, { weekStartsOn: 0 /* Sunday */ });
+    
+    // End date is Saturday of that week (Sunday + 6 days)
+    const endDate = addDays(startDate, 6);
 
     return { start: startDate, end: endDate };
   } catch (e) {
@@ -71,7 +65,7 @@ function getWeekDateObjects(year: number, weekNumber: number): { start: Date; en
 
 /**
  * Gets a formatted date range string for a given year and week.
- * Example output: "W24 (06/09-06/14)"
+ * Example output: "W24 (06/08-06/14)" for Sunday to Saturday
  * @param year The year.
  * @param weekNumber The week number.
  * @returns Formatted string or the original week number if dates can't be calculated.
@@ -88,7 +82,7 @@ export function getFormattedWeekDateRange(year: number, weekNumber: number): str
 
 /**
  * Formats a period label (e.g., "2025年第24周") into a concise X-axis tick label.
- * Example output: "W24 (06/09-06/14)"
+ * Example output: "W24 (06/08-06/14)"
  * @param periodLabel The full period label.
  * @returns A concise formatted string for chart axis.
  */
@@ -108,7 +102,7 @@ export function formatPeriodLabelForAxis(periodLabel: string): string {
 
 /**
  * Formats a period label for display in tooltips, including year.
- * Example output: "2025年 W24 (06/09-06/14)"
+ * Example output: "2025年 W24 (06/08-06/14)"
  * @param periodLabel The full period label.
  * @returns A detailed formatted string for tooltips.
  */

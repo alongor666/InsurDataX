@@ -17,7 +17,7 @@
 - **趋势分析**:
     - 根据所选指标类型智能切换图表：率值类指标使用折线图，数值类指标使用柱状图。
     - **环比数据模式**：图表上每个点的值代表 `当前期对应指标的YTD值 - 上一期对应指标的YTD值`。
-    - **X轴标签优化**: X轴的周期标签会显示对应的具体日期范围（例如 "W24 (06/09-06/14)"），增强时间可读性。Tooltip中的周期显示也会同步优化。
+    - **X轴标签优化**: X轴的周期标签会显示对应的“周日-周六”具体日期范围（例如 "W24 (06/08-06/14)"），增强时间可读性。Tooltip中的周期显示也会同步优化。
     - **布局优化**: 确保图表内容在容器内正确显示，避免溢出。
     - 线条/柱子颜色根据变动成本率动态变化。
     - **独立的AI图表分析**: 图表下方提供独立的AI分析模块和按钮。
@@ -64,7 +64,7 @@
 
 - `src/app/`: Next.js 页面和布局。
 - `src/components/`: 应用的React组件。
-- `src/ai/`: Genkit相关的AI Flow和配置 (包括 `generate-business-summary.ts` 和各图表分析flow)。
+- `src/ai/`: Genkit相关的AI Flow和配置 (包括 `generate-business-summary.ts` 和各图表分析flow)。 **注意：Firebase Function部署时会使用其内部 `functions/src/ai` 目录下的副本。**
 - `src/lib/`: 工具函数和核心逻辑。
     - `data-utils.ts`: 数据处理、聚合、KPI计算等。
     - `date-formatters.ts`: 日期格式化和周期计算工具。
@@ -72,6 +72,7 @@
 - `public/data/`: 存放应用的原始数据文件 (`insurance_data.json`)。
 - `functions/`: Firebase Functions的源代码。
     - `src/index.ts`: AI代理Function的实现。
+    - `src/ai/`: Genkit AI Flow和配置（用于Function部署）。
     - `package.json`: Functions的依赖。
 - `PRODUCT_REQUIREMENTS_DOCUMENT.md`: 产品需求文档。
 - `FIELD_DICTIONARY_V4.md`: 字段字典与计算逻辑。
@@ -88,8 +89,8 @@
 3.  **后端 Firebase Function (AI代理)**:
     *   进入 `functions` 目录。
     *   安装依赖: `npm install`
-    *   (可选) 编译TypeScript: `npm run build` (如果 `functions/package.json` 中有此脚本)
-    *   **环境变量**: 确保为Function配置了API密钥。对于本地模拟器，可以在项目根目录创建 `.env.local` 文件并添加 `GOOGLE_API_KEY=your_actual_api_key`，然后在 `functions/.env` 或 `functions/.env.local` (如果支持) 中引用，或者直接在模拟器启动命令中设置。更推荐的做法是使用 Firebase CLI 配置环境变量：`firebase functions:config:set google.api_key="YOUR_API_KEY"` (查阅 Firebase 文档获取最新命令)。
+    *   编译TypeScript: `npm run build` (此步骤通常在部署时由`predeploy`钩子自动执行)
+    *   **环境变量**: 确保为Function配置了API密钥。对于本地模拟器，可以在项目根目录创建 `.env.local` 文件并添加 `GOOGLE_API_KEY=your_actual_api_key`。对于云端部署，使用 Firebase CLI 配置环境变量：`firebase functions:config:set google.api_key="YOUR_API_KEY"`。
 4.  **本地模拟与测试**:
     *   在项目根目录运行 Firebase Emulators: `firebase emulators:start` (确保已配置 `firebase.json` 来模拟hosting和functions)。
     *   前端应用会调用模拟器中的Function。
