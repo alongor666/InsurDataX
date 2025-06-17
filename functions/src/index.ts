@@ -1,7 +1,5 @@
 
-/**
- * @fileOverview Firebase Functions for AI proxy.
- */
+console.log('[Cloud Functions] Loading generateAiSummaryProxy function module...'); // Diagnostic log
 
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
@@ -10,6 +8,7 @@ import cors from 'cors';
 // Initialize Firebase Admin SDK
 if (!admin.apps.length) {
   admin.initializeApp();
+  console.log('[Cloud Functions] Firebase Admin SDK initialized.');
 }
 
 // Dynamically import Genkit flows from the local 'ai/flows' directory
@@ -20,9 +19,11 @@ import { generateBarRankingAnalysis, type GenerateBarRankingAnalysisInput } from
 import { generateShareChartAnalysis, type GenerateShareChartAnalysisInput } from './ai/flows/generate-share-chart-analysis-flow';
 import { generateParetoAnalysis, type GenerateParetoAnalysisInput } from './ai/flows/generate-pareto-analysis-flow';
 
+console.log('[Cloud Functions] AI flows imported.');
 
 // Configure CORS
 const corsHandler = cors({ origin: true });
+console.log('[Cloud Functions] CORS handler configured.');
 
 interface AiProxyRequest {
   flowName: string;
@@ -36,8 +37,10 @@ export const generateAiSummaryProxy = functions
     memory: '1GB',      
   })
   .https.onRequest(async (request, response) => {
+    console.log(`[Cloud Functions] generateAiSummaryProxy: Received request for flow: ${request.body?.flowName}`);
     corsHandler(request, response, async () => {
       if (request.method !== 'POST') {
+        console.warn(`[Cloud Functions] generateAiSummaryProxy: Method Not Allowed - ${request.method}`);
         response.status(405).send('Method Not Allowed');
         return;
       }
@@ -46,11 +49,12 @@ export const generateAiSummaryProxy = functions
         const { flowName, inputData } = request.body as AiProxyRequest;
 
         if (!flowName || !inputData) {
+          console.error('[Cloud Functions] generateAiSummaryProxy: Missing flowName or inputData.');
           response.status(400).send('Missing flowName or inputData in request body.');
           return;
         }
         
-        console.log(`Proxying request for flow: ${flowName}`);
+        console.log(`[Cloud Functions] generateAiSummaryProxy: Processing flow: ${flowName}`);
 
         let result;
         switch (flowName) {
@@ -73,20 +77,25 @@ export const generateAiSummaryProxy = functions
             result = await generateParetoAnalysis(inputData as GenerateParetoAnalysisInput);
             break;
           default:
+            console.error(`[Cloud Functions] generateAiSummaryProxy: Unknown flowName: ${flowName}`);
             response.status(400).send(`Unknown or unsupported flowName: ${flowName}`);
             return;
         }
 
-        console.log(`Successfully processed flow: ${flowName}`);
+        console.log(`[Cloud Functions] generateAiSummaryProxy: Successfully processed flow: ${flowName}`);
         response.status(200).json(result);
 
       } catch (error) {
-        console.error(`Error processing flow ${request.body?.flowName}:`, error);
-        let errorMessage = 'An unexpected error occurred.';
+        console.error(`[Cloud Functions] generateAiSummaryProxy: Error processing flow ${request.body?.flowName}:`, error);
+        let errorMessage = 'An unexpected error occurred during AI processing.';
         if (error instanceof Error) {
           errorMessage = error.message;
         }
-        response.status(500).json({ error: errorMessage, details: error });
+        // It's good practice to not send detailed internal errors to the client in production.
+        // However, for debugging, this can be more informative.
+        response.status(500).json({ error: `AI Service Error: ${errorMessage}`, details: String(error) });
       }
     });
   });
+
+console.log('[Cloud Functions] generateAiSummaryProxy function defined.');

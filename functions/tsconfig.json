@@ -11,13 +11,14 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "baseUrl": ".", // Base URL is the 'functions' directory
-    // "paths" alias that reached outside is removed to ensure self-contained function code.
-    // If you had internal aliases within 'functions/src', they would go here.
-    // e.g., "@local_utils/*": ["src/utils/*"]
+    "baseUrl": ".", 
+    "typeRoots": ["./node_modules/@types", "./src/types"]
   },
   "compileOnSave": true,
   "include": [
-    "src" // Includes everything in 'functions/src'
+    "src" 
+  ],
+  "exclude": [
+    "node_modules"
   ]
 }
