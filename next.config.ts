@@ -18,10 +18,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Add the allowedDevOrigins configuration for development
-  allowedDevOrigins: [
-    'https://6000-firebase-studio-1749051806683.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev',
-  ],
+  // The allowedDevOrigins configuration has been removed.
 };
 
 export default nextConfig;
