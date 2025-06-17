@@ -3,7 +3,7 @@
 
 import type { ChartDataItem } from '@/data/types'; 
 import { SectionWrapper } from '@/components/shared/section-wrapper';
-import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
+// ChartAiSummary removed
 import { LineChart as LucideLineChart, Palette, BarChart2 } from 'lucide-react'; 
 import { ChartContainer, ChartTooltip, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { CartesianGrid, Line, Bar, LineChart as RechartsLineChart, BarChart as RechartsBarChart, XAxis, YAxis, TooltipProps, Cell, LabelList } from "recharts"; 
@@ -20,9 +20,10 @@ interface TrendAnalysisSectionProps {
   onMetricChange: (metric: TrendMetricKey) => void; 
   selectedMetric: TrendMetricKey; 
   analysisMode: AnalysisMode; 
-  aiSummary: string | null;
-  isAiSummaryLoading: boolean;
-  onGenerateAiSummary: () => Promise<void>;
+  // AI props removed
+  // aiSummary: string | null;
+  // isAiSummaryLoading: boolean;
+  // onGenerateAiSummary: () => Promise<void>;
 }
 
 const METRIC_FORMAT_RULES_FOR_CHARTS: Record<string, { type: string, originalUnit?: string }> = {
@@ -123,9 +124,9 @@ export function TrendAnalysisSection({
   onMetricChange, 
   selectedMetric,
   analysisMode,
-  aiSummary,
-  isAiSummaryLoading,
-  onGenerateAiSummary
+  // aiSummary, // Removed
+  // isAiSummaryLoading, // Removed
+  // onGenerateAiSummary // Removed
 }: TrendAnalysisSectionProps) {
   
   const businessLineNames = useMemo(() => {
@@ -284,14 +285,9 @@ export function TrendAnalysisSection({
           </ChartContainer>
         </div>
       )}
-      <ChartAiSummary 
-        summary={aiSummary} 
-        isLoading={isAiSummaryLoading} 
-        onGenerateSummary={onGenerateAiSummary}
-        hasData={hasData}
-        chartTypeLabel="趋势图"
-      />
+      {/* ChartAiSummary removed */}
     </SectionWrapper>
   );
 }
 
+    

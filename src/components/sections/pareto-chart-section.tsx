@@ -3,7 +3,7 @@
 
 import type { ParetoChartDataItem, ParetoChartMetricKey } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
-import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
+// ChartAiSummary removed
 import { AreaChart as AreaChartIcon, Palette } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChartContainer, ChartTooltip, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
@@ -17,9 +17,10 @@ interface ParetoChartSectionProps {
   availableMetrics: { value: ParetoChartMetricKey, label: string }[];
   selectedMetric: ParetoChartMetricKey;
   onMetricChange: (metric: ParetoChartMetricKey) => void;
-  aiSummary: string | null;
-  isAiSummaryLoading: boolean;
-  onGenerateAiSummary: () => Promise<void>;
+  // AI props removed
+  // aiSummary: string | null;
+  // isAiSummaryLoading: boolean;
+  // onGenerateAiSummary: () => Promise<void>;
 }
 
 const METRIC_FORMAT_RULES_FOR_CHARTS: Record<string, { type: string, originalUnit?: string }> = {
@@ -76,9 +77,9 @@ export function ParetoChartSection({
   availableMetrics,
   selectedMetric,
   onMetricChange,
-  aiSummary,
-  isAiSummaryLoading,
-  onGenerateAiSummary
+  // aiSummary, // Removed
+  // isAiSummaryLoading, // Removed
+  // onGenerateAiSummary // Removed
 }: ParetoChartSectionProps) {
 
   const metricSelector = (
@@ -175,14 +176,9 @@ export function ParetoChartSection({
           </ChartContainer>
         </div>
       )}
-      <ChartAiSummary 
-        summary={aiSummary} 
-        isLoading={isAiSummaryLoading} 
-        onGenerateSummary={onGenerateAiSummary}
-        hasData={hasData}
-        chartTypeLabel="帕累托图"
-      />
+      {/* ChartAiSummary removed */}
     </SectionWrapper>
   );
 }
 
+    

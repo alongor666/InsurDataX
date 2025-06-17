@@ -3,7 +3,7 @@
 
 import type { BubbleChartDataItem, BubbleMetricKey } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
-import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
+// ChartAiSummary removed
 import { ScatterChart as LucideScatterChart, Palette } from 'lucide-react'; 
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 import { CartesianGrid, Scatter, ScatterChart as RechartsScatterChart, XAxis, YAxis, ZAxis, TooltipProps } from "recharts";
@@ -21,9 +21,10 @@ interface BubbleChartSectionProps {
   onYAxisMetricChange: (metric: BubbleMetricKey) => void;
   selectedSizeMetric: BubbleMetricKey;
   onSizeMetricChange: (metric: BubbleMetricKey) => void;
-  aiSummary: string | null;
-  isAiSummaryLoading: boolean;
-  onGenerateAiSummary: () => Promise<void>;
+  // AI props removed
+  // aiSummary: string | null;
+  // isAiSummaryLoading: boolean;
+  // onGenerateAiSummary: () => Promise<void>;
 }
 
 const CustomTooltip = ({ active, payload, xAxisMetric, yAxisMetric, sizeMetric, availableMetricsList }: TooltipProps<ValueType, NameType> & { xAxisMetric: BubbleMetricKey, yAxisMetric: BubbleMetricKey, sizeMetric: BubbleMetricKey, availableMetricsList: { value: BubbleMetricKey, label: string }[] }) => {
@@ -73,9 +74,9 @@ export function BubbleChartSection({
   selectedXAxisMetric, onXAxisMetricChange,
   selectedYAxisMetric, onYAxisMetricChange,
   selectedSizeMetric, onSizeMetricChange,
-  aiSummary,
-  isAiSummaryLoading,
-  onGenerateAiSummary
+  // aiSummary, // Removed
+  // isAiSummaryLoading, // Removed
+  // onGenerateAiSummary // Removed
 }: BubbleChartSectionProps) {
   
   const uniqueBusinessLines = useMemo(() => {
@@ -197,14 +198,9 @@ export function BubbleChartSection({
           </ChartContainer>
         </div>
       )}
-      <ChartAiSummary 
-        summary={aiSummary} 
-        isLoading={isAiSummaryLoading} 
-        onGenerateSummary={onGenerateAiSummary}
-        hasData={hasData}
-        chartTypeLabel="气泡图"
-      />
+      {/* ChartAiSummary removed */}
     </SectionWrapper>
   );
 }
 
+    

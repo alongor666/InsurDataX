@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
 import type { AnalysisMode, PeriodOption, DashboardView } from '@/data/types';
-import { Sparkles, Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, Database, FileJson, GitCompareArrows, XCircle, PieChartIcon, AreaChart, Check, Undo2, Eraser, MousePointerClick, CheckSquare, Square, LogOut, UserCircle } from 'lucide-react';
+import { Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, PieChartIcon, AreaChart, Check, Undo2, Eraser, MousePointerClick, CheckSquare, Square, LogOut, UserCircle } from 'lucide-react'; // Sparkles removed
 import {
   Select,
   SelectContent,
@@ -21,22 +21,22 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuGroup, // Added for user menu
+  DropdownMenuGroup, 
 } from "@/components/ui/dropdown-menu"
 import { Separator } from '@/components/ui/separator';
-import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'; // Ensure TooltipContent is imported
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'; 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-provider'; 
 
 interface AppHeaderProps {
   analysisMode: AnalysisMode;
   onAnalysisModeChange: (mode: AnalysisMode) => void;
-  onAiSummaryClick: () => void;
+  // onAiSummaryClick prop removed
   selectedPeriod: string;
   onPeriodChange: (period: string) => void;
   selectedComparisonPeriod: string | null; 
   onComparisonPeriodChange: (periodKey: string | null) => void; 
-  isAiSummaryLoading: boolean;
+  // isAiSummaryLoading prop removed
   periodOptions: PeriodOption[];
   activeView: DashboardView;
   onViewChange: (view: DashboardView) => void;
@@ -49,12 +49,12 @@ interface AppHeaderProps {
 export function AppHeader({
   analysisMode,
   onAnalysisModeChange,
-  onAiSummaryClick,
+  // onAiSummaryClick, // Removed
   selectedPeriod,
   onPeriodChange,
   selectedComparisonPeriod, 
   onComparisonPeriodChange, 
-  isAiSummaryLoading,
+  // isAiSummaryLoading, // Removed
   periodOptions,
   activeView,
   onViewChange,
@@ -127,14 +127,14 @@ export function AppHeader({
   
   const comparisonPeriodOptions = periodOptions.filter(option => option.value !== selectedPeriod);
 
-  if (isLoadingAuth || !currentUser) { // Changed from !isAuthenticated to !currentUser for Firebase
+  if (isLoadingAuth || !currentUser) { 
     return (
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
           <Link href="/" className="mr-6 flex items-center space-x-2">
             <span className="font-headline text-xl font-bold text-primary">车险经营分析周报</span>
           </Link>
-          {currentUser && !isLoadingAuth && ( // Check currentUser here as well
+          {currentUser && !isLoadingAuth && ( 
              <Button onClick={logout} variant="outline" size="sm" className="h-9 text-xs md:text-sm">
               <LogOut className="mr-1 md:mr-1.5 h-4 w-4" />
               登出
@@ -264,10 +264,7 @@ export function AppHeader({
           <Separator orientation="vertical" className="h-6 hidden md:inline-flex mx-1 md:mx-2 self-center" />
 
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 md:gap-x-3">
-            <Button onClick={onAiSummaryClick} variant="outline" size="sm" disabled={isAiSummaryLoading} className="h-9 text-xs md:text-sm">
-              <Sparkles className={`mr-1 md:mr-1.5 h-4 w-4 ${isAiSummaryLoading ? 'animate-spin' : ''}`} />
-              {isAiSummaryLoading ? '处理中...' : 'AI摘要'}
-            </Button>
+            {/* AI Summary Button Removed */}
              <Button onClick={onExportClick} variant="outline" size="sm" className="h-9 text-xs md:text-sm">
               <Download className="mr-1 md:mr-1.5 h-4 w-4" />
               导出
@@ -314,3 +311,5 @@ export function AppHeader({
     </header>
   );
 }
+
+    
