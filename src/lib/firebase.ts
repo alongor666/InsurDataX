@@ -12,6 +12,15 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
+// Log the config for easier debugging by the user
+if (typeof window !== 'undefined') { // Only log in the browser
+  console.log("Firebase Config Loaded by SDK:");
+  console.log("API Key:", firebaseConfig.apiKey ? "Loaded" : "MISSING or UNDEFINED");
+  console.log("Auth Domain:", firebaseConfig.authDomain ? firebaseConfig.authDomain : "MISSING or UNDEFINED");
+  console.log("Project ID:", firebaseConfig.projectId ? firebaseConfig.projectId : "MISSING or UNDEFINED");
+}
+
+
 let app: FirebaseApp;
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
@@ -22,3 +31,4 @@ if (!getApps().length) {
 const auth: Auth = getAuth(app);
 
 export { app, auth };
+

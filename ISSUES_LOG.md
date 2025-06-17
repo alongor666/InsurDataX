@@ -1,4 +1,5 @@
 
+
 # 问题与解决日志
 
 本文档用于记录在“车险经营分析周报”项目开发过程中遇到的主要问题及其解决方案。
@@ -128,7 +129,7 @@
 ---
 ### 40. 登录时显示“邮箱或密码无效”
 - **问题描述**: 用户报告在登录页面输入凭证后，系统提示“邮箱或密码无效”。
-- **发生时间**: (当前日期)
+- **发生时间**: (先前日期)
 - **影响范围**: 用户登录功能。
 - **解决方案**:
     1.  **代码层面检查**: `src/contexts/auth-provider.tsx` 中的 `login` 函数以及 `src/app/login/page.tsx` 中的错误消息处理逻辑是标准的，即当Firebase `signInWithEmailAndPassword` 调用失败时，会返回 `false`，前端会据此显示“邮箱或密码无效，或用户不存在。请重试。”的错误信息。
@@ -141,4 +142,20 @@
 - **状态**: 已指导 / 待用户确认配置
 - **备注**: 此提示是系统在认证失败时的预期行为。问题通常源于用户凭证错误或Firebase项目配置问题，而非前端代码逻辑错误。增强日志记录有助于在问题复杂时进一步排查。
 
-```
+---
+### 41. 持续出现 Firebase: Error (auth/network-request-failed) 错误
+- **问题描述**: 用户在尝试登录时，持续在浏览器控制台看到 `FirebaseError: Firebase: Error (auth/network-request-failed)` 错误。
+- **发生时间**: (当前日期)
+- **影响范围**: 用户登录功能。
+- **解决方案/排查步骤**:
+    1.  **增强诊断日志**: 修改 `src/lib/firebase.ts`，在Firebase SDK初始化时，于浏览器控制台打印出实际加载的 `apiKey` 和 `authDomain`，帮助用户确认 `.env.local`中的配置是否被正确读取。
+    2.  **再次强调外部因素排查**:
+        *   **`.env.local` 配置精确性**: 强烈建议用户逐字逐字符核对 `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID` 等变量是否与其 Firebase 项目完全匹配。
+        *   **Firebase 控制台登录方式**: 确认在 Firebase 项目的 "Authentication" -> "Sign-in method" 中，“邮箱/密码”登录提供商已启用。
+        *   **网络环境**: 检查本地网络连接、防火墙、DNS设置，确保没有阻止到 `*.googleapis.com` 或 `*.firebaseapp.com` 的访问。
+        *   **浏览器插件**: 建议在无痕/隐私模式下测试，以排除广告拦截或隐私插件的干扰。
+        *   **API密钥限制**: 检查 Google Cloud Console 中 API 密钥的限制，确保没有阻止本地开发环境(`localhost`)的访问。
+    3.  **代码层面**: `src/contexts/auth-provider.tsx` 中的登录逻辑和错误处理是标准的。此错误通常不是由前端代码逻辑直接引起。
+- **状态**: 待用户确认外部配置与环境
+- **备注**: `auth/network-request-failed` 错误高度指示客户端与 Firebase 服务器之间的网络通信存在问题，或 Firebase 项目层面的配置不正确。
+
