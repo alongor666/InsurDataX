@@ -102,7 +102,7 @@ const CustomTooltip = ({ active, payload, label, metricId, analysisModeForToolti
           })}
            {payload[0].payload.vcr !== undefined && 
             <p className="text-xs" style={{color: payload[0].payload.color}}>
-                VCR (YTD): {formatDisplayValue(payload[0].payload.vcr, 'variable_cost_ratio')}
+                变动成本率 (YTD): {formatDisplayValue(payload[0].payload.vcr, 'variable_cost_ratio')}
             </p>
            }
         </div>

@@ -1,17 +1,12 @@
-
 {
   "hosting": {
-    "public": "out",
+    "public": "public",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
     ],
     "rewrites": [
-      {
-        "source": "/generateAiSummaryProxy",
-        "function": "generateAiSummaryProxy"
-      },
       {
         "source": "**",
         "destination": "/index.html"

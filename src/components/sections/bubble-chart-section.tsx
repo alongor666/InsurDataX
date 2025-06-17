@@ -39,7 +39,7 @@ const CustomTooltip = ({ active, payload, xAxisMetric, yAxisMetric, sizeMetric, 
         <p className="text-xs text-muted-foreground">{xAxisConfig?.label || 'X'}: {formatDisplayValue(data.x, xAxisMetric)}</p>
         <p className="text-xs text-muted-foreground">{yAxisConfig?.label || 'Y'}: {formatDisplayValue(data.y, yAxisMetric)}</p>
         <p className="text-xs text-muted-foreground">{sizeConfig?.label || 'Size'}: {formatDisplayValue(data.z, sizeMetric)}</p>
-        {data.vcr !== undefined && <p className="text-xs" style={{color: data.color}}>VCR: {formatDisplayValue(data.vcr, 'variable_cost_ratio')}</p>}
+        {data.vcr !== undefined && <p className="text-xs" style={{color: data.color}}>变动成本率 (YTD): {formatDisplayValue(data.vcr, 'variable_cost_ratio')}</p>}
       </div>
     );
   }
