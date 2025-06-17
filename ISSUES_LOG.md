@@ -54,22 +54,24 @@
 - **备注**: 旨在防止标签截断，改善布局，并可能解决相关的服务器端渲染/构建问题。
 
 ---
-### 36. AI代理Function 404错误
+### 36. AI代理Function 404错误 (再次修正)
 - **问题描述**: 前端调用 `/generateAiSummaryProxy` Firebase Function 时返回404错误。
-- **发生时间**: (先前日期)
+- **发生时间**: (先前日期, 再次发生于当前日期)
 - **影响范围**: 所有AI摘要功能。
 - **解决方案**:
-    1.  **修正 `firebase.json`**:
-        *   在 `hosting.rewrites` 数组中，为 `/generateAiSummaryProxy` 添加了特定的 `function` 重写规则。
+    1.  **修正 `firebase.json` 中的 `hosting.public` 路径**:
+        *   由于 `next.config.ts` 中设置了 `output: "export"`，Firebase Hosting的 `public` 目录应指向 `out` 而不是 `public`。
+    2.  **确保 `firebase.json` 中包含正确的 Function 重写规则**:
+        *   在 `hosting.rewrites` 数组中，为 `/generateAiSummaryProxy` 添加了特定的 `function` 重写规则，指向 `generateAiSummaryProxy` 函数。
         *   确保此规则位于 `{"source": "**", "destination": "/index.html"}` 这一SPA回退规则之前。
-    2.  **确保Function代码自包含**:
+    3.  **确保Function代码自包含**: (此部分在先前已处理)
         *   将所有AI flow文件和共享的`genkit.ts`从项目根目录的`src/ai/`复制到`functions/src/ai/`目录下。
         *   更新`functions/src/index.ts`和复制过来的flow文件中的导入路径为相对路径。
         *   从`functions/tsconfig.json`中移除非必要的`paths`别名。
         *   在`functions/package.json`中添加了`build`脚本。
         *   在`firebase.json`的`functions`配置中添加了`predeploy`钩子，以在部署前自动执行`npm run lint`和`npm run build`。
 - **状态**: 已解决
-- **备注**: 确保了Firebase Function在部署时能够正确解析其依赖，并且Firebase Hosting能正确路由请求。
+- **备注**: 确保了Firebase Function在部署时能够正确解析其依赖，并且Firebase Hosting能正确路由请求到Function，同时静态文件服务路径正确。
 
 ---
 ### 37. 移除数据库选项，固定使用JSON；禁用动态AI（已回滚部分）
@@ -159,3 +161,5 @@
 - **状态**: 待用户确认外部配置与环境
 - **备注**: `auth/network-request-failed` 错误高度指示客户端与 Firebase 服务器之间的网络通信存在问题，或 Firebase 项目层面的配置不正确。
 
+
+```
