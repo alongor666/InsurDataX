@@ -85,7 +85,7 @@
 ---
 ### 38. 集成Firebase Authentication并保护数据/AI Functions
 - **问题描述**: 原型登录不安全，数据文件可公开访问。需要更安全的认证机制和数据保护。
-- **发生时间**: (当前日期)
+- **发生时间**: (先前日期)
 - **影响范围**: 用户认证、数据获取、AI功能调用、整体应用安全。
 - **解决方案**:
     1.  **集成Firebase Authentication**:
@@ -94,7 +94,7 @@
         *   重构 `src/contexts/auth-provider.tsx` 以使用Firebase Auth SDK进行用户状态管理、登录、登出。
         *   更新 `src/app/login/page.tsx` 以使用Firebase Auth。
         *   更新头部组件以显示当前用户和登出按钮。
-    2.  **创建并保护数据获取Function**: (后续步骤，本次仅更新AuthProvider)
+    2.  **创建并保护数据获取Function**: (后续步骤)
         *   将 `insurance_data.json` 从 `public/data` 移至 `functions/src/data`。
         *   创建一个新的Firebase Function `getInsuranceData`，它将：
             *   验证请求中的Firebase ID Token。
@@ -106,6 +106,24 @@
         *   前端在认证后获取ID Token。
         *   在调用 `getInsuranceData` 和 `generateAiSummaryProxy` 时，在请求头中发送ID Token。
     5.  **文档更新**: 更新PRD、README等，反映新的认证和数据保护机制。
-- **状态**: **进行中** (AuthProvider已集成Firebase Auth，后续步骤待完成)
-- **备注**: 这是提升应用安全性的关键步骤。需要确保正确配置Firebase项目和环境变量。
+- **状态**: **已完成** (Firebase Auth已集成, 数据和AI Functions已通过Token保护)
+- **备注**: 此为提升应用安全性的关键步骤。
 
+---
+### 39. Firebase Dynamic Links 停用声明的澄清
+- **问题描述**: 用户对 Firebase Dynamic Links 将于2025年8月25日停用的通知及其对当前邮件/密码 Web 认证流程的潜在影响表示担忧。
+- **发生时间**: (当前日期)
+- **影响范围**: 用户认证流程的理解和未来规划。
+- **解决方案/澄清**:
+    1.  **明确影响范围**：Firebase Dynamic Links 的停用主要影响两个特定场景：
+        *   **移动应用（iOS/Android）的电子邮件链接身份验证（无密码登录）**。
+        *   **Web 应用的 Cordova OAuth 支持**。
+    2.  **对当前项目的影响评估**：本项目当前使用的是**基于电子邮件和密码的登录 (`signInWithEmailAndPassword`)**，并且是标准的 Next.js Web 应用，未使用 Cordova 或移动端邮件链接登录。因此，Dynamic Links 的停用**不会直接影响当前项目的身份验证功能**。
+    3.  **确认当前实践的有效性**：项目中使用的 Firebase SDK v11+ 及其模块化 API (如 `signInWithEmailAndPassword`) 是 Firebase Web 身份验证的推荐最新实践，不受此停用事件影响。
+    4.  **未来功能考虑**：如果未来计划为 Web 应用添加“电子邮件链接登录”功能，则届时需要采用 Firebase 推荐的替代方案（如使用 Firebase Hosting 自定义域名结合 Action Code Settings），而不是依赖即将停用的 Dynamic Links。
+    5.  **结论**：针对当前已实现的邮件/密码登录流程，无需因 Dynamic Links 的停用通知而进行任何代码修改。
+- **状态**: 已澄清 / 无需操作 (针对当前认证方式)
+- **备注**: Firebase 的此通知旨在提醒开发者检查其应用是否依赖于即将停用的 Dynamic Links 特定功能。当前项目的核心认证机制不在受影响之列。
+
+```
+    
