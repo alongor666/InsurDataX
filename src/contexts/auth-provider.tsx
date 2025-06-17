@@ -46,8 +46,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // onAuthStateChanged will handle setting currentUser and redirecting
       router.push('/'); // Manually redirect on successful login
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Firebase login error:", error);
+      if (error.code) {
+        console.error("Firebase error code:", error.code); // Enhanced logging
+      }
       setIsLoadingAuth(false);
       return false;
     }
