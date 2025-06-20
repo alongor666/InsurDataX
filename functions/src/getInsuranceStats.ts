@@ -1,85 +1,65 @@
 // functions/src/getInsuranceStats.ts
 
-// Import Firebase Functions and Admin SDK
+// 导入 Firebase Functions 和 Admin SDK
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import * as path from 'path'; // For handling file paths
-import * as fs from 'fs';   // For reading files
+// 不再需要 path 和 fs，因为我们将从 Firestore 读取
+// import * as path from 'path'; 
+// import * as fs from 'fs';   
 
-// Ensure Firebase Admin SDK is initialized only once
+// 确保 Firebase Admin SDK 已经初始化，只初始化一次
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 /**
  * [HTTPS Callable Function]
- * Securely provides insurance statistics data.
- * This function requires the caller to be authenticated via Firebase Authentication.
+ * 安全地提供保险统计数据。
+ * 该函数要求调用者必须通过 Firebase Authentication 进行身份验证，并从 Firestore 读取数据。
  */
 export const getInsuranceStats = functions.https.onCall(async (data, context) => {
-  // 1. Authentication Check: Verify if the user is logged in
+  // 1. 验证用户是否已登录 (认证检查)
   if (!context.auth) {
-    // If no authentication information is present, throw an unauthenticated error
     throw new functions.https.HttpsError(
-      'unauthenticated', // Error type: unauthenticated
-      'The function must be called while authenticated.' // Error message
+      'unauthenticated',
+      'The function must be called while authenticated.'
     );
   }
 
-  // Optional: More granular authorization check (e.g., only specific users or roles)
-  // If you need to restrict access to certain users (e.g., based on UID or custom claims)
-  // You can check context.auth.uid or context.auth.token.role here.
-  // For example:
+  // 可选：更细粒度的授权检查
+  // 例如：
   // if (context.auth.token.role !== 'admin') {
-  //   throw new new functions.https.HttpsError(
+  //   throw new functions.https.HttpsError(
   //     'permission-denied',
   //     'Only administrators can access this data.'
   //   );
   // }
 
   try {
-    // 2. Build the absolute path to the JSON file
-    // The 'functions' directory is the root directory for Cloud Functions.
-    // Assuming insurance_data.json was moved to functions/data/
-    // __dirname points to the compiled output directory of the current function (e.g., functions/lib or functions/dist).
-    // So if your JSON is in functions/data, it will be at functions/lib/data or functions/dist/data after compilation.
-    const filePath = path.join(__dirname, 'data', 'insurance_data.json');
+    // 2. 从 Firestore 数据库获取数据
+    const db = admin.firestore();
+    // 假设您的统计数据存储在名为 'v4_period_data' 的集合中
+    const collectionRef = db.collection('v4_period_data');
 
-    // Check if the file exists before attempting to read
-    if (!fs.existsSync(filePath)) {
-      console.error(`File not found at path: ${filePath}`);
-      throw new functions.https.HttpsError(
-        'not-found',
-        'Insurance data file not found on the server (internal error).'
-      );
-    }
+    // 获取集合中的所有文档
+    const querySnapshot = await collectionRef.get();
 
-    // 3. Read the JSON file content
-    const rawData = fs.readFileSync(filePath, 'utf8');
-    const insuranceStats = JSON.parse(rawData);
+    // 将文档数据映射为数组
+    const insuranceStats: any[] = [];
+    querySnapshot.forEach(doc => {
+      insuranceStats.push(doc.data());
+    });
 
-    // 4. Return the statistics data
+    // 3. 返回统计数据
     return { status: 'success', data: insuranceStats };
 
   } catch (error) {
-    console.error('Error fetching insurance stats:', error);
+    console.error('Error fetching insurance stats from Firestore:', error);
 
-    // Differentiate between file not found error (if existsSync failed) and parsing errors
-    if (error instanceof SyntaxError) { // JSON parsing error
-      throw new functions.https.HttpsError(
-        'internal',
-        'Failed to parse insurance data. Data file might be corrupted.'
-      );
-    }
-    // Re-throw HttpsError if it's already one
-    if (error instanceof functions.https.HttpsError) {
-      throw error;
-    }
-
-    // Catch any other unexpected errors
+    // 抛出内部错误，避免暴露敏感信息
     throw new functions.https.HttpsError(
       'internal',
-      'An unexpected error occurred while fetching data.'
+      'An unexpected error occurred while fetching data from the database.'
     );
   }
 });
