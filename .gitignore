@@ -46,3 +46,11 @@ firestore-debug.log
 
 # Firebase CLI cache and configuration files
 .firebase/
+
+# --- NEW ADDITIONS FOR SECURITY AND TEMPORARY FILES ---
+# 忽略临时的导入脚本目录（如果它被重新创建）
+import-to-firestore/
+
+# 明确忽略 Firebase 服务账号密钥文件
+# 这是非常重要的安全措施，确保此文件永不被提交
+datalens-insights-2fh8a-firebase-adminsdk-fbsvc-5fe929b7b7.json
