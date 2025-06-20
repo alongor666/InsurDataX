@@ -149,14 +149,14 @@
         *   **网络环境**（防火墙、DNS）。
         *   **浏览器插件**（无痕模式测试）。
         *   **API密钥限制**。
-    3.  **代码层面**: 登录逻辑和错误处理是标准的。
+    3.  **代码层面**: 登录逻辑和错误处理是标准的。移除`next.config.ts`中的`allowedDevOrigins`。
 - **状态**: 待用户确认外部配置与环境
-- **备注**: `auth/network-request-failed` 错误高度指示客户端与 Firebase 服务器之间的网络通信存在问题，或 Firebase 项目层面的配置不正确。移除`next.config.ts`中的`allowedDevOrigins`。
+- **备注**: `auth/network-request-failed` 错误高度指示客户端与 Firebase 服务器之间的网络通信存在问题，或 Firebase 项目层面的配置不正确。
 
 ---
 ### 42. PRD文档及相关文档优化 (版本 3.7.0)
 - **问题描述**: 需要更新PRD、README和ISSUES_LOG，以准确反映当前应用状态：Firebase Auth集成、数据源为静态JSON、AI功能全局禁用。
-- **发生时间**: (当前日期)
+- **发生时间**: (先前日期)
 - **影响范围**: `PRODUCT_REQUIREMENTS_DOCUMENT.md`, `README.md`, `ISSUES_LOG.md` (项目根目录)。
 - **解决方案**:
     1.  **更新 `PRODUCT_REQUIREMENTS_DOCUMENT.md` 至 v3.7.0**:
@@ -169,3 +169,43 @@
         *   添加此条目，记录文档同步更新。
 - **状态**: 已解决
 - **备注**: 确保所有核心项目文档与当前的应用架构和功能集保持一致，为开发者提供清晰指引。
+
+---
+### 43. 图表Tooltip中VCR标签优化
+- **问题描述**: 趋势图、气泡图、排名图的Tooltip提示中，"VCR" 或 "VCR (YTD)" 标签不够直观。
+- **发生时间**: (先前日期)
+- **影响范围**: `src/components/sections/trend-analysis-section.tsx`, `src/components/sections/bubble-chart-section.tsx`, `src/components/sections/bar-chart-ranking-section.tsx`。
+- **解决方案**:
+    1.  将上述三个文件中 `CustomTooltip` 组件内显示 `vcr` 的标签统一修改为 "变动成本率 (YTD)"。
+- **状态**: 已解决
+- **备注**: 提高了图表信息的可读性和一致性。
+
+---
+### 44. AI代理Function 404错误 (再次修正 - 已通过禁用AI临时规避)
+- **问题描述**: 前端调用 `/generateAiSummaryProxy` Firebase Function 时返回404错误。
+- **发生时间**: (先前日期)
+- **影响范围**: 所有AI摘要功能。
+- **解决方案**:
+    1.  **修正 `firebase.json` 中的 `hosting.public` 路径**: 指向 `out`。
+    2.  **确保 `firebase.json` 中包含正确的 Function 重写规则**: 为 `/generateAiSummaryProxy` 添加了特定重写规则。
+    3.  **增强诊断日志**: 在`functions/src/index.ts`添加了诊断日志。
+    4.  **用户指导**: 提示用户检查`GOOGLE_API_KEY`是否已为Function正确配置。
+- **状态**: **临时规避** - AI功能已全局禁用。
+- **备注**: 404问题通常指示Function未成功部署/启动或路由错误。
+
+---
+### 45. 持续出现 FirebaseError: internal. Error source: Firestore Rules 错误
+- **问题描述**: 即使用户确认在 Firebase 控制台已正确配置并发布了 Firestore 安全规则 (例如 `allow read, write: if request.auth != null;` 或 `allow read, write: if false;`)，应用前端依然在浏览器控制台报告此错误。
+- **发生时间**: (当前日期)
+- **影响范围**: Firebase SDK 初始化和潜在的未知服务交互。
+- **解决方案/排查步骤**:
+    1.  **再次向用户强调**：此错误直接指向 Firebase 项目云端的 Firestore 安全规则评估。前端代码无法直接修复云端规则评估问题。
+    2.  **指导用户在 Firebase 控制台仔细检查规则**：确保无语法错误、无不可见字符（通过纯文本编辑器中转粘贴），并已成功“发布”规则。
+    3.  **代码层面排查（尝试性）**:
+        *   **简化 Firebase SDK 初始化**：暂时从 `src/lib/firebase.ts` 中移除了 Firebase Analytics (`getAnalytics`) 的初始化和导出。虽然 Analytics 与 Firestore Rules 无直接关系，但此举旨在减少客户端 SDK 初始化服务的数量，作为一种排除法，看是否能避免某种未知的间接交互触发此内部错误。
+    4.  **用户后续步骤建议**：如果错误在简化 SDK 初始化后依旧，强烈建议用户：
+        *   仔细检查 Firebase 控制台 Firestore 部分是否有任何其他警告或配置问题。
+        *   考虑联系 Firebase 官方支持，因为这可能指示一个更深层次的 Firebase 项目特定问题或服务状态问题。
+- **状态**: **处理中/待观察**。已尝试简化客户端 Firebase 初始化。核心问题仍指向云端 Firestore Rules 配置或服务状态。
+- **备注**: “internal”错误通常表明 Firebase 后端服务在处理某事时遇到问题，而非仅仅是权限被拒绝。如果规则文本正确且已发布，问题可能更复杂。
+
