@@ -1,3 +1,4 @@
+
 {
   "hosting": {
     "public": "out",
@@ -8,6 +9,10 @@
     ],
     "rewrites": [
       {
+        "source": "/generateAiSummaryProxy",
+        "function": "generateAiSummaryProxy"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
@@ -15,7 +20,7 @@
   },
   "functions": {
     "source": "functions",
-    "runtime": "nodejs18",
+    "runtime": "nodejs20",
     "predeploy": [
       "npm --prefix \"$RESOURCE_DIR\" run lint",
       "npm --prefix \"$RESOURCE_DIR\" run build"
