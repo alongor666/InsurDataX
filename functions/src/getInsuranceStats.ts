@@ -1,11 +1,7 @@
 // functions/src/getInsuranceStats.ts
 
-// 导入 Firebase Functions 和 Admin SDK
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-// 不再需要 path 和 fs，因为我们将从 Firestore 读取
-// import * as path from 'path'; 
-// import * as fs from 'fs';   
 
 // 确保 Firebase Admin SDK 已经初始化，只初始化一次
 if (!admin.apps.length) {
@@ -26,19 +22,10 @@ export const getInsuranceStats = functions.https.onCall(async (data, context) =>
     );
   }
 
-  // 可选：更细粒度的授权检查
-  // 例如：
-  // if (context.auth.token.role !== 'admin') {
-  //   throw new functions.https.HttpsError(
-  //     'permission-denied',
-  //     'Only administrators can access this data.'
-  //   );
-  // }
-
   try {
     // 2. 从 Firestore 数据库获取数据
     const db = admin.firestore();
-    // 假设您的统计数据存储在名为 'v4_period_data' 的集合中
+    // 假定您的统计数据存储在名为 'v4_period_data' 的集合中
     const collectionRef = db.collection('v4_period_data');
 
     // 获取集合中的所有文档

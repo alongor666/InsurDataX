@@ -99,8 +99,6 @@ export const generateAiSummaryProxy = functions
   });
 
 console.log('[Cloud Functions] generateAiSummaryProxy function defined.');
-// functions/src/index.ts
-// ... (其他已有的导入和导出，请保留它们)
 
 // Import and export your new function
 export { getInsuranceStats } from './getInsuranceStats';

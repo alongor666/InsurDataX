@@ -6,9 +6,8 @@ import { useState, useEffect, useMemo } from 'react';
 import type { AnalysisMode, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod, V4PeriodData, PeriodOption, DashboardView, TrendMetricKey, RankingMetricKey, BubbleMetricKey, AggregatedBusinessMetrics, CoreAggregatedMetricKey, ShareChartMetricKey, ShareChartDataItem, ParetoChartMetricKey, ParetoChartDataItem, V4BusinessDataEntry } from '@/data/types';
 
 // 导入 Firebase SDK 所需的模块
-import { app, auth as firebaseAuthInstance } from '@/lib/firebase'; // auth renamed to firebaseAuthInstance to avoid conflict
-import { getAuth, onAuthStateChanged } from 'firebase/auth'; // 用于用户认证和状态监听
-// getFunctions and httpsCallable are removed as we fetch static JSON directly
+import { app, functions as firebaseFunctionsInstance } from '@/lib/firebase'; // 导入 firebase aoo 和 functions 实例
+import { httpsCallable } from 'firebase/functions'; // 用于调用云函数
 
 // 导入布局和 UI 组件
 import { AppLayout } from '@/components/layout/app-layout';
@@ -140,48 +139,47 @@ export default function DashboardPage() {
     return periodOptions.find(p => p.value === selectedPeriodKey)?.label || selectedPeriodKey;
   }, [periodOptions, selectedPeriodKey]);
 
-
   // *******************************************************************
-  // 核心数据获取逻辑：直接从 public/data/insurance_data_v4.json 获取数据
+  // 核心数据获取逻辑：通过安全的 Firebase Function 从 Firestore 获取数据
   // *******************************************************************
   useEffect(() => {
-    // This effect now only depends on isAuthenticated to trigger data fetching
-    if (isAuthenticated) {
+    if (isAuthenticated && firebaseFunctionsInstance) {
       fetchDataAndProcess();
     } else if (!isLoadingAuth && !isAuthenticated) {
-      // If not loading and not authenticated, clear data and potentially show login prompt (handled by AuthProvider)
       setAllV4Data([]);
       setPeriodOptions([]);
       setSelectedPeriodKey('');
       setSelectedComparisonPeriodKey(null);
       setAllBusinessTypes([]);
-      setIsGlobalLoading(false); // Stop loading if not authenticated
-      // Toast for unauthenticated state might be better handled in AuthProvider or login page
+      setIsGlobalLoading(false);
     }
-  }, [isAuthenticated, isLoadingAuth]); // Re-fetch if isAuthenticated changes
+  }, [isAuthenticated, isLoadingAuth]);
 
   const fetchDataAndProcess = async () => {
     setIsGlobalLoading(true);
     setError(null);
     try {
-      toast({ title: "数据加载中", description: "正在加载本地数据文件..." });
+      toast({ title: "数据加载中", description: "正在从安全后端获取数据..." });
       
-      const response = await fetch('/data/insurance_data_v4.json'); // Fetch static JSON
-      if (!response.ok) {
-        throw new Error(`无法加载数据文件: ${response.status} ${response.statusText}`);
+      const getInsuranceStats = httpsCallable(firebaseFunctionsInstance, 'getInsuranceStats');
+      const result = await getInsuranceStats();
+      const functionResponse = result.data as { status: string; data?: any; error?: string };
+
+      if (functionResponse.status !== 'success' || !functionResponse.data) {
+        throw new Error(functionResponse.error || '从云函数返回的数据格式不正确。');
       }
       
-      const rawData = await response.json();
+      const rawData = functionResponse.data;
 
       if (!Array.isArray(rawData)) {
-        console.error("Data loaded from JSON is not an array:", rawData);
-        toast({ variant: "destructive", title: "数据格式错误", description: "本地数据文件格式不正确，期望得到一个数组。" });
+        console.error("Data loaded from function is not an array:", rawData);
+        toast({ variant: "destructive", title: "数据格式错误", description: "从云函数获取的数据格式不正确，期望得到一个数组。" });
         setAllV4Data([]);
         setPeriodOptions([]);
         setIsGlobalLoading(false);
         return;
       }
-      toast({ title: "数据加载成功", description: "已从本地数据文件加载数据。" });
+      toast({ title: "数据加载成功", description: "已成功从后端获取数据。" });
 
       const data: V4PeriodData[] = rawData as V4PeriodData[];
       setAllV4Data(data);
@@ -190,25 +188,22 @@ export default function DashboardPage() {
         .sort((a, b) => b.label.localeCompare(a.label)); // Sort by label descending (newest first)
       setPeriodOptions(options);
 
-      // Logic for setting selectedPeriodKey (similar to before, but ensures it's based on loaded data)
       if (options.length > 0) {
         const currentSelectedIsValid = options.some(opt => opt.value === selectedPeriodKey);
         if (!selectedPeriodKey || !currentSelectedIsValid) {
-          setSelectedPeriodKey(options[0].value); // Default to the newest period
+          setSelectedPeriodKey(options[0].value);
         }
       } else {
         setSelectedPeriodKey('');
         setSelectedComparisonPeriodKey(null);
       }
       
-      // Ensure selectedPeriodKey is used for global data context if valid
       if (data.length > 0) {
         const periodToUse = options.length > 0 ? (options.some(opt => opt.value === selectedPeriodKey) ? selectedPeriodKey : options[0].value) : '';
         if (periodToUse) {
           setGlobalV4DataForKpiWorkaround(data, periodToUse);
         }
       }
-
 
       if (selectedComparisonPeriodKey && !options.some(opt => opt.value === selectedComparisonPeriodKey)) {
         setSelectedComparisonPeriodKey(null);
@@ -227,9 +222,10 @@ export default function DashboardPage() {
       }
 
     } catch (error: any) {
-      console.error("Error in fetchDataAndProcess (static JSON):", error);
-      setError(`加载数据时发生错误: ${error.message}`);
-      toast({ variant: "destructive", title: "数据加载失败", description: `无法加载数据源: ${error instanceof Error ? error.message : String(error)}` });
+      console.error("Error in fetchDataAndProcess (callable function):", error);
+      const errorMessage = error.message || '一个未知错误发生。';
+      setError(`加载数据时发生错误: ${errorMessage}`);
+      toast({ variant: "destructive", title: "数据加载失败", description: `无法从后端服务获取数据: ${errorMessage}` });
       setAllV4Data([]);
       setPeriodOptions([]);
       setSelectedPeriodKey('');
@@ -239,6 +235,7 @@ export default function DashboardPage() {
       setIsGlobalLoading(false);
     }
   };
+
 
   useEffect(() => {
     if (isGlobalLoading || !Array.isArray(allV4Data) || allV4Data.length === 0 || !selectedPeriodKey || !isAuthenticated) {
@@ -653,8 +650,6 @@ export default function DashboardPage() {
     />
   );
   
-  // AuthProvider handles redirection, so this component assumes it will only render
-  // when authenticated or when isLoadingAuth is true.
   if (isLoadingAuth) {
     return (
       <AppLayout header={headerElement}>
@@ -667,8 +662,6 @@ export default function DashboardPage() {
   }
   
   if (!isAuthenticated) {
-     // This state should ideally be handled by AuthProvider redirecting to /login
-     // Or, if page.tsx is directly rendered on / route while unauthenticated, show a message.
      return (
       <AppLayout header={headerElement}>
         <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center text-muted-foreground p-8">
