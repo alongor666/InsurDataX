@@ -195,9 +195,9 @@
 
 ---
 ### 45. 持续出现 FirebaseError: internal. Error source: Firestore Rules 错误 (迭代2)
-- **问题描述**: 即使用户确认在 Firebase 控制台已正确配置并**成功发布**了 Firestore 安全规则 (例如 `allow read, write: if request.auth != null;`)，应用前端依然在浏览器控制台报告此错误。
+- **问题描述**: 即使用户确认在 Firebase 控制台已正确配置并**成功发布**了 Firestore 安全规则 (例如 `allow read, write: if request.auth != null;`)，应用前端依然在浏览器控制台报告此错误。此错误可能导致 `src/app/page.tsx` 中的 `fetchDataAndProcess` (通过`getInsuranceStats` Firebase Function) 失败，从而引发用户看到的 "Internal Server Error"。
 - **发生时间**: (当前日期)
-- **影响范围**: Firebase SDK 初始化和潜在的未知服务交互，可能导致 `getInsuranceData` 函数调用失败并引发“Internal Server Error”。
+- **影响范围**: Firebase SDK 初始化和潜在的未知服务交互，可能导致 `getInsuranceStats` 函数调用失败并引发“Internal Server Error”。
 - **解决方案/排查步骤**:
     1.  **再次向用户强调**：此错误直接指向 Firebase 项目云端的 Firestore 安全规则评估或 Firestore 服务本身的健康状况。
     2.  **指导用户在 Firebase 控制台仔细检查规则和 Firestore 状态**：
@@ -212,6 +212,7 @@
         *   仔细检查 Firebase 控制台 Firestore 部分是否有任何其他警告或配置问题。
         *   考虑联系 Firebase 官方支持，因为这可能指示一个更深层次的 Firebase 项目特定问题或服务状态问题。
     6.  **移除`next.config.ts`中对构建错误的忽略**: 已将 `typescript.ignoreBuildErrors` 和 `eslint.ignoreDuringBuilds` 从 `next.config.ts` 中移除，以确保构建过程更严格，尽早发现潜在问题。
-- **状态**: **处理中/待观察**。核心问题仍强烈指向云端 Firestore 服务状态或规则评估引擎的内部问题，而非应用代码逻辑。已采取措施提高本地构建质量。
-- **备注**: “internal”错误通常表明 Firebase 后端服务在处理某事时遇到问题。如果 Firestore 规则文本正确且已成功发布，但应用（尤其是通过 Firebase Functions 调用 Firestore 时）仍然收到与 Firestore 规则相关的内部错误，这可能需要 Firebase 官方介入调查项目级配置。当前的“Internal Server Error”很可能是 `getInsuranceStats` 函数因 Firestore 问题失败而返回500所致。
+    7.  **架构调整建议 (已实施)**: 将 `src/app/page.tsx` 的数据获取方式从调用 `getInsuranceStats` Firebase Function (间接访问 Firestore) 改为直接从 `public/data/insurance_data_v4.json` 静态文件获取，以符合 PRD v3.7.0 并规避 Firestore 相关问题。
+- **状态**: **处理中/待观察**。核心问题仍强烈指向云端 Firestore 服务状态或规则评估引擎的内部问题。已采取措施（移除构建错误忽略，调整数据获取方式）以提高应用健壮性并符合PRD。
+- **备注**: “internal”错误通常表明 Firebase 后端服务在处理某事时遇到问题。如果 Firestore 规则文本正确且已成功发布，但应用（尤其是通过 Firebase Functions 调用 Firestore 时）仍然收到与 Firestore 规则相关的内部错误，这可能需要 Firebase 官方介入调查项目级配置。当前的“Internal Server Error”很可能是 `getInsuranceStats` 函数因 Firestore 问题失败而返回500所致。通过改为静态JSON数据源，可以绕过此特定函数的 Firestore 依赖。
 ```

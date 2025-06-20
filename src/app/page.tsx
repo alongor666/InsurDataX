@@ -6,9 +6,9 @@ import { useState, useEffect, useMemo } from 'react';
 import type { AnalysisMode, Kpi, ChartDataItem, BubbleChartDataItem, ProcessedDataForPeriod, V4PeriodData, PeriodOption, DashboardView, TrendMetricKey, RankingMetricKey, BubbleMetricKey, AggregatedBusinessMetrics, CoreAggregatedMetricKey, ShareChartMetricKey, ShareChartDataItem, ParetoChartMetricKey, ParetoChartDataItem, V4BusinessDataEntry } from '@/data/types';
 
 // 导入 Firebase SDK 所需的模块
-import { app } from '@/lib/firebase'; // 根据您的实际路径调整到 firebase.js 或 firebaseConfig.js
+import { app, auth as firebaseAuthInstance } from '@/lib/firebase'; // auth renamed to firebaseAuthInstance to avoid conflict
 import { getAuth, onAuthStateChanged } from 'firebase/auth'; // 用于用户认证和状态监听
-import { getFunctions, httpsCallable } from 'firebase/functions'; // 用于调用云函数
+// getFunctions and httpsCallable are removed as we fetch static JSON directly
 
 // 导入布局和 UI 组件
 import { AppLayout } from '@/components/layout/app-layout';
@@ -30,7 +30,7 @@ import {
   exportToCSV,
   getDynamicColorByVCR
 } from '@/lib/data-utils';
-import { useAuth } from '@/contexts/auth-provider'; // 确保这个 useAuth hook 提供了 isAuthenticated 和 isLoadingAuth
+import { useAuth } from '@/contexts/auth-provider'; 
 
 // 定义可用的指标列表
 const availableTrendMetrics: { value: TrendMetricKey, label: string }[] = [
@@ -98,14 +98,9 @@ const availableParetoMetrics: { value: ParetoChartMetricKey, label: string}[] = 
 
 
 export default function DashboardPage() {
-  const { isAuthenticated, isLoadingAuth } = useAuth(); // 使用认证上下文
+  const { isAuthenticated, isLoadingAuth, currentUser } = useAuth(); 
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('cumulative');
   const [activeView, setActiveView] = useState<DashboardView>('kpi');
-
-  // Firebase Auth 和 Functions 实例以及用户状态
-  const [user, setUser] = useState(null); 
-  const auth = getAuth(app); 
-  const functions = getFunctions(app); 
   const [error, setError] = useState<string | null>(null);
 
 
@@ -147,118 +142,94 @@ export default function DashboardPage() {
 
 
   // *******************************************************************
-  // 核心数据获取逻辑：通过 Cloud Function 安全获取数据
+  // 核心数据获取逻辑：直接从 public/data/insurance_data_v4.json 获取数据
   // *******************************************************************
   useEffect(() => {
-    // 监听 Firebase Authentication 状态的变化
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser as any); // 更新用户状态
-      if (currentUser) {
-        // 用户已登录，调用函数获取数据
-        fetchDataAndProcess(); // 调用新的数据获取和处理函数
-      } else {
-        // 用户未登录或已登出
-        setAllV4Data([]); // 清空数据
-        setPeriodOptions([]);
-        setSelectedPeriodKey('');
-        setSelectedComparisonPeriodKey(null);
-        setAllBusinessTypes([]);
-        setIsGlobalLoading(false);
-        toast({ variant: "destructive", title: "未登录", description: "请登录以查看数据。" });
-      }
-    });
+    // This effect now only depends on isAuthenticated to trigger data fetching
+    if (isAuthenticated) {
+      fetchDataAndProcess();
+    } else if (!isLoadingAuth && !isAuthenticated) {
+      // If not loading and not authenticated, clear data and potentially show login prompt (handled by AuthProvider)
+      setAllV4Data([]);
+      setPeriodOptions([]);
+      setSelectedPeriodKey('');
+      setSelectedComparisonPeriodKey(null);
+      setAllBusinessTypes([]);
+      setIsGlobalLoading(false); // Stop loading if not authenticated
+      // Toast for unauthenticated state might be better handled in AuthProvider or login page
+    }
+  }, [isAuthenticated, isLoadingAuth]); // Re-fetch if isAuthenticated changes
 
-    // 组件卸载时取消订阅，防止内存泄漏
-    return () => unsubscribe();
-  }, [auth, functions, toast]); // 依赖项包含 auth, functions, toast
-
-  // 定义一个异步函数来从 Cloud Function 获取数据并进行处理
   const fetchDataAndProcess = async () => {
     setIsGlobalLoading(true);
     setError(null);
     try {
-      toast({ title: "数据加载中", description: "正在从安全后端加载数据..." });
+      toast({ title: "数据加载中", description: "正在加载本地数据文件..." });
       
-      // 获取对名为 'getInsuranceStats' 的 HTTPS Callable 云函数的引用
-      const callGetInsuranceStats = httpsCallable(functions, 'getInsuranceStats');
-
-      // 调用云函数。HTTPS Callable 函数会自动处理认证信息的传递。
-      const result = await callGetInsuranceStats() as any;
+      const response = await fetch('/data/insurance_data_v4.json'); // Fetch static JSON
+      if (!response.ok) {
+        throw new Error(`无法加载数据文件: ${response.status} ${response.statusText}`);
+      }
       
+      const rawData = await response.json();
 
-      if (result.data.status === 'success') {
-        const rawData = result.data.data; // 云函数返回的数据
-        if (!Array.isArray(rawData)) {
-          console.error("Data loaded from Cloud Function is not an array:", rawData);
-          toast({ variant: "destructive", title: "数据格式错误", description: "从安全后端加载的数据格式不正确，期望得到一个数组。" });
-          setAllV4Data([]);
-          setPeriodOptions([]);
-          setIsGlobalLoading(false);
-          return;
-        }
-        toast({ title: "数据加载成功", description: "已从安全后端加载数据。" });
-
-        const data: V4PeriodData[] = rawData as V4PeriodData[];
-        setAllV4Data(data);
-        const options = data
-          .map(p => ({ value: p.period_id, label: p.period_label }))
-          .sort((a, b) => b.label.localeCompare(a.label));
-        setPeriodOptions(options);
-
-        if (data.length > 0 && selectedPeriodKey) {
-          setGlobalV4DataForKpiWorkaround(data, selectedPeriodKey);
-        } else if (data.length > 0 && options.length > 0) {
-          setGlobalV4DataForKpiWorkaround(data, options[0].value);
-        }
-
-        const currentSelectedIsValid = options.some(opt => opt.value === selectedPeriodKey);
-        if (options.length > 0 && (!selectedPeriodKey || !currentSelectedIsValid)) {
-          setSelectedPeriodKey(options[0].value);
-        } else if (options.length === 0) {
-          setSelectedPeriodKey('');
-          setSelectedComparisonPeriodKey(null);
-        }
-
-        if (selectedComparisonPeriodKey && !options.some(opt => opt.value === selectedComparisonPeriodKey)) {
-          setSelectedComparisonPeriodKey(null);
-        }
-        if (selectedComparisonPeriodKey === selectedPeriodKey && selectedPeriodKey !== '') {
-          setSelectedComparisonPeriodKey(null);
-        }
-
-        if (data.length > 0 && data[0].business_data) {
-          const uniqueTypes = Array.from(new Set(data.flatMap(p => p.business_data.map(bd => bd.business_type))
-            .filter(bt => bt && bt.toLowerCase() !== '合计' && bt.toLowerCase() !== 'total')))
-            .sort((a, b) => a.localeCompare(b));
-          setAllBusinessTypes(uniqueTypes);
-        } else {
-          setAllBusinessTypes([]);
-        }
-
-      } else {
-        // 云函数返回失败状态
-        setError(result.data.message || "从安全后端获取数据失败。");
-        toast({ variant: "destructive", title: "数据加载失败", description: `从安全后端获取数据失败: ${result.data.message || '未知错误'}` });
+      if (!Array.isArray(rawData)) {
+        console.error("Data loaded from JSON is not an array:", rawData);
+        toast({ variant: "destructive", title: "数据格式错误", description: "本地数据文件格式不正确，期望得到一个数组。" });
         setAllV4Data([]);
         setPeriodOptions([]);
+        setIsGlobalLoading(false);
+        return;
+      }
+      toast({ title: "数据加载成功", description: "已从本地数据文件加载数据。" });
+
+      const data: V4PeriodData[] = rawData as V4PeriodData[];
+      setAllV4Data(data);
+      const options = data
+        .map(p => ({ value: p.period_id, label: p.period_label }))
+        .sort((a, b) => b.label.localeCompare(a.label)); // Sort by label descending (newest first)
+      setPeriodOptions(options);
+
+      // Logic for setting selectedPeriodKey (similar to before, but ensures it's based on loaded data)
+      if (options.length > 0) {
+        const currentSelectedIsValid = options.some(opt => opt.value === selectedPeriodKey);
+        if (!selectedPeriodKey || !currentSelectedIsValid) {
+          setSelectedPeriodKey(options[0].value); // Default to the newest period
+        }
+      } else {
         setSelectedPeriodKey('');
         setSelectedComparisonPeriodKey(null);
+      }
+      
+      // Ensure selectedPeriodKey is used for global data context if valid
+      if (data.length > 0) {
+        const periodToUse = options.length > 0 ? (options.some(opt => opt.value === selectedPeriodKey) ? selectedPeriodKey : options[0].value) : '';
+        if (periodToUse) {
+          setGlobalV4DataForKpiWorkaround(data, periodToUse);
+        }
+      }
+
+
+      if (selectedComparisonPeriodKey && !options.some(opt => opt.value === selectedComparisonPeriodKey)) {
+        setSelectedComparisonPeriodKey(null);
+      }
+      if (selectedComparisonPeriodKey === selectedPeriodKey && selectedPeriodKey !== '') {
+        setSelectedComparisonPeriodKey(null);
+      }
+
+      if (data.length > 0 && data[0].business_data) {
+        const uniqueTypes = Array.from(new Set(data.flatMap(p => p.business_data.map(bd => bd.business_type))
+          .filter(bt => bt && bt.toLowerCase() !== '合计' && bt.toLowerCase() !== 'total')))
+          .sort((a, b) => a.localeCompare(b));
+        setAllBusinessTypes(uniqueTypes);
+      } else {
         setAllBusinessTypes([]);
       }
 
     } catch (error: any) {
-      console.error("Error in fetchDataAndProcess:", error);
-      // 根据错误代码处理不同类型的错误
-      if (error.code === 'unauthenticated') {
-        setError("您需要登录才能查看此数据。");
-        toast({ variant: "destructive", title: "未登录", description: "请登录以查看数据。" });
-      } else if (error.code === 'permission-denied') {
-        setError("您没有权限查看此数据。");
-        toast({ variant: "destructive", title: "无权限", description: "您没有权限访问此数据。" });
-      } else {
-        setError(`加载数据时发生错误: ${error.message}`);
-        toast({ variant: "destructive", title: "数据加载失败", description: `无法加载数据源: ${error instanceof Error ? error.message : String(error)}` });
-      }
+      console.error("Error in fetchDataAndProcess (static JSON):", error);
+      setError(`加载数据时发生错误: ${error.message}`);
+      toast({ variant: "destructive", title: "数据加载失败", description: `无法加载数据源: ${error instanceof Error ? error.message : String(error)}` });
       setAllV4Data([]);
       setPeriodOptions([]);
       setSelectedPeriodKey('');
@@ -269,9 +240,6 @@ export default function DashboardPage() {
     }
   };
 
-  // 调整这里的触发逻辑：确保在认证状态变化后，如果isAuthenticated，则调用 fetchDataAndProcess
-  // 避免在组件首次渲染，isAuthenticated 仍为 false 时就尝试拉取数据
-  // 这个 useEffect 负责在认证状态改变或 selectedPeriodKey/selectedComparisonPeriodKey 改变时，重新处理数据和图表
   useEffect(() => {
     if (isGlobalLoading || !Array.isArray(allV4Data) || allV4Data.length === 0 || !selectedPeriodKey || !isAuthenticated) {
       setProcessedData([]);
@@ -286,7 +254,7 @@ export default function DashboardPage() {
 
     if (selectedComparisonPeriodKey === selectedPeriodKey && selectedPeriodKey !== '') {
         toast({variant: "default", title: "提示", description: "当前周期和对比周期不能相同。已重置对比周期。"})
-        setSelectedComparisonPeriodKey(null); // Reset comparison period
+        setSelectedComparisonPeriodKey(null); 
         return; 
     }
 
@@ -685,16 +653,30 @@ export default function DashboardPage() {
     />
   );
   
-  // 顶层渲染逻辑，处理未登录状态
-  if (!isLoadingAuth && !isAuthenticated) {
+  // AuthProvider handles redirection, so this component assumes it will only render
+  // when authenticated or when isLoadingAuth is true.
+  if (isLoadingAuth) {
     return (
       <AppLayout header={headerElement}>
         <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center text-muted-foreground p-8">
-          <h3 className="text-xl font-semibold mb-2">请登录以访问仪表盘</h3>
-          <p>登录后即可查看数据分析。</p>
+           <h3 className="text-xl font-semibold mb-2">正在加载应用...</h3>
+           <p>请稍候，正在准备您的仪表盘。</p>
         </div>
       </AppLayout>
     );
+  }
+  
+  if (!isAuthenticated) {
+     // This state should ideally be handled by AuthProvider redirecting to /login
+     // Or, if page.tsx is directly rendered on / route while unauthenticated, show a message.
+     return (
+      <AppLayout header={headerElement}>
+        <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center text-muted-foreground p-8">
+          <h3 className="text-xl font-semibold mb-2">请登录以访问仪表盘</h3>
+          <p>您需要登录才能查看数据分析。</p>
+        </div>
+      </AppLayout>
+     );
   }
 
 
@@ -702,11 +684,16 @@ export default function DashboardPage() {
     <AppLayout header={headerElement}>
       <div className="space-y-6 md:space-y-8">
         {isGlobalLoading && isAuthenticated && <p className="text-center text-muted-foreground py-8">数据加载中，请稍候...</p>}
-        {/* 针对 Cloud Function 的错误提示 */}
+        
         {!isGlobalLoading && isAuthenticated && error && !allV4Data.length && (
           <p className="text-center text-destructive py-8">{error}</p>
         )}
-        {!isGlobalLoading && isAuthenticated && Array.isArray(allV4Data) && allV4Data.length > 0 && !selectedPeriodKey && <p className="text-center text-muted-foreground py-8">请选择一个数据周期以开始分析。</p>}
+        {!isGlobalLoading && isAuthenticated && Array.isArray(allV4Data) && allV4Data.length === 0 && !error && (
+           <p className="text-center text-muted-foreground py-8">数据文件为空或无法解析，请检查数据源。</p>
+        )}
+        {!isGlobalLoading && isAuthenticated && Array.isArray(allV4Data) && allV4Data.length > 0 && !selectedPeriodKey && (
+          <p className="text-center text-muted-foreground py-8">请选择一个数据周期以开始分析。</p>
+        )}
 
 
         {!isGlobalLoading && isAuthenticated && Array.isArray(allV4Data) && allV4Data.length > 0 && selectedPeriodKey && (
