@@ -1,3 +1,4 @@
+'use client';
 
 import type React from 'react';
 
@@ -19,4 +20,3 @@ export function AppLayout({ header, children }: AppLayoutProps) {
     </div>
   );
 }
-
