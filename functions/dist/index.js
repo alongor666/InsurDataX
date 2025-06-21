@@ -1,53 +1,123 @@
-// functions/index.js
-
-const functions = require("firebase-functions");
-const admin = require("firebase-admin");
-const cors = require("cors");
-
-// 在 Firebase 环境中，无需任何参数即可自动完成初始化
-admin.initializeApp();
-
-// 获取 Firestore 数据库的引用
-const db = admin.firestore();
-
-// 创建一个 CORS 中间件实例
-// 关键安全实践：仅允许您的 Firebase Hosting 域名访问
-// 请将 'your-project-id' 替换为您真实的 Firebase 项目 ID
-const corsOptions = {
-  origin: "https://datalens-insights-2fh8a.web.app/", // 务必替换成您部署后的 Firebase Hosting URL
-  optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
-};
-const corsMiddleware = cors(corsOptions);
-
-
-exports.getInsuranceStats = functions.https.onRequest((request, response) => {
-  // 使用 CORS 中间件处理请求
-  corsMiddleware(request, response, async () => {
-    try {
-      // 1. 定义要获取的文档引用
-      // !! 请将 'insuranceData' 和 'mainDocument' 替换为您在 Firestore 中
-      // !! 实际使用的集合名 (collection) 和文档名 (document)
-      const statsDocRef = db.collection('insuranceData').doc('mainDocument');
-
-      // 2. 异步获取文档
-      const doc = await statsDocRef.get();
-
-      // 3. 健壮性检查：如果文档不存在
-      if (!doc.exists) {
-        console.error("Firestore document not found!");
-        response.status(404).send({ error: "Data not found." });
-        return;
-      }
-
-      // 4. 成功：返回文档中的数据
-      console.log("Successfully fetched data from Firestore.");
-      response.status(200).json(doc.data());
-
-    } catch (error) {
-      // 5. 捕获任何其他内部错误（例如权限问题）并记录详细信息
-      console.error("Error fetching data from Firestore:", error);
-      // 向客户端返回一个更通用的错误，避免暴露内部实现细节
-      response.status(500).send({ error: "An internal server error occurred." });
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
     }
-  });
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
 });
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.generateAiSummaryProxy = void 0;
+console.log('[Cloud Functions] Loading generateAiSummaryProxy function module...'); // Diagnostic log
+const functions = __importStar(require("firebase-functions"));
+const admin = __importStar(require("firebase-admin"));
+const cors_1 = __importDefault(require("cors"));
+// Initialize Firebase Admin SDK
+if (!admin.apps.length) {
+    admin.initializeApp();
+    console.log('[Cloud Functions] Firebase Admin SDK initialized.');
+}
+// Dynamically import Genkit flows from the local 'ai/flows' directory
+const generate_business_summary_1 = require("./ai/flows/generate-business-summary");
+const generate_trend_analysis_flow_1 = require("./ai/flows/generate-trend-analysis-flow");
+const generate_bubble_chart_analysis_flow_1 = require("./ai/flows/generate-bubble-chart-analysis-flow");
+const generate_bar_ranking_analysis_flow_1 = require("./ai/flows/generate-bar-ranking-analysis-flow");
+const generate_share_chart_analysis_flow_1 = require("./ai/flows/generate-share-chart-analysis-flow");
+const generate_pareto_analysis_flow_1 = require("./ai/flows/generate-pareto-analysis-flow");
+console.log('[Cloud Functions] AI flows imported.');
+// Configure CORS
+const corsHandler = (0, cors_1.default)({ origin: true });
+console.log('[Cloud Functions] CORS handler configured.');
+exports.generateAiSummaryProxy = functions
+    .region('us-central1')
+    .runWith({
+    timeoutSeconds: 300,
+    memory: '1GB',
+})
+    .https.onRequest(async (request, response) => {
+    console.log(`[Cloud Functions] generateAiSummaryProxy: Received request for flow: ${request.body?.flowName}`);
+    corsHandler(request, response, async () => {
+        if (request.method !== 'POST') {
+            console.warn(`[Cloud Functions] generateAiSummaryProxy: Method Not Allowed - ${request.method}`);
+            response.status(405).send('Method Not Allowed');
+            return;
+        }
+        try {
+            const { flowName, inputData } = request.body;
+            if (!flowName || !inputData) {
+                console.error('[Cloud Functions] generateAiSummaryProxy: Missing flowName or inputData.');
+                response.status(400).send('Missing flowName or inputData in request body.');
+                return;
+            }
+            console.log(`[Cloud Functions] generateAiSummaryProxy: Processing flow: ${flowName}`);
+            let result;
+            switch (flowName) {
+                case 'generateBusinessSummary':
+                    result = await (0, generate_business_summary_1.generateBusinessSummary)(inputData);
+                    break;
+                case 'generateTrendAnalysis':
+                    result = await (0, generate_trend_analysis_flow_1.generateTrendAnalysis)(inputData);
+                    break;
+                case 'generateBubbleChartAnalysis':
+                    result = await (0, generate_bubble_chart_analysis_flow_1.generateBubbleChartAnalysis)(inputData);
+                    break;
+                case 'generateBarRankingAnalysis':
+                    result = await (0, generate_bar_ranking_analysis_flow_1.generateBarRankingAnalysis)(inputData);
+                    break;
+                case 'generateShareChartAnalysis':
+                    result = await (0, generate_share_chart_analysis_flow_1.generateShareChartAnalysis)(inputData);
+                    break;
+                case 'generateParetoAnalysis':
+                    result = await (0, generate_pareto_analysis_flow_1.generateParetoAnalysis)(inputData);
+                    break;
+                default:
+                    console.error(`[Cloud Functions] generateAiSummaryProxy: Unknown flowName: ${flowName}`);
+                    response.status(400).send(`Unknown or unsupported flowName: ${flowName}`);
+                    return;
+            }
+            console.log(`[Cloud Functions] generateAiSummaryProxy: Successfully processed flow: ${flowName}`);
+            response.status(200).json(result);
+        }
+        catch (error) {
+            console.error(`[Cloud Functions] generateAiSummaryProxy: Error processing flow ${request.body?.flowName}:`, error);
+            let errorMessage = 'An unexpected error occurred during AI processing.';
+            if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+            // It's good practice to not send detailed internal errors to the client in production.
+            // However, for debugging, this can be more informative.
+            response.status(500).json({ error: `AI Service Error: ${errorMessage}`, details: String(error) });
+        }
+    });
+});
+console.log('[Cloud Functions] generateAiSummaryProxy function defined.');
+//# sourceMappingURL=index.js.map

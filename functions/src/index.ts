@@ -99,6 +99,3 @@ export const generateAiSummaryProxy = functions
   });
 
 console.log('[Cloud Functions] generateAiSummaryProxy function defined.');
-
-// Import and export your new function
-export { getInsuranceStats } from './getInsuranceStats';
