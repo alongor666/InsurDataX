@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  output: "export",  
+  // output: "export", // This line is removed to enable server-side rendering for auth
   // typescript: {
   //   ignoreBuildErrors: true, // Removed
   // },

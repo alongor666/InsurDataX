@@ -14,36 +14,10 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
-
-// This check prevents re-initialization in a Next.js server-side environment,
-// which can cause errors.
-if (!getApps().length) {
-  try {
-    app = initializeApp(firebaseConfig);
-  } catch (error) {
-    console.error("Firebase initialization error:", error);
-    // In a real app, you might want to handle this more gracefully
-    throw new Error("Could not initialize Firebase. Please check your configuration.");
-  }
-} else {
-  app = getApp();
-}
-
-auth = getAuth(app);
-db = getFirestore(app);
-
-// Diagnostic log to help confirm config loading
-// This will run on both server and client, which is fine for debugging.
-if (typeof window !== 'undefined') { // Only log on the client-side for clarity
-    console.log("Firebase Init Check (Client-side):", {
-        apiKey: firebaseConfig.apiKey ? 'loaded' : 'MISSING',
-        authDomain: firebaseConfig.authDomain,
-        projectId: firebaseConfig.projectId,
-    });
-}
-
+// Initialize Firebase using the standard singleton pattern.
+// This ensures that Firebase is initialized only once, whether on the server or client.
+const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const auth: Auth = getAuth(app);
+const db: Firestore = getFirestore(app);
 
 export { app, auth, db };

@@ -1,6 +1,6 @@
 # 车险经营分析周报应用 (客户端直连Firestore, AI已禁用)
 
-本项目是一个基于 Next.js, React, ShadCN UI, Tailwind CSS 构建的车险经营分析仪表盘应用。用户认证通过 **Firebase Authentication** 实现。数据由已认证的客户端**直接从 Firestore 数据库安全地获取**，访问由Firestore安全规则保护。**所有AI智能分析功能当前已禁用。**
+本项目是一个基于 Next.js, React, ShadCN UI, Tailwind CSS 构建的**动态**车险经营分析仪表盘应用。用户认证通过 **Firebase Authentication** 实现。数据由已认证的客户端**直接从 Firestore 数据库安全地获取**，访问由Firestore安全规则保护。**所有AI智能分析功能当前已禁用。**
 
 ## 目标
 
@@ -34,7 +34,7 @@
 ## 技术栈
 
 - **前端**:
-    - Next.js (App Router, 配置为静态导出 `output: "export"`)
+    - Next.js (App Router, **动态服务器渲染模式**)
     - React (Context API 用于 Firebase Authentication)
     - TypeScript
     - ShadCN UI, Tailwind CSS
@@ -59,7 +59,7 @@
     - `src/index.ts`: 导出AI代理等函数 (当前未使用)。
     - **`src/getInsuranceStats.ts`**: (已删除)
 - `.env.local.example`: Firebase前端配置环境变量示例。
-- `PRODUCT_REQUIREMENTS_DOCUMENT.md`: 产品需求文档 (v5.0.0)。
+- `PRODUCT_REQUIREMENTS_DOCUMENT.md`: 产品需求文档 (v5.1.0)。
 - `FIELD_DICTIONARY.md`: 字段字典与计算逻辑。
 - `ISSUES_LOG.md`: 问题与解决日志。
 
@@ -86,33 +86,19 @@
     *   安装依赖: `npm install`
     *   启动开发服务器: `npm run dev`
 
-## 部署到 Firebase Hosting
+## 部署应用
 
-本项目已配置为静态导出 (`output: "export"`)，可直接部署到 Firebase Hosting。
+本项目是一个标准的动态 Next.js 应用，可以部署到任何支持 Node.js 的现代托管平台。
 
-1.  **安装 Firebase CLI (若未安装)**:
-    ```bash
-    npm install -g firebase-tools
-    ```
-2.  **登录 Firebase**:
-    ```bash
-    firebase login
-    ```
-    (如果您已经登录，可以跳过此步)
-3.  **构建应用**:
-    此命令会根据 `next.config.ts` 的配置，在项目根目录生成一个 `out` 文件夹，其中包含所有静态网站文件。
-    ```bash
-    npm run build
-    ```
-4.  **部署到 Hosting**:
-    此命令会读取 `firebase.json` 中的配置 (`"public": "out"`)，并将 `out` 文件夹的内容上传到 Firebase Hosting。
-    ```bash
-    firebase deploy --only hosting
-    ```
-    部署完成后，CLI会提供您的线上应用访问链接。
+*   **对于 Firebase 用户**: 推荐使用 **Firebase App Hosting**。它能自动检测 Next.js 项目，处理构建和部署流程。
+    1.  按照 Firebase App Hosting 的官方文档进行设置。
+    2.  通常，您只需将代码推送到关联的 Git 仓库，即可触发自动部署。
+*   **对于其他平台 (如 Vercel, Netlify, AWS 等)**:
+    1.  运行 `npm run build` 来构建生产版本的应用。
+    2.  按照您选择的平台的指南来部署一个 Next.js 应用。
 
 ## 文档
 
-- **产品需求文档**: `PRODUCT_REQUIREMENTS_DOCUMENT.md` (版本 5.0.0)
-- **字段字典与计算逻辑**: `FIELD_DICTIONARY_V4.md`
+- **产品需求文档**: `PRODUCT_REQUIREMENTS_DOCUMENT.md` (版本 5.1.0)
+- **字段字典与计算逻辑**: `FIELD_DICTIONARY.md`
 - **问题与解决日志**: `ISSUES_LOG.md`
