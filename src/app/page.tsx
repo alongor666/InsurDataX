@@ -15,8 +15,8 @@ import { DataTableSection } from '@/components/sections/data-table-section';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from 'lucide-react';
-import { functions } from '@/lib/firebase';
-import { httpsCallable, type FunctionsError } from 'firebase/functions';
+import { db } from '@/lib/firebase'; // 从 firebase.ts 导入 db 实例
+import { collection, getDocs, type FirestoreError } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import {
   type V4PeriodData,
@@ -33,8 +33,7 @@ import {
   type ChartDataItem,
   type BubbleChartDataItem,
   type ShareChartDataItem,
-  type ParetoChartDataItem,
-  type CoreAggregatedMetricKey
+  type ParetoChartDataItem
 } from '@/data/types';
 import {
   processDataForSelectedPeriod,
@@ -96,22 +95,23 @@ export default function DashboardPage() {
     const [selectedParetoMetric, setSelectedParetoMetric] = useState<ParetoChartMetricKey>('premium_written');
     
     const fetchData = useCallback(async () => {
-        if (!functions) {
-            setError("Firebase Functions 服务尚未初始化。");
-            toast({ variant: "destructive", title: "初始化错误", description: "Firebase Functions 服务尚未初始化。" });
+        if (!db) {
+            setError("Firestore 服务尚未初始化。");
+            toast({ variant: "destructive", title: "初始化错误", description: "Firestore 服务尚未初始化。" });
             setIsGlobalLoading(false);
             return;
         }
         setIsGlobalLoading(true);
         setError(null);
         try {
-            toast({ title: "数据加载中", description: "正在从安全云函数加载数据..." });
-            const getInsuranceStats = httpsCallable(functions, 'getInsuranceStats');
-            const result = await getInsuranceStats();
-            const rawData = (result.data as any)?.data as V4PeriodData[];
+            toast({ title: "数据加载中", description: "正在从安全的云端数据库加载数据..." });
+            
+            const dataCollection = collection(db, "v4_period_data");
+            const querySnapshot = await getDocs(dataCollection);
+            const rawData = querySnapshot.docs.map(doc => doc.data() as V4PeriodData);
 
-            if (!Array.isArray(rawData)) {
-                throw new Error("从云函数加载的数据格式不正确，期望得到一个数组。");
+            if (!Array.isArray(rawData) || rawData.length === 0) {
+                throw new Error("从数据库加载的数据为空或格式不正确。请确认 `v4_period_data` 集合中存在数据。");
             }
             
             toast({ title: "数据加载成功", description: "已成功从后端获取数据。" });
@@ -133,11 +133,14 @@ export default function DashboardPage() {
             setAllBusinessTypes(uniqueTypes);
 
         } catch (e) {
-            const err = e as FunctionsError;
-            console.error("Error calling getInsuranceStats function:", err);
-            const userFriendlyMessage = `加载数据时发生错误: ${err.message}`;
+            const err = e as FirestoreError;
+            console.error("Error fetching from Firestore:", err);
+            let userFriendlyMessage = `加载数据时发生错误: ${err.message}`;
+            if (err.code === 'permission-denied') {
+                userFriendlyMessage = "加载数据失败：权限不足。请确保您已登录，且Firestore安全规则配置正确。";
+            }
             setError(userFriendlyMessage);
-            toast({ variant: "destructive", title: "数据加载失败", description: err.message });
+            toast({ variant: "destructive", title: "数据加载失败", description: userFriendlyMessage });
             setAllV4Data([]);
         } finally {
             setIsGlobalLoading(false);
@@ -329,7 +332,7 @@ export default function DashboardPage() {
                         <ul className="list-disc pl-5 mt-2 text-xs">
                             <li>您的网络连接是否正常？</li>
                             <li>您是否已登录并有权访问此数据？</li>
-                            <li>后端服务(Firebase Functions)可能遇到问题。</li>
+                            <li>后端数据库(Firestore)可能遇到问题或安全规则阻止了访问。</li>
                         </ul>
                         <p className="mt-4 font-mono bg-muted p-2 rounded text-xs">{error}</p>
                     </AlertDescription>
@@ -364,5 +367,3 @@ export default function DashboardPage() {
         </AppLayout>
     );
 }
-
-    

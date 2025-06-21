@@ -1,6 +1,6 @@
-# 车险经营分析周报应用 (安全后端, AI已禁用)
+# 车险经营分析周报应用 (客户端直连Firestore, AI已禁用)
 
-本项目是一个基于 Next.js, React, ShadCN UI, Tailwind CSS 构建的车险经营分析仪表盘应用。用户认证通过 **Firebase Authentication** 实现。数据通过**安全的 Firebase Function 从 Firestore 数据库**获取。**所有AI智能分析功能当前已禁用。**
+本项目是一个基于 Next.js, React, ShadCN UI, Tailwind CSS 构建的车险经营分析仪表盘应用。用户认证通过 **Firebase Authentication** 实现。数据由已认证的客户端**直接从 Firestore 数据库安全地获取**，访问由Firestore安全规则保护。**所有AI智能分析功能当前已禁用。**
 
 ## 目标
 
@@ -11,9 +11,10 @@
 - **Firebase Authentication**:
     - 应用启动时会重定向到登录页面。
     - 支持使用 Firebase 凭证 (例如，邮箱/密码) 进行登录。
-- **安全数据后端**:
-    - 业务数据存储在 **Firestore** 中。
-    - 前端通过调用一个受保护的 **Firebase Function (`getInsuranceStats`)** 来获取数据，确保只有已认证的用户可以访问。
+- **安全数据后端 (客户端直连模式)**:
+    - 业务数据存储在 **Firestore** 的 `v4_period_data` 集合中。
+    - 前端应用在用户认证后，使用 **Firebase 客户端SDK** 直接查询 Firestore 来获取数据。
+    - **Firestore 安全规则** (`allow read, write: if request.auth != null;`) 确保只有已认证的用户可以访问数据。
 - **KPI看板**: 实时展示核心业务指标。
 - **多维度图表分析**:
     - **趋势分析**: 智能切换图表类型，动态颜色提示。
@@ -38,12 +39,10 @@
     - TypeScript
     - ShadCN UI, Tailwind CSS
     - Recharts (图表库)
-    - Firebase SDK (用于认证和调用云函数)
+    - Firebase SDK (用于认证和**直接访问Firestore**)
 - **后端**:
-    - **Firebase Functions (Node.js)**:
-        - `getInsuranceStats`: 用于安全地提供数据。
-        - `generateAiSummaryProxy`: AI代理 (当前未使用)。
-    - **Firestore**: 作为主数据库存储业务数据。
+    - **Firestore**: 作为主数据库存储业务数据，并由其安全规则保障访问安全。
+    - **Firebase Functions (Node.js)**: 仅用于AI代理 (`generateAiSummaryProxy` - 当前未使用)，无自定义数据获取函数。
     - **Genkit (Google AI)**: 用于AI代理 (当前未使用)。
 - **数据**:
     - **Firestore** 是唯一的数据源。
@@ -55,13 +54,12 @@
 - `src/components/`: 应用的React组件。
 - `src/contexts/`: React Context API 实现 (`auth-provider.tsx`)。
 - `src/lib/`: 工具函数和核心逻辑 (`data-utils.ts`, `firebase.ts`)。
-- `public/`: 静态资源 (**注意: `public/data/insurance_data_v4.json` 已不再是主要数据源**)。
+- `public/`: 静态资源 (**注意: `public/data/insurance_data_v4.json` 已不再使用**)。
 - `functions/`: Firebase Functions的源代码。
-    - `src/index.ts`: 导出所有云函数。
-    - `src/getInsuranceStats.ts`: **新增的、用于从Firestore安全获取数据的主力函数。**
-    - `src/ai/`: Genkit AI Flow和配置 (当前未使用)。
+    - `src/index.ts`: 导出AI代理等函数 (当前未使用)。
+    - **`src/getInsuranceStats.ts`**: (已删除)
 - `.env.local.example`: Firebase前端配置环境变量示例。
-- `PRODUCT_REQUIREMENTS_DOCUMENT.md`: 产品需求文档 (v4.0.0)。
+- `PRODUCT_REQUIREMENTS_DOCUMENT.md`: 产品需求文档 (v4.1.0)。
 - `FIELD_DICTIONARY_V4.md`: 字段字典与计算逻辑。
 - `ISSUES_LOG.md`: 问题与解决日志。
 
@@ -71,21 +69,29 @@
     *   确保您有一个Firebase项目。
     *   在Firebase控制台中启用 **Firebase Authentication** (例如，邮箱/密码)。
     *   在Firebase控制台中启用 **Firestore Database** 并创建名为 `v4_period_data` 的集合，将您的保险数据文档上传至此。
+    *   **关键**: 在 Firestore 的 **Rules (规则)** 标签页中，设置并发布以下规则:
+        ```
+        rules_version = '2';
+        service cloud.firestore {
+          match /databases/{database}/documents {
+            match /{document=**} {
+              allow read, write: if request.auth != null;
+            }
+          }
+        }
+        ```
     *   记录您的Firebase项目配置信息。
 2.  **前端应用与Firebase配置**:
     *   在项目根目录创建 `.env.local` 文件，并填入您的Firebase项目配置。
     *   安装依赖: `npm install`
     *   启动开发服务器: `npm run dev`
     *   构建静态文件: `npm run build`
-3.  **后端 Firebase Functions**:
-    *   进入 `functions` 目录，安装依赖: `npm install`
-    *   部署函数: 在项目根目录运行 `firebase deploy --only functions`。
-4.  **本地模拟与测试**:
-    *   在项目根目录运行 Firebase Emulators: `firebase emulators:start --only hosting,auth,functions,firestore`。
+3.  **本地模拟与测试**:
+    *   在项目根目录运行 Firebase Emulators: `firebase emulators:start --only hosting,auth,firestore`。
     *   您需要将数据导入到本地的 Firestore 模拟器中。
 
 ## 文档
 
-- **产品需求文档**: `PRODUCT_REQUIREMENTS_DOCUMENT.md` (版本 4.0.0)
+- **产品需求文档**: `PRODUCT_REQUIREMENTS_DOCUMENT.md` (版本 4.1.0)
 - **字段字典与计算逻辑**: `FIELD_DICTIONARY_V4.md`
 - **问题与解决日志**: `ISSUES_LOG.md`

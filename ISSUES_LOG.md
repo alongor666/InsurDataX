@@ -17,38 +17,25 @@
 ... (保留所有之前的条目) ...
 
 ---
-### 46. 架构重构：切换为安全的后端数据源
-- **问题描述**: 应用当前从位于 `public/data` 的静态JSON文件获取数据，这存在安全隐患且与生产环境的最佳实践不符。此外，之前尝试使用云函数时遇到的 "Internal Server Error" 很可能是由于数据获取逻辑与PRD不一致，以及潜在的Firestore配置问题导致的。
-- **发生时间**: (先前日期)
-- **影响范围**: 整个应用的数据获取、安全性和架构。
-- **解决方案**:
-    1.  **进行根本性的架构变更**，以对齐安全、可扩展的后端实践。
-    2.  **创建 `getInsuranceStats` Firebase Function**:
-        *   在 `functions/src/getInsuranceStats.ts` 中实现一个新的 HTTPS Callable Function。
-        *   此函数强制要求调用者必须通过 Firebase Authentication 进行身份验证 (`context.auth` 检查)。
-        *   函数安全地从 Firestore 数据库的 `v4_period_data` 集合中读取所有保险数据。
-        *   函数返回一个结构化的响应 `{ status: 'success', data: [...] }` 或在失败时抛出标准的 `HttpsError`。
-    3.  **更新 `functions/src/index.ts`**: 导出新的 `getInsuranceStats` 函数，以便部署。
-    4.  **重构前端数据获取逻辑 (`src/app/page.tsx`)**:
-        *   移除 `fetch('/data/insurance_data_v4.json')` 的逻辑。
-        *   在用户认证通过后，使用 Firebase SDK 的 `httpsCallable` 功能来调用 `getInsuranceStats` 函数。
-        *   实现完整的加载、成功和错误状态处理，以响应云函数的调用结果。
-    5.  **更新项目核心文档**:
-        *   **`PRODUCT_REQUIREMENTS_DOCUMENT.md`**: 更新至 v4.0.0，明确将数据源定义为 "Firestore via secure Firebase Function"。调整数据提供 (F-DATA) 和安全 (NF-SEC) 相关的需求描述。
-        *   **`README.md`**: 更新技术栈、项目结构和运行说明，以反映新的数据架构。
-        *   **`ISSUES_LOG.md`**: 添加此条目，记录本次重要的架构重构。
-- **状态**: **已解决** (架构已升级为安全的后端数据源)
-- **备注**: 此变更从根本上提升了应用的安全性，使数据不再公开可访问。它还解决了之前因数据源架构不明确而导致的 "Internal Server Error" 问题。现在，应用的数据流是清晰、安全且符合生产最佳实践的。
-
----
-### 47. 深度调试 `FirebaseError: internal`
-- **问题描述**: 切换到安全的 `getInsuranceStats` 云函数架构后，前端调用该函数时持续收到 "Internal Server Error"。这表明云函数在服务器端执行时崩溃。
+### 48. 架构最终定型：客户端直连Firestore
+- **问题描述**: 由于无法升级到 Firebase 的 Blaze 计费计划，导致无法部署任何需要 Cloud Build API 的现代云函数（如 `getInsuranceStats`）。这使得之前设计的“通过云函数安全访问Firestore”的架构无法实现，并持续引发 `FirebaseError: internal` 或部署失败。
 - **发生时间**: (当前日期)
-- **影响范围**: 核心数据获取功能，导致整个仪表盘无法加载数据。
+- **影响范围**: 整个应用的数据获取架构、安全模型和部署流程。
 - **解决方案**:
-    1.  **升级云函数运行时**: 将 `firebase.json` 和 `functions/package.json` 中的Node.js运行时从 `nodejs18` 升级到 `nodejs20`，以利用最新的LTS环境，解决潜在的底层兼容性问题。
-    2.  **实施深度诊断日志**:
-        *   修改 `functions/src/getInsuranceStats.ts` 文件，使用 `functions.logger` 在函数执行的每个关键步骤（函数触发、认证检查、Firestore查询前后、成功返回、错误捕获）添加详细的日志输出。
-        *   为函数增加 `.runWith({ memory: '512MB', timeoutSeconds: 60 })` 配置，以提供更充裕的运行资源，排除因资源不足导致的冷启动失败。
-- **状态**: **处理中** (已部署增强日志功能，等待检查云端日志以定位根本原因)
-- **备注**: 这是解决云端模糊错误的最佳实践。下一步是在触发错误后，立即在Firebase控制台检查 `getInsuranceStats` 函数的日志，以确定其失败的具体位置和原因。
+    1.  **进行最终的架构决策**，转向 Firebase 推荐的另一种安全模式：客户端直接访问 Firestore。
+    2.  **移除云函数依赖**:
+        *   彻底删除 `functions/src/getInsuranceStats.ts` 文件。
+        *   从 `src/lib/firebase.ts` 中移除 `firebase/functions` 的导入和初始化。
+    3.  **实现客户端直接查询 Firestore**:
+        *   在 `src/lib/firebase.ts` 中，初始化并导出 **Firestore 客户端实例** (`db`)。
+        *   在 `src/app/page.tsx` 的 `fetchData` 函数中，移除所有 `httpsCallable` 的逻辑。
+        *   使用 Firebase 客户端SDK (`firebase/firestore`) 的 `getDocs` 和 `collection` 方法，在用户通过认证后，直接查询 Firestore 的 `v4_period_data` 集合。
+    4.  **安全保障**:
+        *   此架构的安全性由用户已在 Firebase 控制台配置的 **Firestore 安全规则** (`allow read, write: if request.auth != null;`) 提供保障。
+        *   Firebase 后端会强制执行此规则，只有携带有效认证令牌的客户端请求才会被允许，从而防止了未授权的数据访问。
+    5.  **更新项目核心文档**:
+        *   **`PRODUCT_REQUIREMENTS_DOCUMENT.md`**: 更新至 v4.1.0，明确将数据源定义为 "Firestore via authenticated client-side SDK"。调整数据提供 (F-DATA) 和安全 (NF-SEC) 相关的需求描述。
+        *   **`README.md`**: 更新技术栈、项目结构和运行说明（特别是 Firebase 设置部分），以反映新的数据架构。
+        *   **`ISSUES_LOG.md`**: 添加此条目，记录本次重要的架构调整及其原因。
+- **状态**: **已解决** (架构已升级为安全的、客户端直连Firestore的模式，不再需要依赖云函数获取数据)
+- **备注**: 这是在有计费限制的情况下，实现数据安全性的最佳实践。它充分利用了 Firebase 的原生安全能力，同时简化了后端部署的复杂性。

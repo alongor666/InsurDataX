@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
 import type { AnalysisMode, PeriodOption, DashboardView } from '@/data/types';
-import { Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, PieChartIcon, AreaChart, Check, Undo2, Eraser, MousePointerClick, CheckSquare, Square, LogOut, UserCircle } from 'lucide-react'; // Sparkles removed
+import { Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, PieChartIcon, AreaChart, Check, Undo2, Eraser, MousePointerClick, CheckSquare, Square, LogOut, UserCircle, XCircle } from 'lucide-react'; // Sparkles removed
 import {
   Select,
   SelectContent,
@@ -311,5 +311,3 @@ export function AppHeader({
     </header>
   );
 }
-
-    
