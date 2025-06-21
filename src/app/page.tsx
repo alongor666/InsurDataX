@@ -15,7 +15,7 @@ import { DataTableSection } from '@/components/sections/data-table-section';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from 'lucide-react';
-import { db } from '@/lib/firebase'; // 从 firebase.ts 导入 db 实例
+import { db } from '@/lib/firebase';
 import { collection, getDocs, type FirestoreError } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -96,25 +96,27 @@ export default function DashboardPage() {
     
     const fetchData = useCallback(async () => {
         if (!db) {
-            setError("Firestore 服务尚未初始化。");
-            toast({ variant: "destructive", title: "初始化错误", description: "Firestore 服务尚未初始化。" });
+            const msg = "Firestore 服务尚未在firebase.ts中正确初始化。";
+            setError(msg);
+            toast({ variant: "destructive", title: "代码配置错误", description: msg });
             setIsGlobalLoading(false);
             return;
         }
         setIsGlobalLoading(true);
         setError(null);
         try {
-            toast({ title: "数据加载中", description: "正在从安全的云端数据库加载数据..." });
+            toast({ title: "正在加载数据...", description: "正从安全的云端数据库请求数据。" });
             
             const dataCollection = collection(db, "v4_period_data");
             const querySnapshot = await getDocs(dataCollection);
-            const rawData = querySnapshot.docs.map(doc => doc.data() as V4PeriodData);
-
-            if (!Array.isArray(rawData) || rawData.length === 0) {
-                throw new Error("从数据库加载的数据为空或格式不正确。请确认 `v4_period_data` 集合中存在数据。");
+            
+            if (querySnapshot.empty) {
+                throw new Error("从数据库加载的数据为空。请确认 `v4_period_data` 集合中存在数据文档。");
             }
             
-            toast({ title: "数据加载成功", description: "已成功从后端获取数据。" });
+            const rawData = querySnapshot.docs.map(doc => doc.data() as V4PeriodData);
+
+            toast({ title: "数据加载成功", description: `已成功获取 ${rawData.length} 个周期的数据。` });
             setAllV4Data(rawData);
             
             const options = rawData
@@ -123,21 +125,21 @@ export default function DashboardPage() {
             setPeriodOptions(options);
 
             if (options.length > 0) {
-                const latestPeriodKey = options[0].value;
-                setSelectedPeriodKey(latestPeriodKey);
+                setSelectedPeriodKey(options[0].value);
             }
 
             const uniqueTypes = Array.from(new Set(rawData.flatMap(p => p.business_data.map(bd => bd.business_type))
                 .filter(bt => bt && bt.toLowerCase() !== '合计' && bt.toLowerCase() !== 'total')))
                 .sort((a, b) => a.localeCompare(b));
             setAllBusinessTypes(uniqueTypes);
+            setSelectedBusinessTypes([]); // Reset selected types on new data load
 
         } catch (e) {
             const err = e as FirestoreError;
             console.error("Error fetching from Firestore:", err);
             let userFriendlyMessage = `加载数据时发生错误: ${err.message}`;
             if (err.code === 'permission-denied') {
-                userFriendlyMessage = "加载数据失败：权限不足。请确保您已登录，且Firestore安全规则配置正确。";
+                userFriendlyMessage = "数据加载失败：权限不足。请确认您已登录，且Firestore安全规则配置正确，允许已认证用户读取。";
             }
             setError(userFriendlyMessage);
             toast({ variant: "destructive", title: "数据加载失败", description: userFriendlyMessage });
@@ -279,14 +281,44 @@ export default function DashboardPage() {
     }, [individualLinesData, selectedParetoMetric]);
 
     const handleExportClick = useCallback(() => {
-        if (processedDataForKpis.length > 0) {
-            exportToCSV(processedDataForKpis, analysisMode, "车险数据导出.csv", selectedComparisonPeriodKey, periodOptions, selectedPeriodKey);
+        if (individualLinesData.length > 0) {
+            exportToCSV(individualLinesData, analysisMode, "车险数据导出.csv", selectedComparisonPeriodKey, periodOptions, selectedPeriodKey);
         } else {
             toast({ variant: "destructive", title: "导出失败", description: "没有可供导出的数据。" });
         }
-    }, [processedDataForKpis, analysisMode, selectedComparisonPeriodKey, periodOptions, selectedPeriodKey, toast]);
+    }, [individualLinesData, analysisMode, selectedComparisonPeriodKey, periodOptions, selectedPeriodKey, toast]);
 
     const renderCurrentView = () => {
+        if (error) {
+            return (
+                <Alert variant="destructive" className="max-w-4xl mx-auto">
+                    <Terminal className="h-4 w-4" />
+                    <AlertTitle>错误：无法加载仪表盘数据</AlertTitle>
+                    <AlertDescription>
+                        <p>加载核心业务数据时发生严重错误。请检查以下几点：</p>
+                        <ul className="list-disc pl-5 mt-2 text-xs">
+                            <li>您的网络连接是否正常？</li>
+                            <li>您是否已登录并有权访问此数据？</li>
+                            <li>后端数据库(Firestore)可能遇到问题或安全规则阻止了访问。</li>
+                        </ul>
+                        <p className="mt-4 font-mono bg-muted p-2 rounded text-xs">{error}</p>
+                    </AlertDescription>
+                </Alert>
+            );
+        }
+    
+        if (isGlobalLoading) {
+            return (
+                 <div className="space-y-4">
+                    <Skeleton className="h-32 w-full" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Skeleton className="h-64 w-full" />
+                        <Skeleton className="h-64 w-full" />
+                    </div>
+                </div>
+            );
+        }
+
         switch (activeView) {
             case 'kpi':
                 return <KpiDashboardSection kpis={kpis} selectedPeriodKey={selectedPeriodKey} selectedComparisonPeriodKey={selectedComparisonPeriodKey} periodOptions={periodOptions} allV4Data={allV4Data} />;
@@ -307,7 +339,7 @@ export default function DashboardPage() {
         }
     };
     
-    if (isGlobalLoading) {
+    if (isGlobalLoading && !currentUser) { // Still waiting for auth state
         return (
             <div className="flex h-screen items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
@@ -321,26 +353,6 @@ export default function DashboardPage() {
         );
     }
     
-    if (error) {
-        return (
-             <div className="flex h-screen items-center justify-center p-4">
-                <Alert variant="destructive" className="max-w-lg">
-                    <Terminal className="h-4 w-4" />
-                    <AlertTitle>错误：无法加载仪表盘</AlertTitle>
-                    <AlertDescription>
-                        <p>加载核心业务数据时发生严重错误。请检查以下几点：</p>
-                        <ul className="list-disc pl-5 mt-2 text-xs">
-                            <li>您的网络连接是否正常？</li>
-                            <li>您是否已登录并有权访问此数据？</li>
-                            <li>后端数据库(Firestore)可能遇到问题或安全规则阻止了访问。</li>
-                        </ul>
-                        <p className="mt-4 font-mono bg-muted p-2 rounded text-xs">{error}</p>
-                    </AlertDescription>
-                </Alert>
-            </div>
-        );
-    }
-
     return (
         <AppLayout
             header={

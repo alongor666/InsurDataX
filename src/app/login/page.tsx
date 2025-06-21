@@ -12,29 +12,47 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShieldCheck, LogIn } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import type { FirebaseError } from 'firebase/app';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState(''); // Changed from username to email
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const { login } = useAuth();
-  // const router = useRouter(); // See comment above
   const { toast } = useToast();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoggingIn(true);
-    // Using email for Firebase Auth, you can adjust if using username-password
-    const success = await login(email, password); 
-    if (success) {
-      // AuthProvider handles redirection via router.push on successful login
-      // or onAuthStateChanged listener.
-      toast({ title: "登录成功", description: "欢迎回来!" });
-    } else {
-      setError('邮箱或密码错误，或用户不存在。请重试。');
-      toast({ variant: "destructive", title: "登录失败", description: "邮箱或密码无效，或者用户可能需要先注册。" });
+    
+    try {
+      const success = await login(email, password); 
+      if (success) {
+        toast({ title: "登录成功", description: "欢迎回来!" });
+        // AuthProvider handles redirection via router.push on successful login
+      } else {
+        // This case might be triggered if login function itself returns false for other reasons
+        setError('登录失败，请稍后重试。');
+        toast({ variant: "destructive", title: "登录失败", description: '发生未知错误。' });
+      }
+    } catch (err) {
+      const firebaseError = err as FirebaseError;
+      let userFriendlyMessage = '登录时发生未知错误。';
+      
+      // Provide more specific feedback based on the auth error code
+      if (firebaseError.code === 'auth/invalid-credential' || firebaseError.code === 'auth/wrong-password' || firebaseError.code === 'auth/user-not-found') {
+        userFriendlyMessage = '邮箱或密码错误，请检查后重试。';
+      } else if (firebaseError.code === 'auth/too-many-requests') {
+        userFriendlyMessage = '因登录尝试次数过多，账户已被临时锁定。请稍后再试。';
+      } else if (firebaseError.code === 'auth/network-request-failed') {
+        userFriendlyMessage = '网络连接失败，请检查您的网络后重试。';
+      }
+      
+      setError(userFriendlyMessage);
+      toast({ variant: "destructive", title: "登录失败", description: userFriendlyMessage });
+    } finally {
       setIsLoggingIn(false);
     }
   };
@@ -52,10 +70,10 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="email">邮箱</Label> {/* Changed from username */}
+              <Label htmlFor="email">邮箱</Label>
               <Input
                 id="email"
-                type="email" // Changed from text
+                type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="例如: user@example.com"
@@ -84,8 +102,6 @@ export default function LoginPage() {
         </CardContent>
         <CardFooter className="mt-4 text-center text-xs text-muted-foreground">
           <p>此应用使用 Firebase Authentication。请使用已注册的账户登录。</p>
-           {/* Optionally, add a link to a registration page if you implement one */}
-           {/* <p className="mt-2">没有账户？ <a href="/register" className="text-primary hover:underline">注册</a></p> */}
         </CardFooter>
       </Card>
        <footer className="py-8 text-center text-xs text-muted-foreground/80">

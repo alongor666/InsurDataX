@@ -694,7 +694,7 @@ export const calculateKpis = (
       id: 'premium_share', title: '保费占比',
       value: formatDisplayValue(data.premium_share, 'premium_share'), 
       rawValue: data.premium_share, icon: 'PieChart',
-      ...createKpiComparisonFields(data.premium_share, comparisonMetrics?.premium_share, 'premium_share', true, true),
+      ...createKpiComparisonFields(data.premium_share, data.momMetrics?.premium_share, 'premium_share', true, true),
     },
     {
       id: 'claim_frequency', title: '满期出险率',
@@ -712,7 +712,7 @@ export const calculateKpis = (
       id: 'claim_count', title: '已报件数',
       value: formatDisplayValue(current.claim_count, 'claim_count'),
       rawValue: current.claim_count, unit: METRIC_FORMAT_RULES['claim_count'].unitLabel,
-      ...createKpiComparisonFields(current.claim_count, comparisonMetrics?.claim_count, 'claim_count', true, false),
+      ...createKpiComparisonFields(current.claim_count, comparisonMetrics?.claim_count, 'claim_count', false, false),
     },
   ];
   return kpis.map(kpi => ({
@@ -723,11 +723,9 @@ export const calculateKpis = (
 
 
 (globalThis as any).allV4DataForKpiWorkaround = [];
-// (globalThis as any)._activePeriodIdForKpiCalc = ''; // Removed as it's no longer used by calculateKpis globally
 
 export function setGlobalV4DataForKpiWorkaround(allV4Data: V4PeriodData[], activePeriodId: string) {
   (globalThis as any).allV4DataForKpiWorkaround = allV4Data;
-  // (globalThis as any)._activePeriodIdForKpiCalc = activePeriodId; // This line is removed
 }
 (globalThis as any)._selectedBusinessTypesForExport = [];
 export function setSelectedBusinessTypesForExport(types: string[]) {
@@ -743,35 +741,28 @@ export function exportToCSV(
     allPeriodOptions: PeriodOption[],
     activePeriodId: string
 ) {
-    if (!data || data.length === 0 || !data[0].currentMetrics) {
-        console.warn("No data to export or currentMetrics missing.");
+    if (!data || data.length === 0) {
+        console.warn("No data to export.");
         return;
     }
 
-    const item = data[0];
-    const current = item.currentMetrics;
-    const comparisonMetrics = item.momMetrics;
-
     let comparisonColumnLabelPrefix = "";
-      const defaultMomLabel = "上一期";
+    const defaultMomLabel = "上一期";
 
-      let actualComparisonPeriodIdForExport: string | null = selectedComparisonPeriodKey;
-      if (!actualComparisonPeriodIdForExport) {
-          const currentPeriodEntryFromGlobal = (globalThis as any).allV4DataForKpiWorkaround?.find((p: V4PeriodData) => p.period_id === activePeriodId);
-          actualComparisonPeriodIdForExport = currentPeriodEntryFromGlobal?.comparison_period_id_mom || null;
-      }
-      const actualComparisonPeriodLabel = actualComparisonPeriodIdForExport
+    let actualComparisonPeriodIdForExport: string | null = selectedComparisonPeriodKey;
+    if (!actualComparisonPeriodIdForExport) {
+        const currentPeriodEntryFromGlobal = (globalThis as any).allV4DataForKpiWorkaround?.find((p: V4PeriodData) => p.period_id === activePeriodId);
+        actualComparisonPeriodIdForExport = currentPeriodEntryFromGlobal?.comparison_period_id_mom || null;
+    }
+    const actualComparisonPeriodLabel = actualComparisonPeriodIdForExport
         ? allPeriodOptions.find(p => p.value === actualComparisonPeriodIdForExport)?.label
         : defaultMomLabel;
 
     comparisonColumnLabelPrefix = actualComparisonPeriodLabel ? `对比${actualComparisonPeriodLabel}` : "无对比期";
 
-
     const headersBase = [
-        "业务线ID", "业务线名称",
-        "跟单保费(万元)", "满期保费(万元)", "总赔款(万元)", "费用(额)(万元)",
-        "保单数量(件)", "已报件数(件)", "满期保单(件)",
-        "单均保费(元)", "案均赔款(元)",
+        "业务线名称", "跟单保费(万元)", "满期保费(万元)", "总赔款(万元)", "费用(额)(万元)",
+        "保单数量(件)", "已报件数(件)", "满期保单(件)", "单均保费(元)", "案均赔款(元)",
         "满期赔付率(%)", "费用率(%)", "变动成本率(%)", "保费满期率(%)", "满期出险率(%)",
         "边际贡献率(%)", "边贡额(万元)", "保费占比(%)"
     ];
@@ -785,69 +776,56 @@ export function exportToCSV(
     ];
 
     let csvHeaders = [...headersBase];
-    if (comparisonMetrics && comparisonColumnLabelPrefix !== "无对比期") {
+    if (analysisMode === 'periodOverPeriod' && comparisonColumnLabelPrefix !== "无对比期") {
         csvHeaders.push(...comparisonHeaders);
     }
+    
+    const rows = data.map(item => {
+        const current = item.currentMetrics;
+        const comp = item.momMetrics;
 
-
-    const rowData: (string | number | undefined | null)[] = [
-        item.businessLineId, item.businessLineName,
-        current.premium_written, current.premium_earned, current.total_loss_amount, current.expense_amount,
-        current.policy_count, current.claim_count, current.policy_count_earned,
-        current.avg_premium_per_policy, current.avg_loss_per_case,
-        current.loss_ratio, current.expense_ratio, current.variable_cost_ratio, current.premium_earned_ratio, current.claim_frequency,
-        current.marginal_contribution_ratio, current.marginal_contribution_amount, item.premium_share
-    ];
-
-    const addComparisonRowData = (compMetrics: AggregatedBusinessMetrics | null | undefined, higherIsBetterMap: Record<string, boolean>) => {
-        if (!compMetrics) {
-            const placeholderArray = new Array(10).fill("");
-            return placeholderArray;
-        }
-        const premWrittenChange = calculateChangeAndType(current.premium_written, compMetrics.premium_written, higherIsBetterMap['premium_written']);
-        const tlaChange = calculateChangeAndType(current.total_loss_amount, compMetrics.total_loss_amount, higherIsBetterMap['total_loss_amount']);
-        const policyCntChange = calculateChangeAndType(current.policy_count, compMetrics.policy_count, higherIsBetterMap['policy_count']);
-        const erChange = calculateChangeAndType(current.expense_ratio, compMetrics.expense_ratio, higherIsBetterMap['expense_ratio']);
-        const lrChange = calculateChangeAndType(current.loss_ratio, compMetrics.loss_ratio, higherIsBetterMap['loss_ratio']);
-        const vcrChange = calculateChangeAndType(current.variable_cost_ratio, compMetrics.variable_cost_ratio, higherIsBetterMap['variable_cost_ratio']);
-        const mcrChange = calculateChangeAndType(current.marginal_contribution_ratio, compMetrics.marginal_contribution_ratio, higherIsBetterMap['marginal_contribution_ratio']);
-
-        return [
-            premWrittenChange.percent, premWrittenChange.absolute,
-            tlaChange.percent, tlaChange.absolute,
-            policyCntChange.percent, policyCntChange.absolute,
-            erChange.absolute,
-            lrChange.absolute,
-            vcrChange.absolute,
-            mcrChange.absolute
+        const rowData: (string | number | undefined | null)[] = [
+            item.businessLineName,
+            current.premium_written, current.premium_earned, current.total_loss_amount, current.expense_amount,
+            current.policy_count, current.claim_count, current.policy_count_earned,
+            current.avg_premium_per_policy, current.avg_loss_per_case,
+            current.loss_ratio, current.expense_ratio, current.variable_cost_ratio, current.premium_earned_ratio, current.claim_frequency,
+            current.marginal_contribution_ratio, current.marginal_contribution_amount, item.premium_share
         ];
-    };
 
-    const higherIsBetterConfig = {
-        premium_written: true, total_loss_amount: false, policy_count: true,
-        expense_ratio: false, loss_ratio: false, variable_cost_ratio: false, marginal_contribution_ratio: true
-    };
+        if (analysisMode === 'periodOverPeriod' && comp && comparisonColumnLabelPrefix !== "无对比期") {
+            const premWrittenChange = calculateChangeAndType(current.premium_written, comp.premium_written, true);
+            const tlaChange = calculateChangeAndType(current.total_loss_amount, comp.total_loss_amount, false);
+            const policyCntChange = calculateChangeAndType(current.policy_count, comp.policy_count, true);
+            const erChange = calculateChangeAndType(current.expense_ratio, comp.expense_ratio, false);
+            const lrChange = calculateChangeAndType(current.loss_ratio, comp.loss_ratio, false);
+            const vcrChange = calculateChangeAndType(current.variable_cost_ratio, comp.variable_cost_ratio, false);
+            const mcrChange = calculateChangeAndType(current.marginal_contribution_ratio, comp.marginal_contribution_ratio, true);
 
-    if (comparisonMetrics && comparisonColumnLabelPrefix !== "无对比期") {
-        rowData.push(...addComparisonRowData(comparisonMetrics, higherIsBetterConfig));
-    }
-
-    const rowDataStrings = rowData.map(val => {
-        if (val === undefined || val === null || (typeof val === 'number' && isNaN(val))) return "";
-        if (typeof val === 'number') {
-            if (val % 1 !== 0) {
-                if (Math.abs(val) < 0.00001 && Math.abs(val) !== 0) return val.toExponential(4);
-                const isLikelyRate = String(val).includes('.') && (Math.abs(val) < 200 || Math.abs(val) > -200) ;
-                return isLikelyRate ? val.toFixed(4) : val.toFixed(2);
-            }
-            return val.toString();
+            rowData.push(
+                premWrittenChange.percent, premWrittenChange.absolute,
+                tlaChange.percent, tlaChange.absolute,
+                policyCntChange.percent, policyCntChange.absolute,
+                erChange.absolute, lrChange.absolute, vcrChange.absolute, mcrChange.absolute
+            );
         }
-        return String(val).replace(/,/g, ';');
+
+        return rowData.map(val => {
+            if (val === undefined || val === null || (typeof val === 'number' && isNaN(val))) return "";
+            if (typeof val === 'number') {
+                if (val % 1 !== 0) {
+                    if (Math.abs(val) < 0.00001 && Math.abs(val) !== 0) return val.toExponential(4);
+                    return val.toFixed(4);
+                }
+                return val.toString();
+            }
+            return String(val).replace(/,/g, ';');
+        }).join(",");
     });
 
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF"
         + csvHeaders.join(",") + "\n"
-        + rowDataStrings.join(",");
+        + rows.join("\n");
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -857,5 +835,3 @@ export function exportToCSV(
     link.click();
     document.body.removeChild(link);
 }
-
-    

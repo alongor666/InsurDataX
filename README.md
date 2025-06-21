@@ -59,8 +59,8 @@
     - `src/index.ts`: 导出AI代理等函数 (当前未使用)。
     - **`src/getInsuranceStats.ts`**: (已删除)
 - `.env.local.example`: Firebase前端配置环境变量示例。
-- `PRODUCT_REQUIREMENTS_DOCUMENT.md`: 产品需求文档 (v4.1.0)。
-- `FIELD_DICTIONARY_V4.md`: 字段字典与计算逻辑。
+- `PRODUCT_REQUIREMENTS_DOCUMENT.md`: 产品需求文档 (v5.0.0)。
+- `FIELD_DICTIONARY.md`: 字段字典与计算逻辑。
 - `ISSUES_LOG.md`: 问题与解决日志。
 
 ## 运行项目
@@ -82,16 +82,37 @@
         ```
     *   记录您的Firebase项目配置信息。
 2.  **前端应用与Firebase配置**:
-    *   在项目根目录创建 `.env.local` 文件，并填入您的Firebase项目配置。
+    *   在项目根目录创建 `.env.local` 文件，并填入您的Firebase项目配置信息。
     *   安装依赖: `npm install`
     *   启动开发服务器: `npm run dev`
-    *   构建静态文件: `npm run build`
-3.  **本地模拟与测试**:
-    *   在项目根目录运行 Firebase Emulators: `firebase emulators:start --only hosting,auth,firestore`。
-    *   您需要将数据导入到本地的 Firestore 模拟器中。
+
+## 部署到 Firebase Hosting
+
+本项目已配置为静态导出 (`output: "export"`)，可直接部署到 Firebase Hosting。
+
+1.  **安装 Firebase CLI (若未安装)**:
+    ```bash
+    npm install -g firebase-tools
+    ```
+2.  **登录 Firebase**:
+    ```bash
+    firebase login
+    ```
+    (如果您已经登录，可以跳过此步)
+3.  **构建应用**:
+    此命令会根据 `next.config.ts` 的配置，在项目根目录生成一个 `out` 文件夹，其中包含所有静态网站文件。
+    ```bash
+    npm run build
+    ```
+4.  **部署到 Hosting**:
+    此命令会读取 `firebase.json` 中的配置 (`"public": "out"`)，并将 `out` 文件夹的内容上传到 Firebase Hosting。
+    ```bash
+    firebase deploy --only hosting
+    ```
+    部署完成后，CLI会提供您的线上应用访问链接。
 
 ## 文档
 
-- **产品需求文档**: `PRODUCT_REQUIREMENTS_DOCUMENT.md` (版本 4.1.0)
+- **产品需求文档**: `PRODUCT_REQUIREMENTS_DOCUMENT.md` (版本 5.0.0)
 - **字段字典与计算逻辑**: `FIELD_DICTIONARY_V4.md`
 - **问题与解决日志**: `ISSUES_LOG.md`

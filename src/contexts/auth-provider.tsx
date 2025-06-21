@@ -4,13 +4,13 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase'; // Import Firebase auth instance
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User, type AuthError } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface AuthContextType {
   currentUser: User | null;
   isAuthenticated: boolean;
-  login: (email: string, pass: string) => Promise<boolean>; // Changed parameters
+  login: (email: string, pass: string) => Promise<boolean>;
   logout: () => Promise<void>;
   isLoadingAuth: boolean;
 }
@@ -36,31 +36,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setCurrentUser(user);
       setIsLoadingAuth(false);
     });
-    return () => unsubscribe(); // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, []);
 
   const login = async (email: string, pass: string): Promise<boolean> => {
-    setIsLoadingAuth(true);
     try {
       await signInWithEmailAndPassword(auth, email, pass);
-      // onAuthStateChanged will handle setting currentUser and redirecting
-      router.push('/'); // Manually redirect on successful login
+      // onAuthStateChanged will handle setting currentUser.
+      // Manually redirect on successful login.
+      router.push('/');
       return true;
-    } catch (error: any) {
-      console.error("Firebase login error:", error);
-      if (error.code) {
-        console.error("Firebase error code:", error.code); // Enhanced logging
-      }
-      setIsLoadingAuth(false);
-      return false;
+    } catch (error) {
+      // Re-throw the error to be handled by the calling component (LoginPage)
+      // This allows for more specific error messages in the UI.
+      throw error;
     }
   };
 
   const logout = async () => {
     try {
       await signOut(auth);
-      // onAuthStateChanged will handle setting currentUser to null
-      router.push('/login'); // Manually redirect on logout
+      router.push('/login');
     } catch (error) {
       console.error("Firebase logout error:", error);
     }
@@ -78,35 +74,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [isLoadingAuth, isAuthenticated, pathname, router]);
 
+  // Initial loading skeleton while waiting for auth state
   if (isLoadingAuth) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background">
-        <div className="w-full max-w-md space-y-4">
-          <Skeleton className="h-10 w-3/4 mx-auto" />
-          <Skeleton className="h-8 w-full" />
-          <Skeleton className="h-8 w-full" />
-          <Skeleton className="h-10 w-1/2 mx-auto mt-4" />
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <p className="text-muted-foreground">正在验证身份...</p>
         </div>
       </div>
     );
   }
 
+  // If not authenticated and not on the login page, show a redirecting message
+  // This prevents content flashing while the router redirects.
   if (!isAuthenticated && pathname !== '/login') {
      return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground">
-        <p>正在重定向到登录页面...</p>
-        <Skeleton className="h-10 w-3/4 mx-auto mt-4" />
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <p className="text-muted-foreground">会话无效，正在重定向到登录页面...</p>
+        </div>
       </div>
     );
   }
   
+  // If authenticated and somehow on the login page, show a redirecting message
   if (isAuthenticated && pathname === '/login') {
       return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground">
-        <p>已登录，正在重定向到仪表盘...</p>
-        <Skeleton className="h-10 w-3/4 mx-auto mt-4" />
-      </div>
-    );
+        <div className="flex h-screen w-full items-center justify-center bg-background">
+            <div className="flex flex-col items-center gap-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                <p className="text-muted-foreground">已登录，正在跳转到仪表盘...</p>
+            </div>
+        </div>
+      );
   }
 
   return (
