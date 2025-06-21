@@ -1,5 +1,4 @@
-
-import type { ProcessedDataForPeriod, AnalysisMode, PeriodOption } from '@/data/types';
+import type { ProcessedDataForPeriod, AnalysisMode, PeriodOption, V4PeriodData } from '@/data/types'; // <<< 添加 V4PeriodData
 import { SectionWrapper } from '@/components/shared/section-wrapper';
 import { TableCellsSplit, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -81,6 +80,7 @@ export function DataTableSection({ data, analysisMode, selectedComparisonPeriodK
       else comparisonColumnLabelSuffix = "对比所选周期";
   } else {
       // If no specific comparison key, check if there's a default MoM period for the active one
+      // globalThis as any is used here because globalThis.allV4DataForKpiWorkaround is a global workaround variable
       const currentPeriodEntry = (globalThis as any).allV4DataForKpiWorkaround?.find((p: V4PeriodData) => p.period_id === activePeriodId);
       if (currentPeriodEntry?.comparison_period_id_mom) {
           const momLabel = periodOptions.find(p => p.value === currentPeriodEntry.comparison_period_id_mom)?.label;
