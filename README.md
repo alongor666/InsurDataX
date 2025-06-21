@@ -56,14 +56,13 @@
 - `src/lib/`: 工具函数和核心逻辑 (`data-utils.ts`, `firebase.ts`)。
 - `public/`: 静态资源 (**注意: `public/data/insurance_data_v4.json` 已不再使用**)。
 - `functions/`: Firebase Functions的源代码。
-    - `src/index.ts`: 导出AI代理等函数 (当前未使用)。
-    - **`src/getInsuranceStats.ts`**: (已删除)
+- `.github/workflows/`: GitHub Actions CI/CD 自动化部署工作流。
 - `.env.local.example`: Firebase前端配置环境变量示例。
 - `PRODUCT_REQUIREMENTS_DOCUMENT.md`: 产品需求文档 (v5.1.0)。
 - `FIELD_DICTIONARY.md`: 字段字典与计算逻辑。
 - `ISSUES_LOG.md`: 问题与解决日志。
 
-## 运行项目
+## 运行项目 (本地开发)
 
 1.  **Firebase项目设置**:
     *   确保您有一个Firebase项目。
@@ -86,16 +85,31 @@
     *   安装依赖: `npm install`
     *   启动开发服务器: `npm run dev`
 
-## 部署应用
+## 部署应用 (自动化)
 
-本项目是一个标准的动态 Next.js 应用，可以部署到任何支持 Node.js 的现代托管平台。
+本项目的部署通过 **GitHub Actions CI/CD** 流程完全自动化。**请勿在本地运行 `firebase deploy`。**
 
-*   **对于 Firebase 用户**: 推荐使用 **Firebase App Hosting**。它能自动检测 Next.js 项目，处理构建和部署流程。
-    1.  按照 Firebase App Hosting 的官方文档进行设置。
-    2.  通常，您只需将代码推送到关联的 Git 仓库，即可触发自动部署。
-*   **对于其他平台 (如 Vercel, Netlify, AWS 等)**:
-    1.  运行 `npm run build` 来构建生产版本的应用。
-    2.  按照您选择的平台的指南来部署一个 Next.js 应用。
+部署流程如下：
+
+1.  **首次设置**:
+    *   **获取服务账户密钥**: 在 [Firebase服务账户设置](https://console.firebase.google.com/project/datalens-insights-2fh8a/settings/serviceaccounts/adminsdk) 页面，为您项目生成一个新的私钥JSON文件。
+    *   **配置GitHub仓库密钥**:
+        *   在您的GitHub仓库中，导航到 `Settings` > `Secrets and variables` > `Actions`。
+        *   创建一个名为 `FIREBASE_SERVICE_ACCOUNT` 的新密钥。
+        *   将下载的JSON文件的**全部内容**粘贴到密钥值中。
+
+2.  **触发部署**:
+    *   将您的代码提交 (`git commit`) 并推送 (`git push`) 到 `main` 分支。
+        ```bash
+        git add .
+        git commit -m "描述您的更改"
+        git push origin main
+        ```
+    *   此 `push` 操作将自动触发 `.github/workflows/firebase-hosting-deploy.yml` 中定义的工作流。
+
+3.  **监控部署**:
+    *   在您的GitHub仓库的 **"Actions"** 标签页中，您可以实时查看部署的进度。
+    *   当工作流成功完成（显示绿色对勾），您的应用就已成功部署到 Firebase Hosting。
 
 ## 文档
 

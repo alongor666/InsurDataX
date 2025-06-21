@@ -240,15 +240,35 @@
 4.  **启动开发服务器**: 运行 `npm run dev`。
 5.  **访问应用**: 打开浏览器并访问 `http://localhost:9002` (或您终端中显示的地址)。您应该会被重定向到登录页面。使用您在Firebase中创建的测试用户凭证登录，即可看到仪表盘。
 
-### 5.4. 部署应用
-本应用是一个标准的动态 Next.js 应用，可以部署到任何支持 Node.js 环境的平台。
+### 5.4. 部署应用 (自动化CI/CD)
+本应用的部署通过 **GitHub Actions CI/CD** 流程完全自动化。此流程采用 Firebase Hosting 的**框架感知部署模式**，能正确构建和伺服动态Next.js应用。
 
-*   **对于 Firebase 用户**: 推荐使用 **Firebase App Hosting**。它能自动检测 Next.js 项目，处理构建和部署流程。
-    1.  按照 Firebase App Hosting 的官方文档进行设置。
-    2.  通常，您只需将代码推送到关联的 Git 仓库，即可触发自动部署。
-*   **对于其他平台 (如 Vercel, Netlify, AWS 等)**:
-    1.  运行 `npm run build` 来构建生产版本的应用。
-    2.  按照您选择的平台的指南来部署一个 Next.js 应用。
+**请勿在本地手动运行 `firebase deploy` 命令。**
+
+#### 5.4.1. 首次设置
+
+在您将代码推送到GitHub仓库以进行首次部署前，必须完成一次性的安全配置：
+
+1.  **获取服务账户密钥**: 访问您项目的 [Firebase服务账户设置页面](https://console.firebase.google.com/project/datalens-insights-2fh8a/settings/serviceaccounts/adminsdk)，点击 **"生成新的私钥"** 按钮，下载一个JSON文件。
+2.  **在GitHub中配置密钥**:
+    *   打开您的GitHub仓库，导航到 `Settings` > `Secrets and variables` > `Actions`。
+    *   点击 **"New repository secret"**。
+    *   **Name**: `FIREBASE_SERVICE_ACCOUNT`
+    *   **Secret**: 将您下载的JSON文件的**全部内容**复制并粘贴进去。
+    *   点击 **"Add secret"**。
+
+#### 5.4.2. 触发与监控部署
+
+1.  **触发部署**: 将您的代码提交 (`git commit`) 并推送到 (`git push`) GitHub 仓库的 `main` 分支。
+    ```bash
+    git add .
+    git commit -m "描述您的更改"
+    git push origin main
+    ```
+2.  **监控部署**:
+    *   推送后，访问您GitHub仓库的 **"Actions"** 标签页。
+    *   您会看到一个名为 "Deploy Next.js to Firebase Hosting" 的工作流正在运行。
+    *   部署成功后，工作流将显示一个绿色的对勾。
 
 ---
 
@@ -257,5 +277,5 @@
 | 版本  | 日期       | 修订人     | 修订说明                                                                                                                               |
 | :---- | :--------- | :------- | :------------------------------------------------------------------------------------------------------------------------------------- |
 | ...   | ...        | ...      | ... (保留之前所有记录)                                                                                                                   |
-| 5.0.0 | (先前日期) | AI项目大师 | **文档重构 (As-Built)**: 全面重写PRD，作为详尽的系统设计与功能说明书。增加了“从0到1复刻指南”，确保任何开发者都能理解并重建项目。 |
-| 5.1.0 | (当前日期) | AI项目大师 | **架构修正**: 从 `next.config.ts` 中移除 `output: "export"`，将应用从静态导出模式纠正为动态服务器渲染模式，以支持认证功能并解决内部服务器错误。更新了部署指南。 |
+| 5.1.0 | (先前日期) | AI项目大师 | **架构修正**: 从 `next.config.ts` 中移除 `output: "export"`，将应用从静态导出模式纠正为动态服务器渲染模式，以支持认证功能并解决内部服务器错误。更新了部署指南。 |
+| 5.2.0 | (当前日期) | AI项目大师 | **部署流程最终化**: 明确并记录了基于GitHub Actions的自动化CI/CD部署流程，此为项目的唯一标准部署方式。移除了所有关于手动部署的过时指令。 |
