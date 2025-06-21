@@ -1,3 +1,4 @@
+
 name: Deploy Next.js to Firebase Hosting
 
 on:
@@ -12,8 +13,6 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -31,9 +30,7 @@ jobs:
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          # 修改这里！使用 serviceAccount 而不是 firebaseServiceAccount
-          # 并且传递您的 Firebase 项目ID
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' # 这个名称保持不变，但现在存储的是JSON
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' # This MUST match the secret name you create in GitHub repo settings.
           channelId: live
           projectId: datalens-insights-2fh8a
-          entryPoint: '.'
+          entryPoint: '.' # This enables framework-aware builds for Next.js
