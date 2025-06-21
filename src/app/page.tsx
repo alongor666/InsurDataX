@@ -183,7 +183,7 @@ export default function DashboardPage() {
     
             return {
                 name: period.period_id,
-                [businessLineName]: metricValue ?? undefined, // Handle potential null/undefined
+                [businessLineName]: metricValue ?? undefined,
                 color: getDynamicColorByVCR(metrics.variable_cost_ratio),
                 vcr: metrics.variable_cost_ratio,
             };
@@ -215,33 +215,33 @@ export default function DashboardPage() {
         return individualLinesData
             .map(d => ({
                 name: getDisplayBusinessTypeName(d.businessLineName),
-                [selectedRankingMetric]: d.currentMetrics[selectedRankingMetric] ?? 0,
+                [selectedRankingMetric]: (d.currentMetrics[selectedRankingMetric] as number | null | undefined) ?? 0,
                 color: getDynamicColorByVCR(d.currentMetrics.variable_cost_ratio),
                 vcr: d.currentMetrics.variable_cost_ratio,
             }))
-            .sort((a, b) => (b[selectedRankingMetric] as number) - (a[selectedRankingMetric] as number));
+            .sort((a, b) => ((b[selectedRankingMetric] as number) ?? 0) - ((a[selectedRankingMetric] as number) ?? 0));
     }, [individualLinesData, selectedRankingMetric]);
     
     const bubbleData = useMemo((): BubbleChartDataItem[] => {
       return individualLinesData.map(d => ({
           id: d.businessLineId,
           name: getDisplayBusinessTypeName(d.businessLineName),
-          x: d.currentMetrics[selectedBubbleXMetric] ?? 0,
-          y: d.currentMetrics[selectedBubbleYMetric] ?? 0,
-          z: d.currentMetrics[selectedBubbleSizeMetric] ?? 0,
+          x: (d.currentMetrics[selectedBubbleXMetric] as number | null | undefined) ?? 0,
+          y: (d.currentMetrics[selectedBubbleYMetric] as number | null | undefined) ?? 0,
+          z: (d.currentMetrics[selectedBubbleSizeMetric] as number | null | undefined) ?? 0,
           color: getDynamicColorByVCR(d.currentMetrics.variable_cost_ratio),
           vcr: d.currentMetrics.variable_cost_ratio,
       }));
     }, [individualLinesData, selectedBubbleXMetric, selectedBubbleYMetric, selectedBubbleSizeMetric]);
 
     const shareData = useMemo((): ShareChartDataItem[] => {
-        const totalValue = individualLinesData.reduce((sum, d) => sum + (d.currentMetrics[selectedShareMetric] ?? 0), 0);
+        const totalValue = individualLinesData.reduce((sum, d) => sum + ((d.currentMetrics[selectedShareMetric] as number | null | undefined) ?? 0), 0);
         if (totalValue === 0) return [];
         return individualLinesData
             .map(d => ({
                 name: getDisplayBusinessTypeName(d.businessLineName),
-                value: d.currentMetrics[selectedShareMetric] ?? 0,
-                percentage: ((d.currentMetrics[selectedShareMetric] ?? 0) / totalValue) * 100,
+                value: (d.currentMetrics[selectedShareMetric] as number | null | undefined) ?? 0,
+                percentage: (((d.currentMetrics[selectedShareMetric] as number | null | undefined) ?? 0) / totalValue) * 100,
                 color: getDynamicColorByVCR(d.currentMetrics.variable_cost_ratio),
                 vcr: d.currentMetrics.variable_cost_ratio,
             }))
@@ -251,7 +251,7 @@ export default function DashboardPage() {
 
     const paretoData = useMemo((): ParetoChartDataItem[] => {
         const sortedData = individualLinesData
-            .map(d => ({ ...d, value: d.currentMetrics[selectedParetoMetric] ?? 0 }))
+            .map(d => ({ ...d, value: (d.currentMetrics[selectedParetoMetric] as number | null | undefined) ?? 0 }))
             .filter(d => d.value > 0)
             .sort((a, b) => b.value - a.value);
 
@@ -345,25 +345,22 @@ export default function DashboardPage() {
     }
     
     return (
-        <AppLayout
-            header={
-                <AppHeader
-                    analysisMode={analysisMode}
-                    onAnalysisModeChange={setAnalysisMode}
-                    selectedPeriod={selectedPeriodKey}
-                    onPeriodChange={setSelectedPeriodKey}
-                    selectedComparisonPeriod={selectedComparisonPeriodKey}
-                    onComparisonPeriodChange={setSelectedComparisonPeriodKey}
-                    periodOptions={periodOptions}
-                    activeView={activeView}
-                    onViewChange={setActiveView}
-                    allBusinessTypes={allBusinessTypes}
-                    selectedBusinessTypes={selectedBusinessTypes}
-                    onSelectedBusinessTypesChange={handleSelectedBusinessTypesChange}
-                    onExportClick={handleExportClick}
-                />
-            }
-        >
+        <AppLayout>
+            <AppHeader
+                analysisMode={analysisMode}
+                onAnalysisModeChange={setAnalysisMode}
+                selectedPeriod={selectedPeriodKey}
+                onPeriodChange={setSelectedPeriodKey}
+                selectedComparisonPeriod={selectedComparisonPeriodKey}
+                onComparisonPeriodChange={setSelectedComparisonPeriodKey}
+                periodOptions={periodOptions}
+                activeView={activeView}
+                onViewChange={setActiveView}
+                allBusinessTypes={allBusinessTypes}
+                selectedBusinessTypes={selectedBusinessTypes}
+                onSelectedBusinessTypesChange={handleSelectedBusinessTypesChange}
+                onExportClick={handleExportClick}
+            />
           <div className="space-y-6">
             {renderCurrentView()}
           </div>
