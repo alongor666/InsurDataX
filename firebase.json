@@ -5,7 +5,16 @@
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      ".next/",
+      "out/",
+      "functions/",
+      ".vscode/",
+      ".github/",
+      "README.md",
+      "ISSUE*.md",
+      "PRODUCT*.md",
+      "FIELD*.md"
     ]
   },
   "functions": {
