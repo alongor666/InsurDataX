@@ -142,7 +142,6 @@ export default function DashboardPage() {
                 userFriendlyMessage = "数据加载失败：权限不足。请确认您已登录，且Firestore安全规则配置正确，允许已认证用户读取。";
             }
             setError(userFriendlyMessage);
-            toast({ variant: "destructive", title: "数据加载失败", description: userFriendlyMessage });
             setAllV4Data([]);
         } finally {
             setIsGlobalLoading(false);
@@ -192,9 +191,11 @@ export default function DashboardPage() {
             const metrics = processed[0].currentMetrics;
             const businessLineName = processed[0].businessLineName;
             
+            const metricValue = metrics[selectedTrendMetric as keyof typeof metrics];
+            
             return {
                 name: period.period_id,
-                [businessLineName]: metrics[selectedTrendMetric as keyof typeof metrics],
+                [businessLineName]: metricValue ?? undefined,
                 color: getDynamicColorByVCR(metrics.variable_cost_ratio),
                 vcr: metrics.variable_cost_ratio,
             };
