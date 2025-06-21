@@ -40,8 +40,6 @@ import {
   calculateKpis,
   getDisplayBusinessTypeName,
   exportToCSV,
-  setGlobalV4DataForKpiWorkaround,
-  setSelectedBusinessTypesForExport,
   getDynamicColorByVCR,
 } from '@/lib/data-utils';
 
@@ -153,16 +151,6 @@ export default function DashboardPage() {
             fetchData();
         }
     }, [currentUser, fetchData]);
-    
-    useEffect(() => {
-        if (allV4Data.length > 0 && selectedPeriodKey) {
-            setGlobalV4DataForKpiWorkaround(allV4Data, selectedPeriodKey);
-        }
-    }, [allV4Data, selectedPeriodKey]);
-
-    useEffect(() => {
-        setSelectedBusinessTypesForExport(selectedBusinessTypes);
-    }, [selectedBusinessTypes]);
 
     const handleSelectedBusinessTypesChange = useCallback((types: string[]) => {
         setSelectedBusinessTypes(types);
@@ -181,25 +169,27 @@ export default function DashboardPage() {
 
     const trendData = useMemo((): ChartDataItem[] => {
         if (allV4Data.length === 0) return [];
-        
-        const relevantPeriods = allV4Data.slice().sort((a,b) => a.period_label.localeCompare(b.period_label));
-        
-        return relevantPeriods.map(period => {
+    
+        const relevantPeriods = allV4Data.slice().sort((a, b) => a.period_label.localeCompare(b.period_label));
+    
+        const mappedData = relevantPeriods.map(period => {
             const processed = processDataForSelectedPeriod(allV4Data, period.period_id, null, analysisMode, selectedBusinessTypes);
-            if (processed.length === 0) return { name: period.period_id };
-
+            if (processed.length === 0) return null;
+    
             const metrics = processed[0].currentMetrics;
             const businessLineName = processed[0].businessLineName;
-            
+    
             const metricValue = metrics[selectedTrendMetric as keyof typeof metrics];
-            
+    
             return {
                 name: period.period_id,
-                [businessLineName]: metricValue ?? undefined,
+                [businessLineName]: metricValue ?? undefined, // Handle potential null/undefined
                 color: getDynamicColorByVCR(metrics.variable_cost_ratio),
                 vcr: metrics.variable_cost_ratio,
             };
         });
+    
+        return mappedData.filter((p): p is ChartDataItem => p !== null);
     }, [allV4Data, analysisMode, selectedBusinessTypes, selectedTrendMetric]);
 
     const allIndividualBusinessLines = useMemo(() => {
@@ -283,11 +273,11 @@ export default function DashboardPage() {
 
     const handleExportClick = useCallback(() => {
         if (individualLinesData.length > 0) {
-            exportToCSV(individualLinesData, analysisMode, "车险数据导出.csv", selectedComparisonPeriodKey, periodOptions, selectedPeriodKey);
+            exportToCSV(individualLinesData, analysisMode, allV4Data, "车险数据导出.csv", selectedComparisonPeriodKey, periodOptions, selectedPeriodKey);
         } else {
             toast({ variant: "destructive", title: "导出失败", description: "没有可供导出的数据。" });
         }
-    }, [individualLinesData, analysisMode, selectedComparisonPeriodKey, periodOptions, selectedPeriodKey, toast]);
+    }, [individualLinesData, analysisMode, allV4Data, selectedComparisonPeriodKey, periodOptions, selectedPeriodKey, toast]);
 
     const renderCurrentView = () => {
         if (error) {
@@ -334,7 +324,7 @@ export default function DashboardPage() {
             case 'pareto':
                 return <ParetoChartSection data={paretoData} availableMetrics={availableParetoMetrics} selectedMetric={selectedParetoMetric} onMetricChange={setSelectedParetoMetric} />;
             case 'data_table':
-                 return <DataTableSection data={individualLinesData} analysisMode={analysisMode} selectedComparisonPeriodKey={selectedComparisonPeriodKey} periodOptions={periodOptions} activePeriodId={selectedPeriodKey} />;
+                 return <DataTableSection data={individualLinesData} analysisMode={analysisMode} allV4Data={allV4Data} selectedComparisonPeriodKey={selectedComparisonPeriodKey} periodOptions={periodOptions} activePeriodId={selectedPeriodKey} />;
             default:
                 return <KpiDashboardSection kpis={kpis} selectedPeriodKey={selectedPeriodKey} selectedComparisonPeriodKey={selectedComparisonPeriodKey} periodOptions={periodOptions} allV4Data={allV4Data} />;
         }

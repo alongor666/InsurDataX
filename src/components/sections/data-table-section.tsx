@@ -1,4 +1,4 @@
-import type { ProcessedDataForPeriod, AnalysisMode, PeriodOption, V4PeriodData } from '@/data/types'; // <<< 添加 V4PeriodData
+import type { ProcessedDataForPeriod, AnalysisMode, PeriodOption, V4PeriodData } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
 import { TableCellsSplit, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -10,7 +10,8 @@ interface DataTableSectionProps {
   analysisMode: AnalysisMode;
   selectedComparisonPeriodKey: string | null;
   periodOptions: PeriodOption[];
-  activePeriodId: string; // Added to get correct default MoM label
+  activePeriodId: string;
+  allV4Data: V4PeriodData[];
 }
 
 const ChangeIndicator = ({ 
@@ -64,7 +65,7 @@ const ChangeIndicator = ({
 };
 
 
-export function DataTableSection({ data, analysisMode, selectedComparisonPeriodKey, periodOptions, activePeriodId }: DataTableSectionProps) {
+export function DataTableSection({ data, analysisMode, selectedComparisonPeriodKey, periodOptions, activePeriodId, allV4Data }: DataTableSectionProps) {
   if (!data || data.length === 0) {
     return (
       <SectionWrapper title="数据表显示" icon={TableCellsSplit}>
@@ -80,8 +81,7 @@ export function DataTableSection({ data, analysisMode, selectedComparisonPeriodK
       else comparisonColumnLabelSuffix = "对比所选周期";
   } else {
       // If no specific comparison key, check if there's a default MoM period for the active one
-      // globalThis as any is used here because globalThis.allV4DataForKpiWorkaround is a global workaround variable
-      const currentPeriodEntry = (globalThis as any).allV4DataForKpiWorkaround?.find((p: V4PeriodData) => p.period_id === activePeriodId);
+      const currentPeriodEntry = allV4Data.find((p: V4PeriodData) => p.period_id === activePeriodId);
       if (currentPeriodEntry?.comparison_period_id_mom) {
           const momLabel = periodOptions.find(p => p.value === currentPeriodEntry.comparison_period_id_mom)?.label;
           if (momLabel) comparisonColumnLabelSuffix = `对比 ${momLabel}`;

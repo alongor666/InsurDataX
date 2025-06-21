@@ -721,21 +721,10 @@ export const calculateKpis = (
   }));
 };
 
-
-(globalThis as any).allV4DataForKpiWorkaround = [];
-
-export function setGlobalV4DataForKpiWorkaround(allV4Data: V4PeriodData[], activePeriodId: string) {
-  (globalThis as any).allV4DataForKpiWorkaround = allV4Data;
-}
-(globalThis as any)._selectedBusinessTypesForExport = [];
-export function setSelectedBusinessTypesForExport(types: string[]) {
-  (globalThis as any)._selectedBusinessTypesForExport = types;
-}
-
-
 export function exportToCSV(
     data: ProcessedDataForPeriod[],
     analysisMode: AnalysisMode,
+    allV4Data: V4PeriodData[],
     fileName: string = "车险数据导出.csv",
     selectedComparisonPeriodKey: string | null,
     allPeriodOptions: PeriodOption[],
@@ -751,8 +740,8 @@ export function exportToCSV(
 
     let actualComparisonPeriodIdForExport: string | null = selectedComparisonPeriodKey;
     if (!actualComparisonPeriodIdForExport) {
-        const currentPeriodEntryFromGlobal = (globalThis as any).allV4DataForKpiWorkaround?.find((p: V4PeriodData) => p.period_id === activePeriodId);
-        actualComparisonPeriodIdForExport = currentPeriodEntryFromGlobal?.comparison_period_id_mom || null;
+        const currentPeriodEntry = allV4Data?.find((p: V4PeriodData) => p.period_id === activePeriodId);
+        actualComparisonPeriodIdForExport = currentPeriodEntry?.comparison_period_id_mom || null;
     }
     const actualComparisonPeriodLabel = actualComparisonPeriodIdForExport
         ? allPeriodOptions.find(p => p.value === actualComparisonPeriodIdForExport)?.label
