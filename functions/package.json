@@ -1,38 +1,8 @@
-
+// This file and the entire /functions directory are obsolete.
+// The AI proxy functionality previously here has been replaced by the
+// Next.js API route at /src/app/api/ai and the OpenRouter proxy architecture.
+// This can be safely removed.
 {
-  "name": "functions",
-  "description": "Cloud Functions for Firebase",
-  "scripts": {
-    "lint": "eslint . --fix",
-    "build": "tsc",
-    "serve": "firebase emulators:start --only functions",
-    "shell": "firebase functions:shell",
-    "start": "npm run shell",
-    "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
-  },
-  "engines": {
-    "node": "20"
-  },
-  "main": "dist/index.js",
-  "dependencies": {
-    "@genkit-ai/googleai": "^1.8.0",
-    "cors": "^2.8.5",
-    "firebase-admin": "^12.7.0",
-    "firebase-functions": "^5.0.0",
-    "genkit": "^1.8.0",
-    "zod": "^3.24.2"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.29.0",
-    "@typescript-eslint/eslint-plugin": "^7.2.0",
-    "@typescript-eslint/parser": "^7.2.0",
-    "eslint": "^8.57.1",
-    "eslint-config-google": "^0.14.0",
-    "eslint-plugin-import": "^2.29.1",
-    "globals": "^16.2.0",
-    "typescript": "^5.4.5",
-    "typescript-eslint": "^8.34.1"
-  },
+  "name": "DEPRECATED_functions",
   "private": true
 }

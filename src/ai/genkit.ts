@@ -1,10 +1,3 @@
-
-import {genkit} from 'genkit';
-import {googleAI} from '@genkit-ai/googleai';
-
-export const ai = genkit({
-  plugins: [
-    googleAI(),
-  ],
-  model: 'googleai/gemini-2.0-flash',
-});
+// This file is obsolete and no longer used in the OpenRouter proxy architecture.
+// The AI logic has been centralized in `/src/app/api/ai/route.ts` and `/src/ai/prompts.ts`.
+// This file can be safely removed.

@@ -1,8 +1,4 @@
-
-import {genkit} from 'genkit';
-import {googleAI} from '@genkit-ai/googleai';
-
-export const ai = genkit({
-  plugins: [googleAI()],
-  model: 'googleai/gemini-2.0-flash',
-});
+// This file and the entire /functions directory are obsolete.
+// The AI proxy functionality previously here has been replaced by the
+// Next.js API route at /src/app/api/ai and the OpenRouter proxy architecture.
+// This can be safely removed.
