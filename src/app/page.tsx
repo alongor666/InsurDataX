@@ -16,7 +16,7 @@ import { AiChatSection } from '@/components/sections/ai-chat-section';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from 'lucide-react';
-import { db } from '@/lib/firebase';
+import { getFirebaseInstances } from '@/lib/firebase';
 import { collection, onSnapshot, type FirestoreError } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -75,6 +75,7 @@ const availableParetoMetrics: { value: ParetoChartMetricKey, label: string }[] =
 export default function DashboardPage() {
     const { currentUser } = useAuth();
     const { toast } = useToast();
+    const { db } = getFirebaseInstances();
 
     const [isGlobalLoading, setIsGlobalLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -170,7 +171,7 @@ export default function DashboardPage() {
             unsubscribe();
         };
 
-    }, [currentUser, toast]);
+    }, [currentUser, toast, db]);
     
     const handleSelectedBusinessTypesChange = useCallback((types: string[]) => {
         setSelectedBusinessTypes(types);

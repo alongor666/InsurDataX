@@ -1,5 +1,3 @@
-
-// src/lib/firebase.ts
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
@@ -14,10 +12,12 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase using the standard singleton pattern.
-// This ensures that Firebase is initialized only once, whether on the server or client.
-const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth: Auth = getAuth(app);
-const db: Firestore = getFirestore(app);
+// This function ensures Firebase is initialized only once and returns instances.
+function getFirebaseInstances() {
+  const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+  const auth: Auth = getAuth(app);
+  const db: Firestore = getFirestore(app);
+  return { app, auth, db };
+}
 
-export { app, auth, db };
+export { getFirebaseInstances };

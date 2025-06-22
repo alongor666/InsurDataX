@@ -1,7 +1,7 @@
 
 'use client';
 
-import { db } from '@/lib/firebase';
+import { getFirebaseInstances } from '@/lib/firebase';
 import { collection, doc, setDoc } from "firebase/firestore";
 import type { V4PeriodData } from '@/data/types';
 
@@ -53,6 +53,7 @@ const getPreparedW25Data = (): V4PeriodData => {
  * This function will create or overwrite the document with ID '2025-W25'.
  */
 export const seedW25Data = async () => {
+  const { db } = getFirebaseInstances();
   if (!db) {
     throw new Error("Firestore is not initialized.");
   }
@@ -71,5 +72,3 @@ export const seedW25Data = async () => {
     return { success: false, message: '发生未知错误，上传失败。' };
   }
 };
-
-    

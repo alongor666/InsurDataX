@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { auth } from '@/lib/firebase'; // Import Firebase auth instance
+import { getFirebaseInstances } from '@/lib/firebase'; // Import the new getter function
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User, type AuthError } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -26,6 +26,7 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const { auth } = getFirebaseInstances(); // Get auth instance here
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const pathname = usePathname();
@@ -37,7 +38,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsLoadingAuth(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [auth]);
 
   const login = async (email: string, pass: string): Promise<boolean> => {
     try {

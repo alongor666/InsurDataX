@@ -10,7 +10,7 @@ import {
   generateChatResponse, type GenerateChatResponseInput
 } from '@/ai/flows';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getFirebaseInstances } from '@/lib/firebase';
 
 
 interface AiProxyRequest {
@@ -21,6 +21,7 @@ interface AiProxyRequest {
 // Fetches the master prompt from Firestore.
 // Includes a fallback to a default prompt if Firestore is unavailable or the doc is missing.
 async function getSystemInstruction(): Promise<string> {
+  const { db } = getFirebaseInstances();
   const defaultInstruction = "You are a helpful AI assistant.";
   try {
     const docRef = doc(db, "ai_configs", "cursor_assistant_prompt");
