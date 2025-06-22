@@ -87,9 +87,9 @@ const CustomXAxisTick = (props: any) => {
       const dateRangeLabel = `${format(dates.start, 'MMdd')}-${format(dates.end, 'MMdd')}`;
       return (
         <g transform={`translate(${x},${y})`}>
-          <text x={0} y={0} dy={12} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize="11px">
+          <text x={0} y={0} dy={16} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize="11px">
             <tspan x="0" dy="0em" className="font-medium">{weekLabel}</tspan>
-            <tspan x="0" dy="1.2em">{dateRangeLabel}</tspan>
+            <tspan x="0" dy="1.4em">{dateRangeLabel}</tspan>
           </text>
         </g>
       );
@@ -249,6 +249,8 @@ export function TrendAnalysisSection({
   const chartType = getMetricChartType(selectedMetric);
   const ChartIcon = chartType === 'line' ? LucideLineChart : BarChart2;
   const hasData = data && data.length > 0 && businessLineNames.length > 0;
+  
+  const interval = analysisMode === 'periodOverPeriod' && data.length > 7 ? Math.floor(data.length / 7) : 0;
 
   return (
     <SectionWrapper title="趋势分析" icon={ChartIcon} actionButton={metricSelector}>
@@ -258,15 +260,15 @@ export function TrendAnalysisSection({
         <div className="h-[350px] w-full">
           <ChartContainer config={chartConfig} className="h-full w-full">
             {chartType === 'line' ? (
-              <RechartsLineChart data={data} margin={{ top: 5, right: 40, left: 10, bottom: 80 }}>
+              <RechartsLineChart data={data} margin={{ top: 5, right: 40, left: 10, bottom: 90 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis 
                   dataKey="name" 
                   tick={<CustomXAxisTick />}
-                  height={80}
+                  height={90}
                   axisLine={false}
                   tickLine={false}
-                  interval={data.length > 7 ? Math.floor(data.length / 7) : 0}
+                  interval={interval}
                   className="text-xs"
                 />
                 <YAxis 
@@ -292,15 +294,15 @@ export function TrendAnalysisSection({
                 ))}
               </RechartsLineChart>
             ) : ( 
-              <RechartsBarChart data={data} margin={{ top: 20, right: 40, left: 10, bottom: 80 }} barCategoryGap="20%">
+              <RechartsBarChart data={data} margin={{ top: 20, right: 40, left: 10, bottom: 90 }} barCategoryGap="20%">
                 <CartesianGrid strokeDasharray="3 3" vertical={false}/>
                 <XAxis 
                   dataKey="name" 
                   tick={<CustomXAxisTick />}
-                  height={80}
+                  height={90}
                   axisLine={false}
                   tickLine={false}
-                  interval={data.length > 7 ? Math.floor(data.length / 7) : 0}
+                  interval={interval}
                   className="text-xs"
                 />
                 <YAxis 
