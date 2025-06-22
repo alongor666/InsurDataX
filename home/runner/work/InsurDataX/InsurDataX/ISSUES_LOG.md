@@ -87,11 +87,6 @@
 - **#50. 登录凭证无效及CORS错误 (架构冲突)**
     - **问题**: 用户界面显示 `auth/invalid-credential` 和 `CORS policy` 错误。
     - **解决方案**: 分析指出，这两个问题源于应用仍在尝试调用因“无Blaze套餐”而无法部署/更新的云函数。最终解决方案是再次重构`page.tsx`，强制应用采用客户端直连Firestore的安全架构，从根本上移除对云函数的调用。同时优化了登录页面的错误提示，使其更具体。
-    
-- **#56. 部署失败: `Failed to list functions` (最终修复)**
-    - **问题**: 即使在移除所有云函数代码后，`firebase deploy` 在CI/CD流程中依然失败，报错 `Failed to list functions`。
-    - **根源**: Firebase项目处于免费的Spark套餐，该套餐**不支持**Cloud Functions API的任何调用。然而，CI/CD执行的`firebase deploy`命令会自动检测到项目中存在的`functions`目录（即使其内容已被注释掉），并尝试调用“list functions”API，导致因权限不足而失败。
-    - **解决方案**: **彻底“中和”`functions`目录**。将该目录下的所有文件，包括`package.json`, `tsconfig.json`等，都用明确的废弃声明替换其内容。这破坏了Firebase CLI的自动检测机制，使其不再将该目录视为一个有效的云函数源，从而在部署时完全跳过与云函数相关的任何操作，最终解决了问题。
 
 ---
 
@@ -272,6 +267,11 @@
     - **问题**: 项目根目录和`src`目录下存在重复的核心文档，造成信息源混乱。
     - **解决方案**: 将根目录的文档确立为“单一信息源”。清空了`src`目录下的`README.md`、`PRODUCT_REQUIREMENTS_DOCUMENT.md`和`ISSUES_LOG.md`，并留下注释，指引开发者查阅根目录的最新版本。
 
+- **#56. 部署失败: `Failed to list functions` (最终修复)**
+    - **问题**: 即使在移除所有云函数代码后，`firebase deploy` 在CI/CD流程中依然失败，报错 `Failed to list functions`。
+    - **根源**: Firebase项目处于免费的Spark套餐，该套餐**不支持**Cloud Functions API的任何调用。然而，CI/CD执行的`firebase deploy`命令会自动检测到项目中存在的`functions`目录（即使其内容已被注释掉），并尝试调用“list functions”API，导致因权限不足而失败。
+    - **解决方案**: **在CI/CD工作流中，为`firebase deploy`命令添加 `--only hosting` 参数**。通过在 `.github/workflows/firebase-hosting-deploy.yml` 文件中明确指定只部署`hosting`，可以完全跳过对`functions`目录的检测和任何相关API调用，从而从根本上解决此权限问题。
+
 ---
 
 ## 七、 文档与项目管理 (Documentation & Project Management)
@@ -280,4 +280,3 @@
 - **#28. 统一项目文档**
     - **问题**: 项目中存在多个版本的`README.md`, `PRD.md`等文件，内容不一致。
     - **解决方案**: 审查、合并并更新了所有核心文档，将其统一到项目根目录，并移除了`src/`下的旧版本。
-
