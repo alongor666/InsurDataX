@@ -19,13 +19,25 @@
     - **问题**: 由于无法升级到 Firebase 的 Blaze 计费计划，导致无法部署任何需要Cloud Build API的现代云函数，#43的架构无法实施。
     - **解决方案**: 进行最终的架构决策，转向安全的**客户端直接访问Firestore**模式。**移除了云函数依赖**，在`page.tsx`中直接使用Firestore客户端SDK查询数据，并依赖Firestore安全规则保障数据安全。这是当前应用的最终数据架构。
 
-- **#51. AI架构重构：从云函数代理转向Next.js API路由 (当前方案)**
+- **#51. AI架构重构：从云函数代理转向Next.js API路由**
     - **问题**: AI分析功能依赖的云函数因无法升级到“Blaze”计费套餐而无法部署。
     - **解决方案**: **彻底废弃了云函数代理方案**。在Next.js应用内部创建了一个API路由 (`/api/ai`)，该路由直接承载并执行所有Genkit AI分析流。前端UI被修改为调用这个新的内部API端点。
     - **优点**:
         1.  **规避限制**: 完美解决了无法使用Blaze套餐的部署障碍。
         2.  **架构简化**: 将AI后端逻辑内聚到主应用中，简化了开发、调试和部署流程。
         3.  **功能恢复**: 全面恢复了所有图表的AI智能分析功能。
+
+- **#52. AI架构再重构：从Genkit转向OpenRouter代理**
+    - **问题**: 即使将AI逻辑移至Next.js API路由，`genkit`和`@opentelemetry`等核心依赖仍在Next.js构建过程中引发错误（`Module not found: Can't resolve '@opentelemetry/exporter-jaeger'`），从根本上阻止了应用的成功构建和部署。
+    - **解决方案**: 进行了彻底的架构重构，以解决此核心构建问题：
+        1.  **移除Genkit依赖**: 从 `package.json` 中完全移除了 `genkit`, `@genkit-ai/*` 等所有相关依赖项。
+        2.  **引入Cloudflare代理**: 利用项目中的 `openai-gemini-proxy` 目录，通过Cloudflare Worker创建一个API代理，该代理安全地持有OpenRouter API密钥，并调用免费的AI模型。
+        3.  **重写AI服务网关**: `src/app/api/ai/route.ts` 被完全重写。它不再调用Genkit流，而是将所有AI提示模板集中到新的 `src/ai/prompts.ts` 文件中，并在运行时构建提示，然后通过 `fetch` 调用部署好的Cloudflare代理。
+    - **优点**:
+        1.  **构建成功**: 彻底解决了因依赖不兼容导致的构建失败问题。
+        2.  **规避平台限制**: 完全绕过了对Firebase Blaze计费套餐的依赖。
+        3.  **成本效益**: 利用OpenRouter的免费模型层，实现了零成本的AI分析功能。
+        4.  **架构解耦**: 将AI模型调用与主应用分离，提高了灵活性。
 
 ---
 
@@ -195,6 +207,9 @@
     - **问题**: AI功能被禁用，需要一种不依赖Firebase Blaze套餐的方案来恢复它。
     - **解决方案**: 采用#51中描述的架构重构，创建`/api/ai`路由，并恢复了所有图表组件中的AI分析UI和调用逻辑。
 
+- **#52. (接#51) AI架构再重构：从Genkit转向OpenRouter代理**
+    - **见上文第一部分 “架构演进与数据流” 中 #52 的详细描述。**
+
 ---
 
 ## 六、 构建、部署与环境配置 (Build, Deployment & Environment Configuration)
@@ -239,6 +254,10 @@
 - **#32. `main`分支名称硬编码**
     - **问题**: CI/CD工作流文件硬编码了`main`分支，不够灵活。
     - **解决方案**: (已识别，未修改) 这是一个可以优化的地方。
+- **#53. 修复 `next build` 失败 (`auth/invalid-api-key`)**
+    - **问题**: 在 `npm run build` 过程中，`AuthProvider` 在服务器端预渲染 `/_not-found` 页面时尝试初始化Firebase，但构建环境中缺少API密钥，导致构建失败。
+    - **解决方案**: 重构了 `src/contexts/auth-provider.tsx`，将所有Firebase初始化和服务监听的逻辑（副作用）严格移入 `useEffect` 钩子中，确保这些代码只在客户端浏览器环境中执行，从而彻底解决了构建时错误。
+
 ---
 
 ## 七、 文档与项目管理 (Documentation & Project Management)

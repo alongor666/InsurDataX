@@ -1,17 +1,20 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { 
-  generateBusinessSummary, type GenerateBusinessSummaryInput,
-  generateTrendAnalysis, type GenerateTrendAnalysisInput,
-  generateBubbleChartAnalysis, type GenerateBubbleChartAnalysisInput,
-  generateBarRankingAnalysis, type GenerateBarRankingAnalysisInput,
-  generateShareChartAnalysis, type GenerateShareChartAnalysisInput,
-  generateParetoAnalysis, type GenerateParetoAnalysisInput,
-  generateChatResponse, type GenerateChatResponseInput
-} from '@/ai/flows';
 import { doc, getDoc } from 'firebase/firestore';
 import { getFirebaseInstances } from '@/lib/firebase';
+import { 
+  getBusinessSummaryPrompt,
+  getTrendAnalysisPrompt,
+  getBubbleChartAnalysisPrompt,
+  getBarRankingAnalysisPrompt,
+  getShareChartAnalysisPrompt,
+  getParetoAnalysisPrompt,
+  getChatResponsePrompt
+} from '@/ai/prompts';
 
+
+// IMPORTANT: Replace this with your deployed Cloudflare Worker URL
+const OPENROUTER_PROXY_URL = 'https://your-proxy-worker.your-domain.workers.dev';
 
 interface AiProxyRequest {
   flowName: string;
@@ -40,18 +43,35 @@ async function getSystemInstruction(): Promise<string> {
   }
 }
 
+async function callProxy(prompt: string) {
+  if (OPENROUTER_PROXY_URL.includes('your-proxy-worker')) {
+    throw new Error('OpenRouter Proxy URL is not configured. Please deploy the Cloudflare worker and update the URL in src/app/api/ai/route.ts');
+  }
+
+  const response = await fetch(OPENROUTER_PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Proxy Error:', errorText);
+    throw new Error(`AI Proxy service failed with status ${response.status}: ${errorText}`);
+  }
+
+  const result = await response.json();
+  if (!result.choices || !result.choices[0] || !result.choices[0].message) {
+    console.error('Invalid response structure from proxy:', result);
+    throw new Error('AI service returned an unexpected response structure.');
+  }
+  return result.choices[0].message.content;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    // Fetch the master system instruction first.
     const systemInstruction = await getSystemInstruction();
-    
     const { flowName, inputData } = (await request.json()) as AiProxyRequest;
-    
-    // Inject the system instruction into the input data for the flow.
-    const fullInputData = {
-        ...inputData,
-        system_instruction: systemInstruction
-    };
 
     if (!flowName || !inputData) {
       return NextResponse.json(
@@ -59,29 +79,32 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    let finalPrompt;
+    let isChatFlow = false;
     
-    let result;
     switch (flowName) {
       case 'generateBusinessSummary':
-        result = await generateBusinessSummary(fullInputData as GenerateBusinessSummaryInput);
+        finalPrompt = getBusinessSummaryPrompt(inputData, systemInstruction);
         break;
       case 'generateTrendAnalysis':
-        result = await generateTrendAnalysis(fullInputData as GenerateTrendAnalysisInput);
+        finalPrompt = getTrendAnalysisPrompt(inputData, systemInstruction);
         break;
       case 'generateBubbleChartAnalysis':
-        result = await generateBubbleChartAnalysis(fullInputData as GenerateBubbleChartAnalysisInput);
+        finalPrompt = getBubbleChartAnalysisPrompt(inputData, systemInstruction);
         break;
       case 'generateBarRankingAnalysis':
-        result = await generateBarRankingAnalysis(fullInputData as GenerateBarRankingAnalysisInput);
+        finalPrompt = getBarRankingAnalysisPrompt(inputData, systemInstruction);
         break;
       case 'generateShareChartAnalysis':
-        result = await generateShareChartAnalysis(fullInputData as GenerateShareChartAnalysisInput);
+        finalPrompt = getShareChartAnalysisPrompt(inputData, systemInstruction);
         break;
       case 'generateParetoAnalysis':
-        result = await generateParetoAnalysis(fullInputData as GenerateParetoAnalysisInput);
+        finalPrompt = getParetoAnalysisPrompt(inputData, systemInstruction);
         break;
       case 'generateChatResponse':
-        result = await generateChatResponse(fullInputData as GenerateChatResponseInput);
+        finalPrompt = getChatResponsePrompt(inputData, systemInstruction);
+        isChatFlow = true;
         break;
       default:
         return NextResponse.json(
@@ -89,6 +112,10 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
     }
+    
+    const aiContent = await callProxy(finalPrompt);
+
+    const result = isChatFlow ? { response: aiContent } : { summary: aiContent };
 
     return NextResponse.json(result);
 

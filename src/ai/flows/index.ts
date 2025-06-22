@@ -1,8 +1,4 @@
-
-export * from './generate-business-summary';
-export * from './generate-trend-analysis-flow';
-export * from './generate-bubble-chart-analysis-flow';
-export * from './generate-bar-ranking-analysis-flow';
-export * from './generate-share-chart-analysis-flow';
-export * from './generate-pareto-analysis-flow';
-export * from './generate-chat-response-flow';
+// This file is no longer used in the OpenRouter proxy architecture.
+// It was part of the Genkit setup to export all flows.
+// The new architecture uses a single API route that handles all AI logic.
+// This file can be safely removed.
