@@ -1,11 +1,29 @@
-
 import type { Kpi } from '@/data/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Minus, DollarSign, FileText, Percent, Briefcase, Zap, Activity, ShieldCheck, ShieldAlert, Landmark, Users, Ratio, Search, PieChart, ListOrdered } from 'lucide-react';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Minus, 
+  DollarSign, 
+  FileText, 
+  Percent, 
+  Briefcase, 
+  Zap, 
+  Activity, 
+  ShieldCheck, 
+  ShieldAlert, 
+  Landmark, 
+  Users, 
+  Ratio, 
+  Search, 
+  PieChart, 
+  ListOrdered,
+  type LucideProps
+} from 'lucide-react';
 import type React from 'react';
 
-const iconMap: { [key: string]: React.ElementType } = {
+const iconMap: { [key: string]: React.FC<LucideProps> } = {
   DollarSign, FileText, Percent, Briefcase, Zap, Activity, ShieldCheck, ShieldAlert, Landmark, Users, Ratio, Search, PieChart, ListOrdered
 };
 
@@ -77,7 +95,9 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
      cardClassName = cn(cardClassName, "border-destructive border-2");
   }
 
-  const IconComponent = kpi.icon && iconMap[kpi.icon] ? iconMap[kpi.icon] : (kpi.unit ? null : iconMap['ShieldCheck']);
+  const IconComponent = kpi.unit
+    ? null
+    : (kpi.icon && iconMap[kpi.icon] ? iconMap[kpi.icon] : iconMap['ShieldCheck']);
 
   return (
     <Card className={cardClassName}>
