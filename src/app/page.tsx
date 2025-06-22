@@ -14,10 +14,12 @@ import { ParetoChartSection } from '@/components/sections/pareto-chart-section';
 import { DataTableSection } from '@/components/sections/data-table-section';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal } from 'lucide-react';
+import { Terminal, UploadCloud } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, type FirestoreError } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { seedW25Data } from '@/lib/seed-firestore'; // Import the seeding function
 import {
   type V4PeriodData,
   type Kpi,
@@ -91,6 +93,9 @@ export default function DashboardPage() {
     const [selectedBubbleSizeMetric, setSelectedBubbleSizeMetric] = useState<BubbleMetricKey>('policy_count');
     const [selectedShareMetric, setSelectedShareMetric] = useState<ShareChartMetricKey>('premium_written');
     const [selectedParetoMetric, setSelectedParetoMetric] = useState<ParetoChartMetricKey>('premium_written');
+
+    // State for the temporary seeding button
+    const [isSeeding, setIsSeeding] = useState(false);
     
     const fetchData = useCallback(async () => {
         if (!db) {
@@ -123,14 +128,18 @@ export default function DashboardPage() {
             setPeriodOptions(options);
 
             if (options.length > 0) {
-                setSelectedPeriodKey(options[0].value);
+                 if (!selectedPeriodKey || !options.some(o => o.value === selectedPeriodKey)) {
+                    setSelectedPeriodKey(options[0].value);
+                }
             }
 
             const uniqueTypes = Array.from(new Set(rawData.flatMap(p => p.business_data.map(bd => bd.business_type))
                 .filter(bt => bt && bt.toLowerCase() !== '合计' && bt.toLowerCase() !== 'total')))
                 .sort((a, b) => a.localeCompare(b));
             setAllBusinessTypes(uniqueTypes);
-            setSelectedBusinessTypes([]); // Reset selected types on new data load
+            if (selectedBusinessTypes.length === 0) { // Only reset if it was "all"
+              setSelectedBusinessTypes([]);
+            }
 
         } catch (e) {
             const err = e as FirestoreError;
@@ -144,13 +153,30 @@ export default function DashboardPage() {
         } finally {
             setIsGlobalLoading(false);
         }
-    }, [toast]);
+    }, [toast, selectedPeriodKey, selectedBusinessTypes]);
     
     useEffect(() => {
         if (currentUser) {
             fetchData();
         }
     }, [currentUser, fetchData]);
+
+    // Handler for the temporary seeding button
+    const handleSeedData = async () => {
+      setIsSeeding(true);
+      toast({ title: '正在上传...', description: '正在将第25周数据写入Firestore。' });
+      const result = await seedW25Data();
+      if (result.success) {
+        toast({ title: '上传成功', description: result.message });
+        // Refetch all data to include the new period
+        await fetchData();
+        // Automatically select the new period
+        setSelectedPeriodKey("2025-W25");
+      } else {
+        toast({ variant: 'destructive', title: '上传失败', description: result.message });
+      }
+      setIsSeeding(false);
+    };
 
     const handleSelectedBusinessTypesChange = useCallback((types: string[]) => {
         setSelectedBusinessTypes(types);
@@ -174,23 +200,22 @@ export default function DashboardPage() {
     
         const mappedData = relevantPeriods.map(period => {
             const processed = processDataForSelectedPeriod(allV4Data, period.period_id, null, analysisMode, selectedBusinessTypes);
-            if (!processed || processed.length === 0) return null; // Handle case where no data is processed
+            if (!processed || processed.length === 0) return null;
     
             const metrics = processed[0].currentMetrics;
             const businessLineName = processed[0].businessLineName;
     
             const metricValue = metrics[selectedTrendMetric as keyof typeof metrics];
     
-            // Ensure a valid structure is returned
             return {
                 name: period.period_id,
-                [businessLineName]: metricValue === null ? undefined : metricValue, // Map null to undefined for recharts
+                [businessLineName]: metricValue === null ? undefined : metricValue,
                 color: getDynamicColorByVCR(metrics.variable_cost_ratio),
                 vcr: metrics.variable_cost_ratio,
             };
-        });
+        }).filter((p): p is ChartDataItem => p !== null && p[Object.keys(p).find(k => k !== 'name' && k !== 'color' && k !== 'vcr')!] !== undefined);
     
-        return mappedData.filter((p): p is ChartDataItem => p !== null && p[Object.keys(p)[1]] !== undefined);
+        return mappedData;
     }, [allV4Data, analysisMode, selectedBusinessTypes, selectedTrendMetric]);
 
     const allIndividualBusinessLines = useMemo(() => {
@@ -363,8 +388,22 @@ export default function DashboardPage() {
                 onExportClick={handleExportClick}
             />
           <div className="space-y-6">
+            <div className="p-4 border-2 border-dashed border-blue-300 rounded-lg bg-blue-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-blue-800">临时数据操作</h3>
+                  <p className="text-sm text-blue-600">此工具用于将2025年第25周的数据上传到您的Firestore数据库。</p>
+                </div>
+                <Button onClick={handleSeedData} disabled={isSeeding}>
+                  <UploadCloud className="mr-2 h-4 w-4" />
+                  {isSeeding ? '上传中...' : '上传第25周数据到Firestore'}
+                </Button>
+              </div>
+            </div>
             {renderCurrentView()}
           </div>
         </AppLayout>
     );
 }
+
+    
