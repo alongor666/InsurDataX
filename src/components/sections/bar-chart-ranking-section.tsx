@@ -2,7 +2,7 @@
 "use client";
 
 import type { ChartDataItem } from '@/data/types';
-import type { RankingMetricKey } from '@/data/types';
+import type { RankingMetricKey, AnalysisMode } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
 import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { BarChartHorizontal, Palette } from 'lucide-react';
@@ -126,8 +126,17 @@ export function BarChartRankingSection({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'AI分析生成失败');
+        const errorText = await response.text();
+        let errorMessage = `AI 服务错误 (状态: ${response.status})`;
+        try {
+          // Attempt to parse the error text as JSON for a more specific message
+          const jsonError = JSON.parse(errorText);
+          errorMessage = jsonError.error || jsonError.details || errorMessage;
+        } catch (e) {
+          // If parsing fails, it's likely an HTML error page.
+          console.error("AI API returned non-JSON error response for Bar Ranking Chart:", errorText);
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();

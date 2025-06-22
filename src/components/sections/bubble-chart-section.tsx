@@ -6,7 +6,7 @@ import { SectionWrapper } from '@/components/shared/section-wrapper';
 import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { ScatterChart as LucideScatterChart, Palette } from 'lucide-react'; 
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
-import { CartesianGrid, Scatter, ScatterChart as RechartsScatterChart, XAxis, YAxis, ZAxis, TooltipProps } from "recharts";
+import { CartesianGrid, Scatter, ScatterChart as RechartsScatterChart, XAxis, YAxis, ZAxis, TooltipProps, ResponsiveContainer } from "recharts";
 import type {NameType, ValueType} from 'recharts/types/component/DefaultTooltipContent';
 import { useMemo, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -132,8 +132,17 @@ export function BubbleChartSection({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'AI分析生成失败');
+        const errorText = await response.text();
+        let errorMessage = `AI 服务错误 (状态: ${response.status})`;
+        try {
+          // Attempt to parse the error text as JSON for a more specific message
+          const jsonError = JSON.parse(errorText);
+          errorMessage = jsonError.error || jsonError.details || errorMessage;
+        } catch (e) {
+          // If parsing fails, it's likely an HTML error page.
+          console.error("AI API returned non-JSON error response for Bubble Chart:", errorText);
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
@@ -212,6 +221,7 @@ export function BubbleChartSection({
       ) : (
         <div className="h-[350px] w-full">
           <ChartContainer config={chartConfig} className="h-full w-full">
+            <ResponsiveContainer>
               <RechartsScatterChart margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
@@ -244,6 +254,7 @@ export function BubbleChartSection({
                   />
                 ))}
               </RechartsScatterChart>
+            </ResponsiveContainer>
           </ChartContainer>
         </div>
       )}

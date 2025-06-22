@@ -6,7 +6,7 @@ import { SectionWrapper } from '@/components/shared/section-wrapper';
 import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { LineChart as LucideLineChart, Palette, BarChart2 } from 'lucide-react'; 
 import { ChartContainer, ChartTooltip, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
-import { CartesianGrid, Line, Bar, LineChart as RechartsLineChart, BarChart as RechartsBarChart, XAxis, YAxis, TooltipProps, Cell, LabelList } from "recharts"; 
+import { CartesianGrid, Line, Bar, LineChart as RechartsLineChart, BarChart as RechartsBarChart, XAxis, YAxis, TooltipProps, Cell, LabelList, ResponsiveContainer } from "recharts"; 
 import type {NameType, ValueType} from 'recharts/types/component/DefaultTooltipContent';
 import { useMemo, useState } from 'react'; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -231,8 +231,17 @@ export function TrendAnalysisSection({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'AI分析生成失败');
+        const errorText = await response.text();
+        let errorMessage = `AI 服务错误 (状态: ${response.status})`;
+        try {
+          // Attempt to parse the error text as JSON for a more specific message
+          const jsonError = JSON.parse(errorText);
+          errorMessage = jsonError.error || jsonError.details || errorMessage;
+        } catch (e) {
+          // If parsing fails, it's likely an HTML error page.
+          console.error("AI API returned non-JSON error response for Trend Chart:", errorText);
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
@@ -297,7 +306,7 @@ export function TrendAnalysisSection({
   const chartType = getMetricChartType(selectedMetric);
   const ChartIcon = chartType === 'line' ? LucideLineChart : BarChart2;
   
-  const interval = (analysisMode === 'periodOverPeriod' && data.length > 7) || data.length > 15 ? Math.floor(data.length / 7) : 0;
+  const interval = (analysisMode === 'periodOverPeriod' && data.length > 7) || (analysisMode === 'cumulative' && data.length > 15) ? Math.floor(data.length / 7) : 0;
 
   return (
     <SectionWrapper title="趋势分析" icon={ChartIcon} actionButton={metricSelector}>
@@ -307,73 +316,77 @@ export function TrendAnalysisSection({
         <div className="h-[350px] w-full">
           <ChartContainer config={chartConfig} className="h-full w-full">
             {chartType === 'line' ? (
-              <RechartsLineChart data={data} margin={{ top: 5, right: 40, left: 10, bottom: 90 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis 
-                  dataKey="name" 
-                  tick={<CustomXAxisTick />}
-                  height={90}
-                  axisLine={false}
-                  tickLine={false}
-                  interval={interval}
-                  className="text-xs"
-                />
-                <YAxis 
-                  tickFormatter={yAxisFormatter} 
-                  tickLine={false} 
-                  axisLine={false} 
-                  tickMargin={8} 
-                  label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', offset: 10, fontSize: 12 }}
-                  className="text-xs"
-                />
-                <ChartTooltip content={<CustomTooltip metricId={selectedMetric} analysisModeForTooltip={analysisMode} />} cursor={{stroke: 'hsl(var(--muted))'}}/>
-                <ChartLegend content={<ChartLegendContent />} wrapperStyle={{paddingTop: '10px'}} />
-                {businessLineNames.map((lineName) => (
-                  <Line
-                    key={lineName}
-                    dataKey={lineName}
-                    type="monotone"
-                    stroke={chartConfig[lineName]?.color} 
-                    strokeWidth={2.5}
-                    dot={<RenderCustomizedDot />}
-                    activeDot={{ r: 6, strokeWidth: 1, fill: 'hsl(var(--background))', stroke: 'hsl(var(--primary))' }}
+              <ResponsiveContainer>
+                <RechartsLineChart data={data} margin={{ top: 5, right: 40, left: 10, bottom: 80 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis 
+                    dataKey="name" 
+                    tick={<CustomXAxisTick />}
+                    height={80}
+                    axisLine={false}
+                    tickLine={false}
+                    interval={interval}
+                    className="text-xs"
                   />
-                ))}
-              </RechartsLineChart>
-            ) : ( 
-              <RechartsBarChart data={data} margin={{ top: 20, right: 40, left: 10, bottom: 90 }} barCategoryGap="20%">
-                <CartesianGrid strokeDasharray="3 3" vertical={false}/>
-                <XAxis 
-                  dataKey="name" 
-                  tick={<CustomXAxisTick />}
-                  height={90}
-                  axisLine={false}
-                  tickLine={false}
-                  interval={interval}
-                  className="text-xs"
-                />
-                <YAxis 
+                  <YAxis 
                     tickFormatter={yAxisFormatter} 
                     tickLine={false} 
                     axisLine={false} 
                     tickMargin={8} 
                     label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', offset: 10, fontSize: 12 }}
                     className="text-xs"
-                />
-                <ChartTooltip content={<CustomTooltip metricId={selectedMetric} analysisModeForTooltip={analysisMode} />} cursor={{fill: 'hsl(var(--muted))'}}/>
-                <ChartLegend content={<ChartLegendContent />} wrapperStyle={{paddingTop: '10px'}}/>
-                {businessLineNames.map((barName) => (
-                  <Bar key={barName} dataKey={barName} radius={[4, 4, 0, 0]} >
-                     {data.map((entry, index) => (
-                        <Cell key={`cell-${index}-${entry.name}`} fill={entry.color || chartConfig[barName]?.color || 'hsl(var(--chart-1))'} />
-                      ))}
-                      <LabelList
-                          dataKey={barName}
-                          content={<CustomBarLabel metricKey={selectedMetric} />}
-                      />
-                  </Bar>
-                ))}
-              </RechartsBarChart>
+                  />
+                  <ChartTooltip content={<CustomTooltip metricId={selectedMetric} analysisModeForTooltip={analysisMode} />} cursor={{stroke: 'hsl(var(--muted))'}}/>
+                  <ChartLegend content={<ChartLegendContent />} wrapperStyle={{paddingTop: '10px'}} />
+                  {businessLineNames.map((lineName) => (
+                    <Line
+                      key={lineName}
+                      dataKey={lineName}
+                      type="monotone"
+                      stroke={chartConfig[lineName]?.color} 
+                      strokeWidth={2.5}
+                      dot={<RenderCustomizedDot />}
+                      activeDot={{ r: 6, strokeWidth: 1, fill: 'hsl(var(--background))', stroke: 'hsl(var(--primary))' }}
+                    />
+                  ))}
+                </RechartsLineChart>
+              </ResponsiveContainer>
+            ) : ( 
+              <ResponsiveContainer>
+                <RechartsBarChart data={data} margin={{ top: 20, right: 40, left: 10, bottom: 80 }} barCategoryGap="20%">
+                  <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+                  <XAxis 
+                    dataKey="name" 
+                    tick={<CustomXAxisTick />}
+                    height={80}
+                    axisLine={false}
+                    tickLine={false}
+                    interval={interval}
+                    className="text-xs"
+                  />
+                  <YAxis 
+                      tickFormatter={yAxisFormatter} 
+                      tickLine={false} 
+                      axisLine={false} 
+                      tickMargin={8} 
+                      label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', offset: 10, fontSize: 12 }}
+                      className="text-xs"
+                  />
+                  <ChartTooltip content={<CustomTooltip metricId={selectedMetric} analysisModeForTooltip={analysisMode} />} cursor={{fill: 'hsl(var(--muted))'}}/>
+                  <ChartLegend content={<ChartLegendContent />} wrapperStyle={{paddingTop: '10px'}}/>
+                  {businessLineNames.map((barName) => (
+                    <Bar key={barName} dataKey={barName} radius={[4, 4, 0, 0]} >
+                      {data.map((entry, index) => (
+                          <Cell key={`cell-${index}-${entry.name}`} fill={entry.color || chartConfig[barName]?.color || 'hsl(var(--chart-1))'} />
+                        ))}
+                        <LabelList
+                            dataKey={barName}
+                            content={<CustomBarLabel metricKey={selectedMetric} />}
+                        />
+                    </Bar>
+                  ))}
+                </RechartsBarChart>
+              </ResponsiveContainer>
             )}
           </ChartContainer>
         </div>
