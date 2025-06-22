@@ -2,7 +2,7 @@
 import type { LucideIcon as ActualLucideIcon } from 'lucide-react'; // Keep actual for other uses if any
 
 export type AnalysisMode = 'cumulative' | 'periodOverPeriod'; // 累计数据 | 当周发生额
-export type DashboardView = 'kpi' | 'trend' | 'bubble' | 'bar_rank' | 'share_chart' | 'pareto' | 'data_table';
+export type DashboardView = 'kpi' | 'trend' | 'bubble' | 'bar_rank' | 'share_chart' | 'pareto' | 'data_table' | 'ai_chat';
 export type DataSourceType = 'json' | 'db';
 
 // V4.0 JSON Structure Types
@@ -181,4 +181,17 @@ export interface TopBusinessLineData {
   expense_ratio: number;
   variable_cost_ratio: number | null | undefined;
   color: string;
+}
+
+export interface ConversationEntry {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface AiChatDataContext {
+  kpis: Kpi[];
+  data_table: ProcessedDataForPeriod[];
+  analysisMode: AnalysisMode;
+  currentPeriodLabel: string;
+  selectedBusinessTypes: string[];
 }

@@ -12,6 +12,7 @@ import { BarChartRankingSection } from '@/components/sections/bar-chart-ranking-
 import { ShareChartSection } from '@/components/sections/share-chart-section';
 import { ParetoChartSection } from '@/components/sections/pareto-chart-section';
 import { DataTableSection } from '@/components/sections/data-table-section';
+import { AiChatSection } from '@/components/sections/ai-chat-section';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from 'lucide-react';
@@ -34,7 +35,8 @@ import {
   type BubbleChartDataItem,
   type ShareChartDataItem,
   type ParetoChartDataItem,
-  type TopBusinessLineData
+  type TopBusinessLineData,
+  type AiChatDataContext
 } from '@/data/types';
 import {
   processDataForSelectedPeriod,
@@ -315,6 +317,17 @@ export default function DashboardPage() {
       };
     }, [selectedBusinessTypes]);
 
+    const aiChatDataContext = useMemo((): AiChatDataContext | null => {
+        if (!kpis.length || !individualLinesData.length) return null;
+        return {
+            kpis,
+            data_table: individualLinesData,
+            analysisMode,
+            currentPeriodLabel: periodOptions.find(p => p.value === selectedPeriodKey)?.label || '未知周期',
+            selectedBusinessTypes,
+        };
+    }, [kpis, individualLinesData, analysisMode, selectedPeriodKey, periodOptions, selectedBusinessTypes]);
+
     const handleExportClick = useCallback(() => {
         if (individualLinesData.length > 0) {
             exportToCSV(individualLinesData, analysisMode, allV4Data, "车险数据导出.csv", selectedComparisonPeriodKey, periodOptions, selectedPeriodKey);
@@ -368,6 +381,8 @@ export default function DashboardPage() {
                     selectedBusinessTypes={selectedBusinessTypes}
                     topBusinessLinesData={topBusinessLinesData}
                 />;
+            case 'ai_chat':
+                return <AiChatSection dataContext={aiChatDataContext} />;
             case 'trend':
                 return <TrendAnalysisSection data={trendData} selectedMetric={selectedTrendMetric} onMetricChange={setSelectedTrendMetric} availableMetrics={availableTrendMetrics} analysisMode={analysisMode} currentPeriodLabel={currentPeriodLabel} filters={aiFiltersForCharts} />;
             case 'bubble':

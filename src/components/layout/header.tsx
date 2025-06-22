@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AnalysisModeToggle } from '@/components/shared/analysis-mode-toggle';
 import type { AnalysisMode, PeriodOption, DashboardView } from '@/data/types';
-import { Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, PieChartIcon, AreaChart, Check, Undo2, Eraser, MousePointerClick, CheckSquare, Square, LogOut, UserCircle, XCircle } from 'lucide-react'; // Sparkles removed
+import { Settings2, LayoutDashboard, LineChart, BarChartHorizontal, Rows3, ScanLine, ListFilter, Download, PieChartIcon, AreaChart, Check, Undo2, Eraser, MousePointerClick, CheckSquare, Square, LogOut, UserCircle, XCircle, MessageCircle } from 'lucide-react'; // Sparkles removed
 import {
   Select,
   SelectContent,
@@ -117,6 +117,7 @@ export function AppHeader({
 
   const viewOptions: {label: string, value: DashboardView, icon: React.ElementType}[] = [
     { label: "KPI看板", value: "kpi", icon: LayoutDashboard },
+    { label: "AI对话", value: "ai_chat", icon: MessageCircle },
     { label: "趋势图", value: "trend", icon: LineChart },
     { label: "气泡图", value: "bubble", icon: ScanLine },
     { label: "排名图", value: "bar_rank", icon: BarChartHorizontal },

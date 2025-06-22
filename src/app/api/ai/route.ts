@@ -6,7 +6,8 @@ import {
   generateBubbleChartAnalysis, type GenerateBubbleChartAnalysisInput,
   generateBarRankingAnalysis, type GenerateBarRankingAnalysisInput,
   generateShareChartAnalysis, type GenerateShareChartAnalysisInput,
-  generateParetoAnalysis, type GenerateParetoAnalysisInput
+  generateParetoAnalysis, type GenerateParetoAnalysisInput,
+  generateChatResponse, type GenerateChatResponseInput
 } from '@/ai/flows';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -77,6 +78,9 @@ export async function POST(request: NextRequest) {
         break;
       case 'generateParetoAnalysis':
         result = await generateParetoAnalysis(fullInputData as GenerateParetoAnalysisInput);
+        break;
+      case 'generateChatResponse':
+        result = await generateChatResponse(fullInputData as GenerateChatResponseInput);
         break;
       default:
         return NextResponse.json(

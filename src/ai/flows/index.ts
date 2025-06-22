@@ -5,3 +5,4 @@ export * from './generate-bubble-chart-analysis-flow';
 export * from './generate-bar-ranking-analysis-flow';
 export * from './generate-share-chart-analysis-flow';
 export * from './generate-pareto-analysis-flow';
+export * from './generate-chat-response-flow';
