@@ -282,6 +282,13 @@ export function AppHeader({
                   {currentUser?.email || "用户"}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/settings" className="text-xs cursor-pointer">
+                    <Settings2 className="mr-2 h-4 w-4" />
+                    <span>助手配置</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout} className="text-xs cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   登出
