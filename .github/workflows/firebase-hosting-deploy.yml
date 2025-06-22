@@ -34,3 +34,5 @@ jobs:
           channelId: live
           projectId: datalens-insights-2fh8a
           entryPoint: '.' # This enables framework-aware builds for Next.js
+        env:
+          FIREBASE_CLI_EXPERIMENTS: webframeworks
