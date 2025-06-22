@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, type FirestoreError } from "firebase/firestore";
+import { collection, onSnapshot, type FirestoreError } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import {
   type V4PeriodData,
@@ -92,29 +92,40 @@ export default function DashboardPage() {
     const [selectedShareMetric, setSelectedShareMetric] = useState<ShareChartMetricKey>('premium_written');
     const [selectedParetoMetric, setSelectedParetoMetric] = useState<ParetoChartMetricKey>('premium_written');
 
-    const fetchData = useCallback(async () => {
+    useEffect(() => {
+        if (!currentUser) {
+            return;
+        }
+
         if (!db) {
             const msg = "Firestore 服务尚未在firebase.ts中正确初始化。";
             setError(msg);
             toast({ variant: "destructive", title: "代码配置错误", description: msg });
-            setIsGlobalLoading(false);
             return;
         }
+
         setIsGlobalLoading(true);
         setError(null);
-        try {
-            toast({ title: "正在加载数据...", description: "正从安全的云端数据库请求数据。" });
-            
-            const dataCollection = collection(db, "v4_period_data");
-            const querySnapshot = await getDocs(dataCollection);
-            
+        toast({ title: "正在初始化...", description: "正在连接数据库并设置实时数据监听。" });
+
+        const dataCollection = collection(db, "v4_period_data");
+        
+        const unsubscribe = onSnapshot(dataCollection, (querySnapshot) => {
+            const isInitialLoad = isGlobalLoading;
+
             if (querySnapshot.empty) {
-                throw new Error("从数据库加载的数据为空。请确认 `v4_period_data` 集合中存在数据文档。");
+                setError("数据库中无数据。请确认 `v4_period_data` 集合中存在数据文档。");
+                setAllV4Data([]);
+                setIsGlobalLoading(false);
+                return;
             }
             
             const rawData = querySnapshot.docs.map(doc => doc.data() as V4PeriodData);
 
-            toast({ title: "数据加载成功", description: `已成功获取 ${rawData.length} 个周期的数据。` });
+            if (isInitialLoad) {
+                 toast({ title: "连接成功", description: `已获取 ${rawData.length} 个周期的数据，并已开启实时更新。` });
+            }
+
             setAllV4Data(rawData);
             
             const options = rawData
@@ -122,40 +133,43 @@ export default function DashboardPage() {
                 .sort((a, b) => b.label.localeCompare(a.label));
             setPeriodOptions(options);
 
-            if (options.length > 0) {
-                 if (!selectedPeriodKey || !options.some(o => o.value === selectedPeriodKey)) {
-                    setSelectedPeriodKey(options[0].value);
+            setSelectedPeriodKey(prevKey => {
+                if (options.length > 0 && (!prevKey || !options.some(o => o.value === prevKey))) {
+                    return options[0].value;
                 }
-            }
+                return prevKey;
+            });
 
             const uniqueTypes = Array.from(new Set(rawData.flatMap(p => p.business_data.map(bd => bd.business_type))
                 .filter(bt => bt && bt.toLowerCase() !== '合计' && bt.toLowerCase() !== 'total')))
                 .sort((a, b) => a.localeCompare(b));
             setAllBusinessTypes(uniqueTypes);
-            if (selectedBusinessTypes.length === 0) { // Only reset if it was "all"
-              setSelectedBusinessTypes([]);
+            
+            setSelectedBusinessTypes(prev => prev.filter(t => uniqueTypes.includes(t)));
+            
+            if (isGlobalLoading) {
+                setIsGlobalLoading(false);
             }
+            setError(null);
 
-        } catch (e) {
-            const err = e as FirestoreError;
-            console.error("Error fetching from Firestore:", err);
-            let userFriendlyMessage = `加载数据时发生错误: ${err.message}`;
-            if (err.code === 'permission-denied') {
-                userFriendlyMessage = "数据加载失败：权限不足。请确认您已登录，且Firestore安全规则配置正确，允许已认证用户读取。";
+        }, (err) => {
+            const firestoreError = err as FirestoreError;
+            console.error("Error listening to Firestore:", firestoreError);
+            let userFriendlyMessage = `监听数据时发生错误: ${firestoreError.message}`;
+            if (firestoreError.code === 'permission-denied') {
+                userFriendlyMessage = "数据监听失败：权限不足。请确认您已登录，且Firestore安全规则配置正确。";
             }
             setError(userFriendlyMessage);
             setAllV4Data([]);
-        } finally {
             setIsGlobalLoading(false);
-        }
-    }, [toast, selectedPeriodKey, selectedBusinessTypes]);
-    
-    useEffect(() => {
-        if (currentUser) {
-            fetchData();
-        }
-    }, [currentUser, fetchData]);
+        });
 
+        return () => {
+            unsubscribe();
+        };
+
+    }, [currentUser, toast, isGlobalLoading]);
+    
     const handleSelectedBusinessTypesChange = useCallback((types: string[]) => {
         setSelectedBusinessTypes(types);
     }, []);
@@ -171,7 +185,7 @@ export default function DashboardPage() {
         return calculateKpis(processedDataForKpis, currentPeriodData?.totals_for_period, analysisMode, selectedBusinessTypes, allV4Data, selectedPeriodKey);
     }, [processedDataForKpis, allV4Data, selectedPeriodKey, analysisMode, selectedBusinessTypes]);
 
-    const trendData = useMemo(() => {
+    const trendData = useMemo((): ChartDataItem[] => {
         if (allV4Data.length === 0) return [];
     
         const relevantPeriods = allV4Data.slice().sort((a, b) => a.period_label.localeCompare(b.period_label));
