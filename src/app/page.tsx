@@ -195,17 +195,17 @@ export default function DashboardPage() {
             if (!processed || processed.length === 0) return null;
     
             const metrics = processed[0].currentMetrics;
-            const businessLineName = processed[0].businessLineName;
+            const businessLineName = processed[0].businessLineName || '合计';
     
             const metricValue = metrics[selectedTrendMetric as keyof typeof metrics];
     
             return {
-                name: period.period_id,
+                name: period.period_label,
                 [businessLineName]: metricValue === null ? undefined : metricValue,
                 color: getDynamicColorByVCR(metrics.variable_cost_ratio),
                 vcr: metrics.variable_cost_ratio,
             };
-        }).filter((p): p is ChartDataItem => p !== null && p[Object.keys(p).find(k => k !== 'name' && k !== 'color' && k !== 'vcr')!] !== undefined);
+        }).filter((p): p is ChartDataItem => p !== null);
     
         if (analysisMode === 'periodOverPeriod' && mappedData.length > 0) {
             return mappedData.slice(1);

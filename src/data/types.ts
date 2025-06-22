@@ -109,7 +109,7 @@ export interface ChartDataItem {
   name: string;
   color: string;
   vcr: number | null | undefined;
-  [key: string]: number | string | undefined;
+  [key: string]: number | string | undefined | null;
 }
 
 export interface BubbleChartDataItem {
