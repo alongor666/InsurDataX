@@ -38,7 +38,7 @@ export function parsePeriodLabelToYearWeek(periodLabel: string): { year: number;
  * @param weekNumber The week number (1-53).
  * @returns An object with start and end Date objects, or null if input is invalid.
  */
-function getWeekDateObjects(year: number, weekNumber: number): { start: Date; end: Date } | null {
+export function getWeekDateObjects(year: number, weekNumber: number): { start: Date; end: Date } | null {
   if (isNaN(year) || isNaN(weekNumber) || weekNumber < 1 || weekNumber > 53) {
     return null;
   }

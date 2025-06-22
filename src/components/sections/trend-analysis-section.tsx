@@ -12,7 +12,8 @@ import { useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { TrendMetricKey, AnalysisMode } from '@/data/types'; 
 import { formatDisplayValue } from '@/lib/data-utils'; 
-import { formatPeriodLabelForAxis, formatPeriodLabelForTooltip } from '@/lib/date-formatters';
+import { parsePeriodLabelToYearWeek, getWeekDateObjects, formatPeriodLabelForTooltip } from '@/lib/date-formatters';
+import { format } from 'date-fns';
 
 interface TrendAnalysisSectionProps {
   data: ChartDataItem[];
@@ -72,6 +73,37 @@ const RenderCustomizedDot = (props: any) => {
     return <circle cx={cx} cy={cy} r={4} fill={payload.color} strokeWidth={1} stroke="hsl(var(--background))" />;
   }
   return <circle cx={cx} cy={cy} r={3} fill={props.stroke || 'hsl(var(--chart-1))'} strokeWidth={0} />;
+};
+
+const CustomXAxisTick = (props: any) => {
+  const { x, y, payload } = props;
+  const periodLabel = payload.value;
+  
+  const parsed = parsePeriodLabelToYearWeek(periodLabel);
+  if (parsed) {
+    const dates = getWeekDateObjects(parsed.year, parsed.week);
+    if (dates) {
+      const weekLabel = `W${parsed.week}`;
+      const dateRangeLabel = `${format(dates.start, 'MMdd')}-${format(dates.end, 'MMdd')}`;
+      return (
+        <g transform={`translate(${x},${y})`}>
+          <text x={0} y={0} dy={12} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize="11px">
+            <tspan x="0" dy="0em" className="font-medium">{weekLabel}</tspan>
+            <tspan x="0" dy="1.2em">{dateRangeLabel}</tspan>
+          </text>
+        </g>
+      );
+    }
+  }
+
+  // Fallback for any label that can't be parsed
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text x={0} y={0} dy={16} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize="11px">
+        {periodLabel}
+      </text>
+    </g>
+  );
 };
 
 
@@ -207,17 +239,15 @@ export function TrendAnalysisSection({
         <div className="h-[350px] w-full">
           <ChartContainer config={chartConfig} className="h-full w-full">
             {chartType === 'line' ? (
-              <RechartsLineChart data={data} margin={{ top: 5, right: 60, left: 5, bottom: 40 }}>
+              <RechartsLineChart data={data} margin={{ top: 5, right: 60, left: 5, bottom: 50 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis 
                   dataKey="name" 
-                  tickLine={false} 
-                  axisLine={false} 
-                  tickMargin={10} 
-                  tickFormatter={(value) => typeof value === 'string' ? formatPeriodLabelForAxis(value) : value} 
+                  tick={<CustomXAxisTick />}
+                  height={50}
+                  axisLine={false}
+                  tickLine={false}
                   interval={data.length > 12 ? Math.floor(data.length / 10) : 0}
-                  angle={analysisMode === 'cumulative' ? 0 : (data.length > 6 ? -30 : 0)}
-                  dy={analysisMode === 'cumulative' ? 5 : (data.length > 6 ? 10 : 5)}
                   className="text-xs"
                 />
                 <YAxis 
@@ -243,17 +273,15 @@ export function TrendAnalysisSection({
                 ))}
               </RechartsLineChart>
             ) : ( 
-              <RechartsBarChart data={data} margin={{ top: 20, right: 60, left: 5, bottom: 40 }} barCategoryGap="20%">
+              <RechartsBarChart data={data} margin={{ top: 20, right: 60, left: 5, bottom: 50 }} barCategoryGap="20%">
                 <CartesianGrid strokeDasharray="3 3" vertical={false}/>
                 <XAxis 
                   dataKey="name" 
-                  tickLine={false} 
-                  axisLine={false} 
-                  tickMargin={10} 
-                  tickFormatter={(value) => typeof value === 'string' ? formatPeriodLabelForAxis(value) : value} 
+                  tick={<CustomXAxisTick />}
+                  height={50}
+                  axisLine={false}
+                  tickLine={false}
                   interval={data.length > 12 ? Math.floor(data.length / 10) : 0}
-                  angle={analysisMode === 'cumulative' ? 0 : (data.length > 6 ? -30 : 0)}
-                  dy={analysisMode === 'cumulative' ? 5 : (data.length > 6 ? 10 : 5)}
                   className="text-xs"
                 />
                 <YAxis 
