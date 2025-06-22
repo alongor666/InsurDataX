@@ -3,9 +3,8 @@
 
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { getFirebaseInstances } from '@/lib/firebase'; // Import the new getter function
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User, type AuthError } from 'firebase/auth';
-import { Skeleton } from '@/components/ui/skeleton';
+import { getFirebaseInstances } from '@/lib/firebase';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User, type Auth } from 'firebase/auth';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -26,35 +25,37 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const { auth } = getFirebaseInstances(); // Get auth instance here
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
+    // Firebase initialization and auth state observation MUST be inside useEffect
+    // to ensure it only runs on the client side.
+    const { auth } = getFirebaseInstances();
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setIsLoadingAuth(false);
     });
+    
+    // Cleanup subscription on unmount
     return () => unsubscribe();
-  }, [auth]);
+  }, []);
 
   const login = async (email: string, pass: string): Promise<boolean> => {
+    const { auth } = getFirebaseInstances(); // Get instance on demand
     try {
       await signInWithEmailAndPassword(auth, email, pass);
-      // onAuthStateChanged will handle setting currentUser.
-      // Manually redirect on successful login.
       router.push('/');
       return true;
     } catch (error) {
-      // Re-throw the error to be handled by the calling component (LoginPage)
-      // This allows for more specific error messages in the UI.
       throw error;
     }
   };
 
   const logout = async () => {
+    const { auth } = getFirebaseInstances(); // Get instance on demand
     try {
       await signOut(auth);
       router.push('/login');
@@ -75,7 +76,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [isLoadingAuth, isAuthenticated, pathname, router]);
 
-  // Initial loading skeleton while waiting for auth state
   if (isLoadingAuth) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -87,8 +87,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
   }
 
-  // If not authenticated and not on the login page, show a redirecting message
-  // This prevents content flashing while the router redirects.
   if (!isAuthenticated && pathname !== '/login') {
      return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -100,7 +98,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
   }
   
-  // If authenticated and somehow on the login page, show a redirecting message
   if (isAuthenticated && pathname === '/login') {
       return (
         <div className="flex h-screen w-full items-center justify-center bg-background">
