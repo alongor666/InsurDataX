@@ -292,6 +292,13 @@ export default function DashboardPage() {
         });
     }, [individualLinesData, selectedParetoMetric]);
 
+    const aiFiltersForCharts = useMemo(() => {
+      return {
+        selectedBusinessTypes: selectedBusinessTypes.length > 0 ? selectedBusinessTypes.join(', ') : '全部',
+        vcrColorRules: "变动成本率 < 88% 为 '经营优秀/低风险', 88%-92% 为 '健康/中等风险', >= 92% 为 '警告/高风险'",
+      };
+    }, [selectedBusinessTypes]);
+
     const handleExportClick = useCallback(() => {
         if (individualLinesData.length > 0) {
             exportToCSV(individualLinesData, analysisMode, allV4Data, "车险数据导出.csv", selectedComparisonPeriodKey, periodOptions, selectedPeriodKey);
@@ -330,20 +337,22 @@ export default function DashboardPage() {
                 </div>
             );
         }
+        
+        const currentPeriodLabel = periodOptions.find(p => p.value === selectedPeriodKey)?.label || '未知周期';
 
         switch (activeView) {
             case 'kpi':
                 return <KpiDashboardSection kpis={kpis} selectedPeriodKey={selectedPeriodKey} selectedComparisonPeriodKey={selectedComparisonPeriodKey} periodOptions={periodOptions} allV4Data={allV4Data} />;
             case 'trend':
-                return <TrendAnalysisSection data={trendData} selectedMetric={selectedTrendMetric} onMetricChange={setSelectedTrendMetric} availableMetrics={availableTrendMetrics} analysisMode={analysisMode} />;
+                return <TrendAnalysisSection data={trendData} selectedMetric={selectedTrendMetric} onMetricChange={setSelectedTrendMetric} availableMetrics={availableTrendMetrics} analysisMode={analysisMode} currentPeriodLabel={currentPeriodLabel} filters={aiFiltersForCharts} />;
             case 'bubble':
-                return <BubbleChartSection data={bubbleData} availableMetrics={availableBubbleMetrics} selectedXAxisMetric={selectedBubbleXMetric} onXAxisMetricChange={setSelectedBubbleXMetric} selectedYAxisMetric={selectedBubbleYMetric} onYAxisMetricChange={setSelectedBubbleYMetric} selectedSizeMetric={selectedBubbleSizeMetric} onSizeMetricChange={setSelectedBubbleSizeMetric} />;
+                return <BubbleChartSection data={bubbleData} availableMetrics={availableBubbleMetrics} selectedXAxisMetric={selectedBubbleXMetric} onXAxisMetricChange={setSelectedBubbleXMetric} selectedYAxisMetric={selectedBubbleYMetric} onYAxisMetricChange={setSelectedBubbleYMetric} selectedSizeMetric={selectedBubbleSizeMetric} onSizeMetricChange={setSelectedBubbleSizeMetric} analysisMode={analysisMode} currentPeriodLabel={currentPeriodLabel} filters={aiFiltersForCharts} />;
             case 'bar_rank':
-                return <BarChartRankingSection data={barRankingData} availableMetrics={availableRankingMetrics} selectedMetric={selectedRankingMetric} onMetricChange={setSelectedRankingMetric} />;
+                return <BarChartRankingSection data={barRankingData} availableMetrics={availableRankingMetrics} selectedMetric={selectedRankingMetric} onMetricChange={setSelectedRankingMetric} analysisMode={analysisMode} currentPeriodLabel={currentPeriodLabel} filters={aiFiltersForCharts} />;
             case 'share_chart':
-                return <ShareChartSection data={shareData} availableMetrics={availableShareMetrics} selectedMetric={selectedShareMetric} onMetricChange={setSelectedShareMetric} />;
+                return <ShareChartSection data={shareData} availableMetrics={availableShareMetrics} selectedMetric={selectedShareMetric} onMetricChange={setSelectedShareMetric} analysisMode={analysisMode} currentPeriodLabel={currentPeriodLabel} filters={aiFiltersForCharts} />;
             case 'pareto':
-                return <ParetoChartSection data={paretoData} availableMetrics={availableParetoMetrics} selectedMetric={selectedParetoMetric} onMetricChange={setSelectedParetoMetric} />;
+                return <ParetoChartSection data={paretoData} availableMetrics={availableParetoMetrics} selectedMetric={selectedParetoMetric} onMetricChange={setSelectedParetoMetric} analysisMode={analysisMode} currentPeriodLabel={currentPeriodLabel} filters={aiFiltersForCharts} />;
             case 'data_table':
                  return <DataTableSection data={individualLinesData} analysisMode={analysisMode} allV4Data={allV4Data} selectedComparisonPeriodKey={selectedComparisonPeriodKey} periodOptions={periodOptions} activePeriodId={selectedPeriodKey} />;
             default:
@@ -388,5 +397,3 @@ export default function DashboardPage() {
         </AppLayout>
     );
 }
-
-    

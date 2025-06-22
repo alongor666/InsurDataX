@@ -3,17 +3,18 @@
 
 import type { ChartDataItem } from '@/data/types'; 
 import { SectionWrapper } from '@/components/shared/section-wrapper';
-// ChartAiSummary removed
+import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { LineChart as LucideLineChart, Palette, BarChart2 } from 'lucide-react'; 
 import { ChartContainer, ChartTooltip, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { CartesianGrid, Line, Bar, LineChart as RechartsLineChart, BarChart as RechartsBarChart, XAxis, YAxis, TooltipProps, Cell, LabelList } from "recharts"; 
 import type {NameType, ValueType} from 'recharts/types/component/DefaultTooltipContent';
-import { useMemo } from 'react'; 
+import { useMemo, useState } from 'react'; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { TrendMetricKey, AnalysisMode } from '@/data/types'; 
 import { formatDisplayValue } from '@/lib/data-utils'; 
 import { parsePeriodLabelToYearWeek, getWeekDateObjects, formatPeriodLabelForTooltip } from '@/lib/date-formatters';
 import { format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 interface TrendAnalysisSectionProps {
   data: ChartDataItem[];
@@ -21,10 +22,8 @@ interface TrendAnalysisSectionProps {
   onMetricChange: (metric: TrendMetricKey) => void; 
   selectedMetric: TrendMetricKey; 
   analysisMode: AnalysisMode; 
-  // AI props removed
-  // aiSummary: string | null;
-  // isAiSummaryLoading: boolean;
-  // onGenerateAiSummary: () => Promise<void>;
+  currentPeriodLabel: string;
+  filters: any;
 }
 
 const METRIC_FORMAT_RULES_FOR_CHARTS: Record<string, { type: string, originalUnit?: string }> = {
@@ -175,10 +174,12 @@ export function TrendAnalysisSection({
   onMetricChange, 
   selectedMetric,
   analysisMode,
-  // aiSummary, // Removed
-  // isAiSummaryLoading, // Removed
-  // onGenerateAiSummary // Removed
+  currentPeriodLabel,
+  filters
 }: TrendAnalysisSectionProps) {
+  const { toast } = useToast();
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [isAiSummaryLoading, setIsAiSummaryLoading] = useState(false);
   
   const businessLineNames = useMemo(() => {
     if (!data || data.length === 0) return [];
@@ -203,6 +204,53 @@ export function TrendAnalysisSection({
       return acc;
     }, {} as any);
   }, [businessLineNames, data]);
+
+  const hasData = data && data.length > 0 && businessLineNames.length > 0;
+
+  const handleGenerateAiSummary = async () => {
+    if (!hasData) return;
+    setIsAiSummaryLoading(true);
+    setAiSummary(null);
+
+    const selectedMetricLabel = availableMetrics.find(m => m.value === selectedMetric)?.label || selectedMetric;
+
+    try {
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flowName: 'generateTrendAnalysis',
+          inputData: {
+            chartDataJson: JSON.stringify(data),
+            selectedMetric: selectedMetricLabel,
+            analysisMode,
+            currentPeriodLabel,
+            filtersJson: JSON.stringify(filters)
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'AI分析生成失败');
+      }
+
+      const result = await response.json();
+      setAiSummary(result.summary);
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({
+        variant: "destructive",
+        title: "AI 分析失败",
+        description: errorMessage,
+      });
+      console.error("AI summary generation failed:", errorMessage);
+    } finally {
+      setIsAiSummaryLoading(false);
+    }
+  };
+
 
   const yAxisFormatter = (value: number) => {
     const ruleForSelectedMetric = METRIC_FORMAT_RULES_FOR_CHARTS[selectedMetric];
@@ -248,9 +296,8 @@ export function TrendAnalysisSection({
 
   const chartType = getMetricChartType(selectedMetric);
   const ChartIcon = chartType === 'line' ? LucideLineChart : BarChart2;
-  const hasData = data && data.length > 0 && businessLineNames.length > 0;
   
-  const interval = analysisMode === 'periodOverPeriod' && data.length > 7 ? Math.floor(data.length / 7) : 0;
+  const interval = (analysisMode === 'periodOverPeriod' && data.length > 7) || data.length > 15 ? Math.floor(data.length / 7) : 0;
 
   return (
     <SectionWrapper title="趋势分析" icon={ChartIcon} actionButton={metricSelector}>
@@ -331,7 +378,13 @@ export function TrendAnalysisSection({
           </ChartContainer>
         </div>
       )}
-      {/* ChartAiSummary removed */}
+      <ChartAiSummary
+        summary={aiSummary}
+        isLoading={isAiSummaryLoading}
+        onGenerateSummary={handleGenerateAiSummary}
+        hasData={hasData}
+        chartTypeLabel="趋势图"
+      />
     </SectionWrapper>
   );
 }

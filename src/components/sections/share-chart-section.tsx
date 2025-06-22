@@ -1,9 +1,9 @@
 
 "use client";
 
-import type { ShareChartDataItem, ShareChartMetricKey } from '@/data/types';
+import type { ShareChartDataItem, ShareChartMetricKey, AnalysisMode } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
-// ChartAiSummary removed
+import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { PieChart as PieChartIconLucide, Palette } from 'lucide-react'; 
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend as RechartsLegend, ResponsiveContainer } from 'recharts';
@@ -11,16 +11,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatDisplayValue } from '@/lib/data-utils';
 import type { TooltipProps } from 'recharts';
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 interface ShareChartSectionProps {
   data: ShareChartDataItem[];
   availableMetrics: { value: ShareChartMetricKey, label: string }[];
   selectedMetric: ShareChartMetricKey;
   onMetricChange: (metric: ShareChartMetricKey) => void;
-  // AI props removed
-  // aiSummary: string | null;
-  // isAiSummaryLoading: boolean;
-  // onGenerateAiSummary: () => Promise<void>;
+  analysisMode: AnalysisMode;
+  currentPeriodLabel: string;
+  filters: any;
 }
 
 const CustomTooltipContent = ({ active, payload, coordinate, selectedMetricKey, availableMetricsList }: TooltipProps<ValueType, NameType> & { selectedMetricKey?: ShareChartMetricKey, availableMetricsList?: { value: ShareChartMetricKey, label: string }[] }) => {
@@ -93,10 +94,59 @@ export function ShareChartSection({
   availableMetrics,
   selectedMetric,
   onMetricChange,
-  // aiSummary, // Removed
-  // isAiSummaryLoading, // Removed
-  // onGenerateAiSummary // Removed
+  analysisMode,
+  currentPeriodLabel,
+  filters,
 }: ShareChartSectionProps) {
+  const { toast } = useToast();
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [isAiSummaryLoading, setIsAiSummaryLoading] = useState(false);
+
+  const hasData = data && data.length > 0;
+
+  const handleGenerateAiSummary = async () => {
+    if (!hasData) return;
+    setIsAiSummaryLoading(true);
+    setAiSummary(null);
+
+    const analyzedMetricLabel = availableMetrics.find(m => m.value === selectedMetric)?.label || selectedMetric;
+
+    try {
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flowName: 'generateShareChartAnalysis',
+          inputData: {
+            chartDataJson: JSON.stringify(data),
+            analyzedMetric: analyzedMetricLabel,
+            analysisMode,
+            currentPeriodLabel,
+            filtersJson: JSON.stringify(filters)
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'AI分析生成失败');
+      }
+
+      const result = await response.json();
+      setAiSummary(result.summary);
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({
+        variant: "destructive",
+        title: "AI 分析失败",
+        description: errorMessage,
+      });
+      console.error("AI summary generation failed:", errorMessage);
+    } finally {
+      setIsAiSummaryLoading(false);
+    }
+  };
 
   const metricSelector = (
     <div className="flex items-center space-x-2">
@@ -114,11 +164,9 @@ export function ShareChartSection({
     </div>
   );
 
-  const hasData = data && data.length > 0;
   const chartConfig = {}; 
 
   const outerRadiusResponsive = hasData ? Math.min(150, (Math.min(typeof window !== 'undefined' ? window.innerWidth : 800, typeof window !== 'undefined' ? window.innerHeight : 600) * 0.25)) : 120;
-
 
   return (
     <SectionWrapper title="占比分析图" icon={PieChartIconLucide} actionButton={metricSelector}>
@@ -162,9 +210,13 @@ export function ShareChartSection({
           </ChartContainer>
         </div>
       )}
-      {/* ChartAiSummary removed */}
+      <ChartAiSummary
+        summary={aiSummary}
+        isLoading={isAiSummaryLoading}
+        onGenerateSummary={handleGenerateAiSummary}
+        hasData={hasData}
+        chartTypeLabel="占比图"
+      />
     </SectionWrapper>
   );
 }
-
-    

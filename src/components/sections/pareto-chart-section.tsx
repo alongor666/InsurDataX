@@ -1,9 +1,9 @@
 
 "use client";
 
-import type { ParetoChartDataItem, ParetoChartMetricKey } from '@/data/types';
+import type { ParetoChartDataItem, ParetoChartMetricKey, AnalysisMode } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
-// ChartAiSummary removed
+import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { AreaChart as AreaChartIcon, Palette } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChartContainer, ChartTooltip, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
@@ -11,16 +11,17 @@ import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip as Recha
 import type { TooltipProps } from 'recharts';
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import { formatDisplayValue } from '@/lib/data-utils';
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 interface ParetoChartSectionProps {
   data: ParetoChartDataItem[];
   availableMetrics: { value: ParetoChartMetricKey, label: string }[];
   selectedMetric: ParetoChartMetricKey;
   onMetricChange: (metric: ParetoChartMetricKey) => void;
-  // AI props removed
-  // aiSummary: string | null;
-  // isAiSummaryLoading: boolean;
-  // onGenerateAiSummary: () => Promise<void>;
+  analysisMode: AnalysisMode;
+  currentPeriodLabel: string;
+  filters: any;
 }
 
 const METRIC_FORMAT_RULES_FOR_CHARTS: Record<string, { type: string, originalUnit?: string }> = {
@@ -77,10 +78,59 @@ export function ParetoChartSection({
   availableMetrics,
   selectedMetric,
   onMetricChange,
-  // aiSummary, // Removed
-  // isAiSummaryLoading, // Removed
-  // onGenerateAiSummary // Removed
+  analysisMode,
+  currentPeriodLabel,
+  filters,
 }: ParetoChartSectionProps) {
+  const { toast } = useToast();
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [isAiSummaryLoading, setIsAiSummaryLoading] = useState(false);
+
+  const hasData = data && data.length > 0;
+
+  const handleGenerateAiSummary = async () => {
+    if (!hasData) return;
+    setIsAiSummaryLoading(true);
+    setAiSummary(null);
+
+    const analyzedMetricLabel = availableMetrics.find(m => m.value === selectedMetric)?.label || selectedMetric;
+
+    try {
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flowName: 'generateParetoAnalysis',
+          inputData: {
+            chartDataJson: JSON.stringify(data),
+            analyzedMetric: analyzedMetricLabel,
+            analysisMode,
+            currentPeriodLabel,
+            filtersJson: JSON.stringify(filters)
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'AI分析生成失败');
+      }
+
+      const result = await response.json();
+      setAiSummary(result.summary);
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({
+        variant: "destructive",
+        title: "AI 分析失败",
+        description: errorMessage,
+      });
+      console.error("AI summary generation failed:", errorMessage);
+    } finally {
+      setIsAiSummaryLoading(false);
+    }
+  };
 
   const metricSelector = (
     <div className="flex items-center space-x-2">
@@ -98,7 +148,6 @@ export function ParetoChartSection({
     </div>
   );
 
-  const hasData = data && data.length > 0;
   const selectedMetricConfig = availableMetrics.find(m => m.value === selectedMetric);
   const chartConfig = {
       value: { label: selectedMetricConfig?.label || selectedMetric, color: "hsl(var(--chart-1))" }, 
@@ -176,9 +225,13 @@ export function ParetoChartSection({
           </ChartContainer>
         </div>
       )}
-      {/* ChartAiSummary removed */}
+       <ChartAiSummary
+          summary={aiSummary}
+          isLoading={isAiSummaryLoading}
+          onGenerateSummary={handleGenerateAiSummary}
+          hasData={hasData}
+          chartTypeLabel="帕累托图"
+        />
     </SectionWrapper>
   );
 }
-
-    

@@ -4,23 +4,24 @@
 import type { ChartDataItem } from '@/data/types';
 import type { RankingMetricKey } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
-// ChartAiSummary removed
+import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { BarChartHorizontal, Palette } from 'lucide-react';
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 import { Bar, BarChart as RechartsBarChart, CartesianGrid, XAxis, YAxis, TooltipProps, ResponsiveContainer, LabelList, Cell } from "recharts";
 import type {NameType, ValueType} from 'recharts/types/component/DefaultTooltipContent';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatDisplayValue } from '@/lib/data-utils'; 
+import { formatDisplayValue } from '@/lib/data-utils';
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 interface BarChartRankingSectionProps {
   data: ChartDataItem[];
   availableMetrics: { value: RankingMetricKey, label: string }[];
   onMetricChange: (metric: RankingMetricKey) => void;
   selectedMetric: RankingMetricKey;
-  // AI props removed
-  // aiSummary: string | null;
-  // isAiSummaryLoading: boolean;
-  // onGenerateAiSummary: () => Promise<void>;
+  analysisMode: AnalysisMode; 
+  currentPeriodLabel: string;
+  filters: any; 
 }
 
 const valueFormatterForLabelList = (value: number, metricKey: RankingMetricKey): string => {
@@ -88,13 +89,62 @@ export function BarChartRankingSection({
   availableMetrics, 
   onMetricChange, 
   selectedMetric,
-  // aiSummary, // Removed
-  // isAiSummaryLoading, // Removed
-  // onGenerateAiSummary // Removed
+  analysisMode,
+  currentPeriodLabel,
+  filters,
 }: BarChartRankingSectionProps) {
+  const { toast } = useToast();
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [isAiSummaryLoading, setIsAiSummaryLoading] = useState(false);
   
   const selectedMetricConfig = availableMetrics.find(m => m.value === selectedMetric);
   const chartConfig = { [selectedMetric]: { label: selectedMetricConfig?.label || selectedMetric } };
+
+  const hasData = data && data.length > 0;
+
+  const handleGenerateAiSummary = async () => {
+    if (!hasData) return;
+    setIsAiSummaryLoading(true);
+    setAiSummary(null);
+
+    const rankedMetricLabel = availableMetrics.find(m => m.value === selectedMetric)?.label || selectedMetric;
+
+    try {
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flowName: 'generateBarRankingAnalysis',
+          inputData: {
+            chartDataJson: JSON.stringify(data),
+            rankedMetric: rankedMetricLabel,
+            analysisMode,
+            currentPeriodLabel,
+            filtersJson: JSON.stringify(filters)
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'AI分析生成失败');
+      }
+
+      const result = await response.json();
+      setAiSummary(result.summary);
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({
+        variant: "destructive",
+        title: "AI 分析失败",
+        description: errorMessage,
+      });
+      console.error("AI summary generation failed:", errorMessage);
+    } finally {
+      setIsAiSummaryLoading(false);
+    }
+  };
 
   const metricSelector = (
     <div className="flex items-center space-x-2">
@@ -112,7 +162,6 @@ export function BarChartRankingSection({
     </div>
   );
 
-  const hasData = data && data.length > 0;
   const yAxisWidth = hasData ? Math.max(...data.map(d => d.name.length * 8), 100, 120) : 120; 
 
   let xAxisLabelContent = "";
@@ -120,7 +169,6 @@ export function BarChartRankingSection({
   if (selectedMetricOriginalUnit && selectedMetricOriginalUnit !== 'none') {
       xAxisLabelContent = `(${selectedMetricOriginalUnit})`;
   }
-
 
   return (
     <SectionWrapper title="水平条形图排名" icon={BarChartHorizontal} actionButton={metricSelector}>
@@ -172,9 +220,13 @@ export function BarChartRankingSection({
           </ChartContainer>
         </div>
       )}
-       {/* ChartAiSummary removed */}
+       <ChartAiSummary
+          summary={aiSummary}
+          isLoading={isAiSummaryLoading}
+          onGenerateSummary={handleGenerateAiSummary}
+          hasData={hasData}
+          chartTypeLabel="排名图"
+        />
     </SectionWrapper>
   );
 }
-
-    
