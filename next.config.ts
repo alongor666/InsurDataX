@@ -1,13 +1,6 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // output: "export", // This line is removed to enable server-side rendering for auth
-  // typescript: {
-  //   ignoreBuildErrors: true, // Removed
-  // },
-  // eslint: {
-  //   ignoreDuringBuilds: true, // Removed
-  // },
   images: {
     remotePatterns: [
       {
@@ -18,7 +11,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // The allowedDevOrigins configuration has been removed.
+  experimental: {
+    allowedDevOrigins: ["https://*.cloudworkstations.dev"],
+  },
 };
 
 export default nextConfig;
