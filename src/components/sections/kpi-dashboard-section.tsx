@@ -1,8 +1,11 @@
 
-import type { Kpi, PeriodOption, V4PeriodData } from '@/data/types';
+import type { Kpi, PeriodOption, V4PeriodData, AnalysisMode, TopBusinessLineData } from '@/data/types';
 import { KpiCard } from '@/components/shared/kpi-card';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
 import { LayoutDashboard } from 'lucide-react';
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 
 interface KpiDashboardSectionProps {
   kpis: Kpi[];
@@ -10,6 +13,9 @@ interface KpiDashboardSectionProps {
   selectedComparisonPeriodKey: string | null;
   periodOptions: PeriodOption[];
   allV4Data: V4PeriodData[]; 
+  analysisMode: AnalysisMode;
+  selectedBusinessTypes: string[];
+  topBusinessLinesData: TopBusinessLineData[];
 }
 
 const findKpi = (kpis: Kpi[], id: string, title?: string): Kpi | undefined => {
@@ -45,28 +51,16 @@ export function KpiDashboardSection({
   selectedPeriodKey, 
   selectedComparisonPeriodKey, 
   periodOptions,
-  allV4Data 
+  allV4Data,
+  analysisMode,
+  selectedBusinessTypes,
+  topBusinessLinesData
 }: KpiDashboardSectionProps) {
-  if (!kpis || kpis.length === 0) {
-    return (
-      <SectionWrapper title="KPI 看板" icon={LayoutDashboard}>
-        <p className="text-muted-foreground">暂无KPI数据或正在加载...</p>
-      </SectionWrapper>
-    );
-  }
+  const { toast } = useToast();
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [isAiSummaryLoading, setIsAiSummaryLoading] = useState(false);
 
-  const renderColumn = (columnNumber: number) => {
-    return KPI_LAYOUT_CONFIG.filter(item => item.column === columnNumber)
-      .map(configItem => {
-        const kpi = findKpi(kpis, configItem.id, configItem.title);
-        if (kpi) {
-          return <KpiCard key={kpi.id} kpi={kpi} />;
-        }
-        if (configItem.id === 'avg_commercial_index') return null;
-        // Fallback for missing KPI data, maintaining the reduced height
-        return <div key={configItem.id} className="p-3 border rounded-lg shadow-sm bg-card text-card-foreground min-h-[115px] flex items-center justify-center text-xs text-muted-foreground">KPI: {configItem.title} (数据待处理)</div>;
-      });
-  };
+  const hasData = kpis && kpis.length > 0;
 
   let currentPeriodLabel = periodOptions.find(p => p.value === selectedPeriodKey)?.label || selectedPeriodKey;
   let comparisonPeriodText = "无对比期";
@@ -96,26 +90,112 @@ export function KpiDashboardSection({
      }
   }
 
+  const handleGenerateAiSummary = async () => {
+    if (!hasData) return;
+    setIsAiSummaryLoading(true);
+    setAiSummary(null);
+
+    const dataPayload = {
+      keyPerformanceIndicators: kpis,
+      topBusinessLinesByPremiumWritten: topBusinessLinesData,
+    };
+
+    const filtersPayload = {
+      analysisMode,
+      period: currentPeriodLabel,
+      comparison: comparisonPeriodText,
+      selectedBusinessTypes: selectedBusinessTypes.length > 0 ? selectedBusinessTypes.join(', ') : '全部',
+      vcrColorRules: "变动成本率 < 88% 为 '经营优秀/低风险', 88%-92% 为 '健康/中等风险', >= 92% 为 '警告/高风险'",
+    };
+
+    try {
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flowName: 'generateBusinessSummary',
+          inputData: {
+            data: JSON.stringify(dataPayload),
+            filters: JSON.stringify(filtersPayload)
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = `AI 服务错误 (状态: ${response.status})`;
+        try {
+          const jsonError = JSON.parse(errorText);
+          errorMessage = jsonError.error || jsonError.details || errorMessage;
+        } catch (e) {
+          console.error("AI API returned non-JSON error response for KPI Dashboard:", errorText);
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      setAiSummary(result.summary);
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({
+        variant: "destructive",
+        title: "AI 分析失败",
+        description: errorMessage,
+      });
+      console.error("AI summary generation failed:", errorMessage);
+    } finally {
+      setIsAiSummaryLoading(false);
+    }
+  };
+
+
+  if (!kpis || kpis.length === 0) {
+    return (
+      <SectionWrapper title="KPI 看板" icon={LayoutDashboard}>
+        <p className="text-muted-foreground">暂无KPI数据或正在加载...</p>
+      </SectionWrapper>
+    );
+  }
+
+  const renderColumn = (columnNumber: number) => {
+    return KPI_LAYOUT_CONFIG.filter(item => item.column === columnNumber)
+      .map(configItem => {
+        const kpi = findKpi(kpis, configItem.id, configItem.title);
+        if (kpi) {
+          return <KpiCard key={kpi.id} kpi={kpi} />;
+        }
+        if (configItem.id === 'avg_commercial_index') return null;
+        return <div key={configItem.id} className="p-3 border rounded-lg shadow-sm bg-card text-card-foreground min-h-[115px] flex items-center justify-center text-xs text-muted-foreground">KPI: {configItem.title} (数据待处理)</div>;
+      });
+  };
 
   return (
     <SectionWrapper title="KPI 看板" icon={LayoutDashboard}>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4"> {/* Reduced gap from gap-4 to gap-3 */}
-        <div className="space-y-3">{renderColumn(1)}</div> {/* Reduced space-y from space-y-4 to space-y-3 */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+        <div className="space-y-3">{renderColumn(1)}</div>
         <div className="space-y-3">{renderColumn(2)}</div>
         <div className="space-y-3">{renderColumn(3)}</div>
         <div className="space-y-3">{renderColumn(4)}</div>
       </div>
       {currentPeriodLabel && (
-        <div className="mt-3 pt-2 border-t text-xs text-muted-foreground text-center"> {/* Reduced margin/padding and font size */}
+        <div className="mt-3 pt-2 border-t text-xs text-muted-foreground text-center">
           当前数据周期：<span className="font-semibold text-foreground">{currentPeriodLabel}</span>
           {comparisonPeriodText !== "无对比期" && comparisonPeriodText !== "无默认对比期" && (
             <>
-              <span className="mx-1.5">|</span> {/* Reduced mx */}
+              <span className="mx-1.5">|</span>
               <span className="font-semibold text-foreground">{comparisonPeriodText}</span>
             </>
           )}
         </div>
       )}
+       <ChartAiSummary
+          summary={aiSummary}
+          isLoading={isAiSummaryLoading}
+          onGenerateSummary={handleGenerateAiSummary}
+          hasData={hasData}
+          chartTypeLabel="KPI看板"
+        />
     </SectionWrapper>
   );
 }

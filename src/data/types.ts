@@ -64,6 +64,7 @@ export interface AggregatedBusinessMetrics {
 
   marginal_contribution_ratio: number;
   marginal_contribution_amount: number;
+  premium_share?: number;
 }
 
 export interface ProcessedDataForPeriod {
@@ -171,4 +172,13 @@ export type ParetoChartMetricKey = ShareChartMetricKey;
 export interface BusinessLineBasic {
   id: string;
   name: string;
+}
+
+export interface TopBusinessLineData {
+  name: string;
+  premium_written: number;
+  loss_ratio: number;
+  expense_ratio: number;
+  variable_cost_ratio: number;
+  color?: string;
 }

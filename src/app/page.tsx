@@ -33,7 +33,8 @@ import {
   type ChartDataItem,
   type BubbleChartDataItem,
   type ShareChartDataItem,
-  type ParetoChartDataItem
+  type ParetoChartDataItem,
+  type TopBusinessLineData
 } from '@/data/types';
 import {
   processDataForSelectedPeriod,
@@ -232,6 +233,21 @@ export default function DashboardPage() {
         }).filter((item): item is ProcessedDataForPeriod => item !== null);
     }, [allV4Data, selectedPeriodKey, selectedComparisonPeriodKey, analysisMode, allIndividualBusinessLines]);
 
+    const topBusinessLinesData = useMemo((): TopBusinessLineData[] => {
+        if (!individualLinesData || individualLinesData.length === 0) return [];
+        return individualLinesData
+            .sort((a, b) => (b.currentMetrics.premium_written ?? 0) - (a.currentMetrics.premium_written ?? 0))
+            .slice(0, 5) // Top 5 by premium written
+            .map(d => ({
+                name: d.businessLineName,
+                premium_written: d.currentMetrics.premium_written ?? 0,
+                loss_ratio: d.currentMetrics.loss_ratio ?? 0,
+                expense_ratio: d.currentMetrics.expense_ratio ?? 0,
+                variable_cost_ratio: d.currentMetrics.variable_cost_ratio ?? 0,
+                color: getDynamicColorByVCR(d.currentMetrics.variable_cost_ratio),
+            }));
+    }, [individualLinesData]);
+
     const barRankingData = useMemo((): ChartDataItem[] => {
         return individualLinesData
             .map(d => ({
@@ -342,7 +358,16 @@ export default function DashboardPage() {
 
         switch (activeView) {
             case 'kpi':
-                return <KpiDashboardSection kpis={kpis} selectedPeriodKey={selectedPeriodKey} selectedComparisonPeriodKey={selectedComparisonPeriodKey} periodOptions={periodOptions} allV4Data={allV4Data} />;
+                return <KpiDashboardSection
+                    kpis={kpis}
+                    selectedPeriodKey={selectedPeriodKey}
+                    selectedComparisonPeriodKey={selectedComparisonPeriodKey}
+                    periodOptions={periodOptions}
+                    allV4Data={allV4Data}
+                    analysisMode={analysisMode}
+                    selectedBusinessTypes={selectedBusinessTypes}
+                    topBusinessLinesData={topBusinessLinesData}
+                />;
             case 'trend':
                 return <TrendAnalysisSection data={trendData} selectedMetric={selectedTrendMetric} onMetricChange={setSelectedTrendMetric} availableMetrics={availableTrendMetrics} analysisMode={analysisMode} currentPeriodLabel={currentPeriodLabel} filters={aiFiltersForCharts} />;
             case 'bubble':
@@ -356,7 +381,16 @@ export default function DashboardPage() {
             case 'data_table':
                  return <DataTableSection data={individualLinesData} analysisMode={analysisMode} allV4Data={allV4Data} selectedComparisonPeriodKey={selectedComparisonPeriodKey} periodOptions={periodOptions} activePeriodId={selectedPeriodKey} />;
             default:
-                return <KpiDashboardSection kpis={kpis} selectedPeriodKey={selectedPeriodKey} selectedComparisonPeriodKey={selectedComparisonPeriodKey} periodOptions={periodOptions} allV4Data={allV4Data} />;
+                return <KpiDashboardSection
+                    kpis={kpis}
+                    selectedPeriodKey={selectedPeriodKey}
+                    selectedComparisonPeriodKey={selectedComparisonPeriodKey}
+                    periodOptions={periodOptions}
+                    allV4Data={allV4Data}
+                    analysisMode={analysisMode}
+                    selectedBusinessTypes={selectedBusinessTypes}
+                    topBusinessLinesData={topBusinessLinesData}
+                />;
         }
     };
     
