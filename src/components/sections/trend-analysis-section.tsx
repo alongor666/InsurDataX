@@ -239,15 +239,15 @@ export function TrendAnalysisSection({
         <div className="h-[350px] w-full">
           <ChartContainer config={chartConfig} className="h-full w-full">
             {chartType === 'line' ? (
-              <RechartsLineChart data={data} margin={{ top: 5, right: 60, left: 5, bottom: 50 }}>
+              <RechartsLineChart data={data} margin={{ top: 5, right: 40, left: 10, bottom: 60 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis 
                   dataKey="name" 
                   tick={<CustomXAxisTick />}
-                  height={50}
+                  height={60}
                   axisLine={false}
                   tickLine={false}
-                  interval={data.length > 12 ? Math.floor(data.length / 10) : 0}
+                  interval={data.length > 7 ? 1 : 0}
                   className="text-xs"
                 />
                 <YAxis 
@@ -273,15 +273,15 @@ export function TrendAnalysisSection({
                 ))}
               </RechartsLineChart>
             ) : ( 
-              <RechartsBarChart data={data} margin={{ top: 20, right: 60, left: 5, bottom: 50 }} barCategoryGap="20%">
+              <RechartsBarChart data={data} margin={{ top: 20, right: 40, left: 10, bottom: 60 }} barCategoryGap="20%">
                 <CartesianGrid strokeDasharray="3 3" vertical={false}/>
                 <XAxis 
                   dataKey="name" 
                   tick={<CustomXAxisTick />}
-                  height={50}
+                  height={60}
                   axisLine={false}
                   tickLine={false}
-                  interval={data.length > 12 ? Math.floor(data.length / 10) : 0}
+                  interval={data.length > 7 ? 1 : 0}
                   className="text-xs"
                 />
                 <YAxis 
