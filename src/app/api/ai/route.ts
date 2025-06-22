@@ -46,7 +46,10 @@ export async function POST(request: NextRequest) {
     const { flowName, inputData } = (await request.json()) as AiProxyRequest;
     
     // Inject the system instruction into the input data for the flow.
-    inputData.system_instruction = systemInstruction;
+    const fullInputData = {
+        ...inputData,
+        system_instruction: systemInstruction
+    };
 
     if (!flowName || !inputData) {
       return NextResponse.json(
@@ -58,22 +61,22 @@ export async function POST(request: NextRequest) {
     let result;
     switch (flowName) {
       case 'generateBusinessSummary':
-        result = await generateBusinessSummary(inputData as GenerateBusinessSummaryInput);
+        result = await generateBusinessSummary(fullInputData as GenerateBusinessSummaryInput);
         break;
       case 'generateTrendAnalysis':
-        result = await generateTrendAnalysis(inputData as GenerateTrendAnalysisInput);
+        result = await generateTrendAnalysis(fullInputData as GenerateTrendAnalysisInput);
         break;
       case 'generateBubbleChartAnalysis':
-        result = await generateBubbleChartAnalysis(inputData as GenerateBubbleChartAnalysisInput);
+        result = await generateBubbleChartAnalysis(fullInputData as GenerateBubbleChartAnalysisInput);
         break;
       case 'generateBarRankingAnalysis':
-        result = await generateBarRankingAnalysis(inputData as GenerateBarRankingAnalysisInput);
+        result = await generateBarRankingAnalysis(fullInputData as GenerateBarRankingAnalysisInput);
         break;
       case 'generateShareChartAnalysis':
-        result = await generateShareChartAnalysis(inputData as GenerateShareChartAnalysisInput);
+        result = await generateShareChartAnalysis(fullInputData as GenerateShareChartAnalysisInput);
         break;
       case 'generateParetoAnalysis':
-        result = await generateParetoAnalysis(inputData as GenerateParetoAnalysisInput);
+        result = await generateParetoAnalysis(fullInputData as GenerateParetoAnalysisInput);
         break;
       default:
         return NextResponse.json(
