@@ -23,9 +23,6 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Create .env.local for build
-        run: echo "NEXT_PUBLIC_OPENROUTER_PROXY_URL=${{ secrets.NEXT_PUBLIC_OPENROUTER_PROXY_URL }}" > .env.local
-
       - name: Build Next.js Application
         run: npm run build
 
@@ -39,3 +36,4 @@ jobs:
           entryPoint: '.' # This enables framework-aware builds for Next.js
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
+

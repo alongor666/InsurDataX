@@ -3,16 +3,13 @@
 
 import type { BubbleChartDataItem, BubbleMetricKey, AnalysisMode } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
-import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { ScatterChart as LucideScatterChart, Palette } from 'lucide-react'; 
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 import { CartesianGrid, Scatter, ScatterChart as RechartsScatterChart, XAxis, YAxis, ZAxis, TooltipProps, ResponsiveContainer } from "recharts";
 import type {NameType, ValueType} from 'recharts/types/component/DefaultTooltipContent';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatDisplayValue } from '@/lib/data-utils'; 
-import { useToast } from '@/hooks/use-toast';
-import { getBubbleChartAnalysisPrompt, callProxy } from '@/lib/ai-prompt-builder';
 
 interface BubbleChartSectionProps {
   data: BubbleChartDataItem[];
@@ -79,9 +76,6 @@ export function BubbleChartSection({
   currentPeriodLabel,
   filters
 }: BubbleChartSectionProps) {
-  const { toast } = useToast();
-  const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [isAiSummaryLoading, setIsAiSummaryLoading] = useState(false);
 
   const uniqueBusinessLines = useMemo(() => {
     if (!data || data.length === 0) return [];
@@ -106,42 +100,6 @@ export function BubbleChartSection({
   }, [uniqueBusinessLines]);
 
   const hasData = data && data.length > 0 && uniqueBusinessLines.length > 0;
-
-  const handleGenerateAiSummary = async () => {
-    if (!hasData) return;
-    setIsAiSummaryLoading(true);
-    setAiSummary(null);
-
-    try {
-      const getMetricLabel = (key: BubbleMetricKey) => availableMetrics.find(m => m.value === key)?.label || key;
-      const systemInstruction = "You are a helpful AI assistant."; // Could be fetched from config
-      const prompt = getBubbleChartAnalysisPrompt({
-          chartDataJson: JSON.stringify(data),
-          xAxisMetric: getMetricLabel(selectedXAxisMetric),
-          yAxisMetric: getMetricLabel(selectedYAxisMetric),
-          bubbleSizeMetric: getMetricLabel(selectedSizeMetric),
-          analysisMode,
-          currentPeriodLabel,
-          filtersJson: JSON.stringify(filters)
-        },
-        systemInstruction
-      );
-
-      const resultSummary = await callProxy(prompt);
-      setAiSummary(resultSummary);
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      toast({
-        variant: "destructive",
-        title: "AI 分析失败",
-        description: errorMessage,
-      });
-      console.error("AI summary generation failed:", errorMessage);
-    } finally {
-      setIsAiSummaryLoading(false);
-    }
-  };
 
   const getMetricLabelAndUnit = (metricKey: BubbleMetricKey): { label: string, unit: string } => {
     const config = availableMetrics.find(m => m.value === metricKey);
@@ -240,13 +198,6 @@ export function BubbleChartSection({
           </ChartContainer>
         </div>
       )}
-      <ChartAiSummary
-        summary={aiSummary}
-        isLoading={isAiSummaryLoading}
-        onGenerateSummary={handleGenerateAiSummary}
-        hasData={hasData}
-        chartTypeLabel="气泡图"
-      />
     </SectionWrapper>
   );
 }

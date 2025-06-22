@@ -4,16 +4,12 @@
 import type { ChartDataItem } from '@/data/types';
 import type { RankingMetricKey, AnalysisMode } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
-import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { BarChartHorizontal, Palette } from 'lucide-react';
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 import { Bar, BarChart as RechartsBarChart, CartesianGrid, XAxis, YAxis, TooltipProps, ResponsiveContainer, LabelList, Cell } from "recharts";
 import type {NameType, ValueType} from 'recharts/types/component/DefaultTooltipContent';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatDisplayValue } from '@/lib/data-utils';
-import { useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { getBarRankingAnalysisPrompt, callProxy } from '@/lib/ai-prompt-builder';
 
 interface BarChartRankingSectionProps {
   data: ChartDataItem[];
@@ -95,48 +91,11 @@ export function BarChartRankingSection({
   currentPeriodLabel,
   filters,
 }: BarChartRankingSectionProps) {
-  const { toast } = useToast();
-  const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [isAiSummaryLoading, setIsAiSummaryLoading] = useState(false);
   
   const selectedMetricConfig = availableMetrics.find(m => m.value === selectedMetric);
   const chartConfig = { [selectedMetric]: { label: selectedMetricConfig?.label || selectedMetric } };
 
   const hasData = data && data.length > 0;
-
-  const handleGenerateAiSummary = async () => {
-    if (!hasData) return;
-    setIsAiSummaryLoading(true);
-    setAiSummary(null);
-
-    try {
-      const rankedMetricLabel = availableMetrics.find(m => m.value === selectedMetric)?.label || selectedMetric;
-      const systemInstruction = "You are a helpful AI assistant."; // Could be fetched from config
-      const prompt = getBarRankingAnalysisPrompt({
-          chartDataJson: JSON.stringify(data),
-          rankedMetric: rankedMetricLabel,
-          analysisMode,
-          currentPeriodLabel,
-          filtersJson: JSON.stringify(filters)
-        },
-        systemInstruction
-      );
-
-      const resultSummary = await callProxy(prompt);
-      setAiSummary(resultSummary);
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      toast({
-        variant: "destructive",
-        title: "AI 分析失败",
-        description: errorMessage,
-      });
-      console.error("AI summary generation failed:", errorMessage);
-    } finally {
-      setIsAiSummaryLoading(false);
-    }
-  };
 
   const metricSelector = (
     <div className="flex items-center space-x-2">
@@ -212,13 +171,7 @@ export function BarChartRankingSection({
           </ChartContainer>
         </div>
       )}
-       <ChartAiSummary
-          summary={aiSummary}
-          isLoading={isAiSummaryLoading}
-          onGenerateSummary={handleGenerateAiSummary}
-          hasData={hasData}
-          chartTypeLabel="排名图"
-        />
     </SectionWrapper>
   );
 }
+

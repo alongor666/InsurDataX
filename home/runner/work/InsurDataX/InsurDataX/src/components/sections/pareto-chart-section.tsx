@@ -3,7 +3,6 @@
 
 import type { ParetoChartDataItem, ParetoChartMetricKey, AnalysisMode } from '@/data/types';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
-import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
 import { AreaChart as AreaChartIcon, Palette } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChartContainer, ChartTooltip, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
@@ -11,10 +10,6 @@ import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip as Recha
 import type { TooltipProps } from 'recharts';
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import { formatDisplayValue } from '@/lib/data-utils';
-import { useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { getParetoAnalysisPrompt, callProxy } from '@/lib/ai-prompt-builder';
-
 
 interface ParetoChartSectionProps {
   data: ParetoChartDataItem[];
@@ -84,45 +79,8 @@ export function ParetoChartSection({
   currentPeriodLabel,
   filters,
 }: ParetoChartSectionProps) {
-  const { toast } = useToast();
-  const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [isAiSummaryLoading, setIsAiSummaryLoading] = useState(false);
 
   const hasData = data && data.length > 0;
-
-  const handleGenerateAiSummary = async () => {
-    if (!hasData) return;
-    setIsAiSummaryLoading(true);
-    setAiSummary(null);
-
-    try {
-      const analyzedMetricLabel = availableMetrics.find(m => m.value === selectedMetric)?.label || selectedMetric;
-      const systemInstruction = "You are a helpful AI assistant."; // Could be fetched from config
-      const prompt = getParetoAnalysisPrompt({
-          chartDataJson: JSON.stringify(data),
-          analyzedMetric: analyzedMetricLabel,
-          analysisMode,
-          currentPeriodLabel,
-          filtersJson: JSON.stringify(filters)
-        },
-        systemInstruction
-      );
-
-      const resultSummary = await callProxy(prompt);
-      setAiSummary(resultSummary);
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      toast({
-        variant: "destructive",
-        title: "AI 分析失败",
-        description: errorMessage,
-      });
-      console.error("AI summary generation failed:", errorMessage);
-    } finally {
-      setIsAiSummaryLoading(false);
-    }
-  };
 
   const metricSelector = (
     <div className="flex items-center space-x-2">
@@ -217,13 +175,6 @@ export function ParetoChartSection({
           </ChartContainer>
         </div>
       )}
-       <ChartAiSummary
-          summary={aiSummary}
-          isLoading={isAiSummaryLoading}
-          onGenerateSummary={handleGenerateAiSummary}
-          hasData={hasData}
-          chartTypeLabel="帕累托图"
-        />
     </SectionWrapper>
   );
 }

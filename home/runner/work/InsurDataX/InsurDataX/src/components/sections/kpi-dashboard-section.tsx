@@ -3,11 +3,6 @@ import type { Kpi, PeriodOption, V4PeriodData, AnalysisMode, TopBusinessLineData
 import { KpiCard } from '@/components/shared/kpi-card';
 import { SectionWrapper } from '@/components/shared/section-wrapper';
 import { LayoutDashboard } from 'lucide-react';
-import { useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { ChartAiSummary } from '@/components/shared/chart-ai-summary';
-import { getBusinessSummaryPrompt, callProxy } from '@/lib/ai-prompt-builder';
-
 
 interface KpiDashboardSectionProps {
   kpis: Kpi[];
@@ -58,9 +53,6 @@ export function KpiDashboardSection({
   selectedBusinessTypes,
   topBusinessLinesData
 }: KpiDashboardSectionProps) {
-  const { toast } = useToast();
-  const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [isAiSummaryLoading, setIsAiSummaryLoading] = useState(false);
 
   const hasData = kpis && kpis.length > 0;
 
@@ -68,7 +60,7 @@ export function KpiDashboardSection({
   let comparisonPeriodText = "无对比期";
 
   let actualComparisonPeriodId = selectedComparisonPeriodKey;
-  if (!actualComparisonPeriodId) { 
+  if (!actualComparisonPeriodId) {
       const currentPeriodEntry = allV4Data.find(p => p.period_id === selectedPeriodKey);
       actualComparisonPeriodId = currentPeriodEntry?.comparison_period_id_mom || null;
   }
@@ -91,52 +83,8 @@ export function KpiDashboardSection({
          comparisonPeriodText = "无默认对比期";
      }
   }
-
-  const handleGenerateAiSummary = async () => {
-    if (!hasData) return;
-    setIsAiSummaryLoading(true);
-    setAiSummary(null);
-
-    try {
-      const dataPayload = {
-        keyPerformanceIndicators: kpis,
-        topBusinessLinesByPremiumWritten: topBusinessLinesData,
-      };
-
-      const filtersPayload = {
-        analysisMode,
-        period: currentPeriodLabel,
-        comparison: comparisonPeriodText,
-        selectedBusinessTypes: selectedBusinessTypes.length > 0 ? selectedBusinessTypes.join(', ') : '全部',
-        vcrColorRules: "变动成本率 < 88% 为 '经营优秀/低风险', 88%-92% 为 '健康/中等风险', >= 92% 为 '警告/高风险'",
-      };
-
-      const systemInstruction = "You are a helpful AI assistant."; // This could be fetched from a config if needed
-      const prompt = getBusinessSummaryPrompt({
-          data: JSON.stringify(dataPayload),
-          filters: JSON.stringify(filtersPayload)
-        },
-        systemInstruction
-      );
-
-      const resultSummary = await callProxy(prompt);
-      setAiSummary(resultSummary);
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      toast({
-        variant: "destructive",
-        title: "AI 分析失败",
-        description: errorMessage,
-      });
-      console.error("AI summary generation failed:", errorMessage);
-    } finally {
-      setIsAiSummaryLoading(false);
-    }
-  };
-
-
-  if (!kpis || kpis.length === 0) {
+  
+  if (!hasData) {
     return (
       <SectionWrapper title="KPI 看板" icon={LayoutDashboard}>
         <p className="text-muted-foreground">暂无KPI数据或正在加载...</p>
@@ -175,13 +123,6 @@ export function KpiDashboardSection({
           )}
         </div>
       )}
-       <ChartAiSummary
-          summary={aiSummary}
-          isLoading={isAiSummaryLoading}
-          onGenerateSummary={handleGenerateAiSummary}
-          hasData={hasData}
-          chartTypeLabel="KPI看板"
-        />
     </SectionWrapper>
   );
 }
