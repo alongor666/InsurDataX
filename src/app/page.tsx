@@ -101,6 +101,7 @@ export default function DashboardPage() {
             const msg = "Firestore 服务尚未在firebase.ts中正确初始化。";
             setError(msg);
             toast({ variant: "destructive", title: "代码配置错误", description: msg });
+            setIsGlobalLoading(false);
             return;
         }
 
@@ -108,11 +109,10 @@ export default function DashboardPage() {
         setError(null);
         toast({ title: "正在初始化...", description: "正在连接数据库并设置实时数据监听。" });
 
+        let isInitialToastShown = false;
         const dataCollection = collection(db, "v4_period_data");
         
         const unsubscribe = onSnapshot(dataCollection, (querySnapshot) => {
-            const isInitialLoad = isGlobalLoading;
-
             if (querySnapshot.empty) {
                 setError("数据库中无数据。请确认 `v4_period_data` 集合中存在数据文档。");
                 setAllV4Data([]);
@@ -122,8 +122,9 @@ export default function DashboardPage() {
             
             const rawData = querySnapshot.docs.map(doc => doc.data() as V4PeriodData);
 
-            if (isInitialLoad) {
+            if (!isInitialToastShown) {
                  toast({ title: "连接成功", description: `已获取 ${rawData.length} 个周期的数据，并已开启实时更新。` });
+                 isInitialToastShown = true;
             }
 
             setAllV4Data(rawData);
@@ -147,9 +148,7 @@ export default function DashboardPage() {
             
             setSelectedBusinessTypes(prev => prev.filter(t => uniqueTypes.includes(t)));
             
-            if (isGlobalLoading) {
-                setIsGlobalLoading(false);
-            }
+            setIsGlobalLoading(false);
             setError(null);
 
         }, (err) => {
@@ -168,7 +167,7 @@ export default function DashboardPage() {
             unsubscribe();
         };
 
-    }, [currentUser, toast, isGlobalLoading]);
+    }, [currentUser, toast]);
     
     const handleSelectedBusinessTypesChange = useCallback((types: string[]) => {
         setSelectedBusinessTypes(types);
@@ -385,3 +384,5 @@ export default function DashboardPage() {
         </AppLayout>
     );
 }
+
+    
