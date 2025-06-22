@@ -317,5 +317,3 @@ export function TrendAnalysisSection({
     </SectionWrapper>
   );
 }
-
-    

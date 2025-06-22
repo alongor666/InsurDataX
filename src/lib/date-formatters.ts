@@ -19,8 +19,8 @@ export function parsePeriodLabelToYearWeek(periodLabel: string): { year: number;
       return { year, week };
     }
   }
-  // Fallback for "YYYYWX" or "YYYYWXX" format like "2025W1" or "2025W24"
-  const isoMatch = periodLabel.match(/(\d{4})W(\d{1,2})/i);
+  // Fallback for "YYYY-WX" or "YYYYWXX" format like "2025-W1" or "2025W24"
+  const isoMatch = periodLabel.match(/(\d{4})-?W(\d{1,2})/i);
   if (isoMatch && isoMatch[1] && isoMatch[2]) {
     const year = parseInt(isoMatch[1], 10);
     const week = parseInt(isoMatch[2], 10);
@@ -123,4 +123,3 @@ export function formatPeriodLabelForTooltip(periodLabel: string): string {
   }
   return periodLabel; // Fallback
 }
-
