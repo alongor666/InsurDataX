@@ -206,6 +206,10 @@ export default function DashboardPage() {
             };
         }).filter((p): p is ChartDataItem => p !== null && p[Object.keys(p).find(k => k !== 'name' && k !== 'color' && k !== 'vcr')!] !== undefined);
     
+        if (analysisMode === 'periodOverPeriod' && mappedData.length > 0) {
+            return mappedData.slice(1);
+        }
+
         return mappedData;
     }, [allV4Data, analysisMode, selectedBusinessTypes, selectedTrendMetric]);
 

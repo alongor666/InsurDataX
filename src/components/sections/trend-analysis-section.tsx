@@ -145,8 +145,27 @@ const CustomTooltip = ({ active, payload, label, metricId, analysisModeForToolti
   return null;
 };
 
-const valueFormatterForLabelList = (value: number, metricKey: TrendMetricKey): string => {
+const valueFormatterForLabelList = (value: number | undefined | null, metricKey: TrendMetricKey): string => {
   return formatDisplayValue(value, metricKey);
+};
+
+const CustomBarLabel = (props: any) => {
+  const { x, y, width, height, value, metricKey } = props;
+  
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const formattedValue = valueFormatterForLabelList(value, metricKey);
+  const isNegative = value < 0;
+  
+  const yPosition = isNegative ? y + height + 12 : y - 5;
+
+  return (
+    <text x={x + width / 2} y={yPosition} fill="hsl(var(--foreground))" className="text-xs font-medium" textAnchor="middle">
+      {formattedValue}
+    </text>
+  );
 };
 
 
@@ -239,15 +258,15 @@ export function TrendAnalysisSection({
         <div className="h-[350px] w-full">
           <ChartContainer config={chartConfig} className="h-full w-full">
             {chartType === 'line' ? (
-              <RechartsLineChart data={data} margin={{ top: 5, right: 40, left: 10, bottom: 60 }}>
+              <RechartsLineChart data={data} margin={{ top: 5, right: 40, left: 10, bottom: 80 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis 
                   dataKey="name" 
                   tick={<CustomXAxisTick />}
-                  height={60}
+                  height={80}
                   axisLine={false}
                   tickLine={false}
-                  interval={data.length > 7 ? 1 : 0}
+                  interval={data.length > 7 ? Math.floor(data.length / 7) : 0}
                   className="text-xs"
                 />
                 <YAxis 
@@ -273,15 +292,15 @@ export function TrendAnalysisSection({
                 ))}
               </RechartsLineChart>
             ) : ( 
-              <RechartsBarChart data={data} margin={{ top: 20, right: 40, left: 10, bottom: 60 }} barCategoryGap="20%">
+              <RechartsBarChart data={data} margin={{ top: 20, right: 40, left: 10, bottom: 80 }} barCategoryGap="20%">
                 <CartesianGrid strokeDasharray="3 3" vertical={false}/>
                 <XAxis 
                   dataKey="name" 
                   tick={<CustomXAxisTick />}
-                  height={60}
+                  height={80}
                   axisLine={false}
                   tickLine={false}
-                  interval={data.length > 7 ? 1 : 0}
+                  interval={data.length > 7 ? Math.floor(data.length / 7) : 0}
                   className="text-xs"
                 />
                 <YAxis 
@@ -300,11 +319,8 @@ export function TrendAnalysisSection({
                         <Cell key={`cell-${index}-${entry.name}`} fill={entry.color || chartConfig[barName]?.color || 'hsl(var(--chart-1))'} />
                       ))}
                       <LabelList
-                        dataKey={barName}
-                        position="top"
-                        formatter={(val: number) => valueFormatterForLabelList(val, selectedMetric)}
-                        className="fill-foreground text-xs font-medium"
-                        offset={5}
+                          dataKey={barName}
+                          content={<CustomBarLabel metricKey={selectedMetric} />}
                       />
                   </Bar>
                 ))}
