@@ -39,6 +39,19 @@
         3.  **成本效益**: 利用OpenRouter的免费模型层，实现了零成本的AI分析功能。
         4.  **架构解耦**: 将AI模型调用与主应用分离，提高了灵活性。
 
+- **#57. 最终架构：彻底移除Next.js API路由，前端直连AI代理**
+    - **问题**: 即使所有代码级构建错误都已修复，`firebase deploy` 在CI/CD中依然失败，报错`Failed to list functions`。
+    - **根源分析**: Firebase Hosting的`webframeworks`特性在检测到Next.js的API路由（`/api/ai/route.ts`）时，会自动尝试在后台创建一个云函数来托管它。这个行为与项目的Spark免费套餐（不支持云函数）产生了不可调和的冲突，导致部署因权限不足而失败。
+    - **解决方案**:
+        1.  **彻底移除API路由**: 完全删除`src/app/api/ai/route.ts`和仅被它使用的`src/ai/prompts.ts`。
+        2.  **前端直连**: 修改所有前端组件（如图表和AI对话），让它们直接`fetch`部署好的Cloudflare Worker代理URL。
+        3.  **引入环境变量**: 通过`.env.local`引入`NEXT_PUBLIC_OPENROUTER_PROXY_URL`，供前端代码安全、灵活地调用代理。
+        4.  **更新CI/CD**: 在GitHub Actions工作流中增加一步，用于在构建时创建`.env.local`文件，确保构建过程能够访问到代理URL。
+    - **优点**:
+        1.  **部署成功**: 彻底消除了触发云函数部署的根源，保证了在Spark套餐上的成功部署。
+        2.  **架构最简化**: 实现了最直接的数据流：`前端 -> AI代理 -> AI模型`。
+        3.  **职责清晰**: Next.js应用现在完全专注于前端展现，AI调用逻辑完全由代理处理。
+
 ---
 
 ## 二、 Firebase & 后端服务 (Firebase & Backend Services)
@@ -214,6 +227,9 @@
 - **#52. (接#51) AI架构再重构：从Genkit转向OpenRouter代理**
     - **见上文第一部分 “架构演进与数据流” 中 #52 的详细描述。**
 
+- **#57. (接#52) 最终AI架构：从API路由转向前端直连代理**
+    - **见上文第一部分 “架构演进与数据流” 中 #57 的详细描述。**
+
 ---
 
 ## 六、 构建、部署与环境配置 (Build, Deployment & Environment Configuration)
@@ -267,10 +283,9 @@
     - **问题**: 项目根目录和`src`目录下存在重复的核心文档，造成信息源混乱。
     - **解决方案**: 将根目录的文档确立为“单一信息源”。清空了`src`目录下的`README.md`、`PRODUCT_REQUIREMENTS_DOCUMENT.md`和`ISSUES_LOG.md`，并留下注释，指引开发者查阅根目录的最新版本。
 
-- **#56. 部署失败: `Failed to list functions` (最终修复)**
-    - **问题**: 即使在移除所有云函数代码后，`firebase deploy` 在CI/CD流程中依然失败，报错 `Failed to list functions`。
-    - **根源**: Firebase项目处于免费的Spark套餐，该套餐**不支持**Cloud Functions API的任何调用。然而，CI/CD执行的`firebase deploy`命令会自动检测到项目中存在的`functions`目录（即使其内容已被注释掉），并尝试调用“list functions”API，导致因权限不足而失败。
-    - **解决方案**: **在CI/CD工作流中，为`firebase deploy`命令添加 `--only hosting` 参数**。通过在 `.github/workflows/firebase-hosting-deploy.yml` 文件中明确指定只部署`hosting`，可以完全跳过对`functions`目录的检测和任何相关API调用，从而从根本上解决此权限问题。
+- **#56. 部署失败: `Failed to list functions` (曾尝试的修复)**
+    - **问题**: `firebase deploy` 在CI/CD流程中失败，报错 `Failed to list functions`。
+    - **曾尝试的解决方案**: **在CI/CD工作流中为`firebase deploy`命令添加 `--only hosting` 参数**。这个方案最终被证明是无效的，因为更高层的`webframeworks`特性覆盖了这个参数。
 
 ---
 
