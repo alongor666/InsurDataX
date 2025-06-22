@@ -234,11 +234,9 @@ export function TrendAnalysisSection({
         const errorText = await response.text();
         let errorMessage = `AI 服务错误 (状态: ${response.status})`;
         try {
-          // Attempt to parse the error text as JSON for a more specific message
           const jsonError = JSON.parse(errorText);
           errorMessage = jsonError.error || jsonError.details || errorMessage;
         } catch (e) {
-          // If parsing fails, it's likely an HTML error page.
           console.error("AI API returned non-JSON error response for Trend Chart:", errorText);
         }
         throw new Error(errorMessage);
@@ -306,7 +304,7 @@ export function TrendAnalysisSection({
   const chartType = getMetricChartType(selectedMetric);
   const ChartIcon = chartType === 'line' ? LucideLineChart : BarChart2;
   
-  const interval = (analysisMode === 'periodOverPeriod' && data.length > 7) || (analysisMode === 'cumulative' && data.length > 15) ? Math.floor(data.length / 7) : 0;
+  const interval = (analysisMode === 'periodOverPeriod' && data.length > 7) ? Math.floor(data.length / 7) : 0;
 
   return (
     <SectionWrapper title="趋势分析" icon={ChartIcon} actionButton={metricSelector}>

@@ -604,7 +604,7 @@ export const calculateKpis = (
   }
 
 
-  if (vcrForPremiumGrowthColor !== undefined && vcrForPremiumGrowthColor >= 92) {
+  if (vcrForPremiumGrowthColor !== undefined && vcrForPremiumGrowthColor !== null && vcrForPremiumGrowthColor >= 92) {
       premWrittenIsGrowthGoodForColor = false;
   }
   const premWrittenChanges = createKpiComparisonFields(current.premium_written, comparisonMetrics?.premium_written, 'premium_written', premWrittenIsGrowthGoodForColor, false);
@@ -620,8 +620,8 @@ export const calculateKpis = (
     {
       id: 'variable_cost_ratio', title: '变动成本率',
       value: formatDisplayValue(current.variable_cost_ratio, 'variable_cost_ratio'),
-      rawValue: current.variable_cost_ratio, icon: 'Zap',
-      isBorderRisk: current.variable_cost_ratio !== undefined && current.variable_cost_ratio >= 90,
+      rawValue: current.variable_cost_ratio ?? undefined, icon: 'Zap',
+      isBorderRisk: current.variable_cost_ratio !== undefined && current.variable_cost_ratio !== null && current.variable_cost_ratio >= 90,
       ...createKpiComparisonFields(current.variable_cost_ratio, comparisonMetrics?.variable_cost_ratio, 'variable_cost_ratio', false, true),
     },
     {

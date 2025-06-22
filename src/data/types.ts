@@ -55,7 +55,7 @@ export interface AggregatedBusinessMetrics {
 
   loss_ratio: number;
   expense_ratio: number;
-  variable_cost_ratio: number;
+  variable_cost_ratio: number | null | undefined;
   premium_earned_ratio: number;
   claim_frequency: number;
   avg_premium_per_policy: number;
@@ -81,8 +81,8 @@ export interface ProcessedDataForPeriod {
   policy_count: number;
   loss_ratio: number;
   expense_ratio: number;
-  variable_cost_ratio: number;
-  vcr_color?: string;
+  variable_cost_ratio: number | null | undefined;
+  vcr_color: string;
 
   premium_share?: number;
 }
@@ -107,8 +107,8 @@ export interface Kpi {
 
 export interface ChartDataItem {
   name: string;
-  color?: string;
-  vcr?: number; 
+  color: string;
+  vcr: number | null | undefined;
   [key: string]: number | string | undefined;
 }
 
@@ -118,24 +118,24 @@ export interface BubbleChartDataItem {
   x: number;
   y: number;
   z: number;
-  color?: string;
-  vcr?: number; 
+  color: string;
+  vcr: number | null | undefined;
 }
 
 export interface ShareChartDataItem {
   name: string; 
   value: number; 
   percentage: number; 
-  color?: string; 
-  vcr?: number; 
+  color: string;
+  vcr: number | null | undefined;
 }
 
 export interface ParetoChartDataItem {
   name: string; 
   value: number; 
   cumulativePercentage: number; 
-  color?: string; 
-  vcr?: number; 
+  color: string;
+  vcr: number | null | undefined;
 }
 
 
@@ -179,6 +179,6 @@ export interface TopBusinessLineData {
   premium_written: number;
   loss_ratio: number;
   expense_ratio: number;
-  variable_cost_ratio: number;
-  color?: string;
+  variable_cost_ratio: number | null | undefined;
+  color: string;
 }
