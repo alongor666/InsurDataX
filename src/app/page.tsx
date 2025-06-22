@@ -14,12 +14,10 @@ import { ParetoChartSection } from '@/components/sections/pareto-chart-section';
 import { DataTableSection } from '@/components/sections/data-table-section';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal, UploadCloud } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Terminal } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, type FirestoreError } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { seedW25Data } from '@/lib/seed-firestore'; // Import the seeding function
 import {
   type V4PeriodData,
   type Kpi,
@@ -94,9 +92,6 @@ export default function DashboardPage() {
     const [selectedShareMetric, setSelectedShareMetric] = useState<ShareChartMetricKey>('premium_written');
     const [selectedParetoMetric, setSelectedParetoMetric] = useState<ParetoChartMetricKey>('premium_written');
 
-    // State for the temporary seeding button
-    const [isSeeding, setIsSeeding] = useState(false);
-    
     const fetchData = useCallback(async () => {
         if (!db) {
             const msg = "Firestore 服务尚未在firebase.ts中正确初始化。";
@@ -160,23 +155,6 @@ export default function DashboardPage() {
             fetchData();
         }
     }, [currentUser, fetchData]);
-
-    // Handler for the temporary seeding button
-    const handleSeedData = async () => {
-      setIsSeeding(true);
-      toast({ title: '正在上传...', description: '正在将第25周数据写入Firestore。' });
-      const result = await seedW25Data();
-      if (result.success) {
-        toast({ title: '上传成功', description: result.message });
-        // Refetch all data to include the new period
-        await fetchData();
-        // Automatically select the new period
-        setSelectedPeriodKey("2025-W25");
-      } else {
-        toast({ variant: 'destructive', title: '上传失败', description: result.message });
-      }
-      setIsSeeding(false);
-    };
 
     const handleSelectedBusinessTypesChange = useCallback((types: string[]) => {
         setSelectedBusinessTypes(types);
@@ -388,22 +366,8 @@ export default function DashboardPage() {
                 onExportClick={handleExportClick}
             />
           <div className="space-y-6">
-            <div className="p-4 border-2 border-dashed border-blue-300 rounded-lg bg-blue-50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-blue-800">临时数据操作</h3>
-                  <p className="text-sm text-blue-600">此工具用于将2025年第25周的数据上传到您的Firestore数据库。</p>
-                </div>
-                <Button onClick={handleSeedData} disabled={isSeeding}>
-                  <UploadCloud className="mr-2 h-4 w-4" />
-                  {isSeeding ? '上传中...' : '上传第25周数据到Firestore'}
-                </Button>
-              </div>
-            </div>
             {renderCurrentView()}
           </div>
         </AppLayout>
     );
 }
-
-    
