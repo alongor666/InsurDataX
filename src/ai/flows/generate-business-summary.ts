@@ -13,6 +13,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateBusinessSummaryInputSchema = z.object({
+  system_instruction: z.string().describe('The master system prompt for the AI assistant.'),
   data: z.string().describe('The data to analyze, in JSON format. This includes keyPerformanceIndicators (KPIs) and topBusinessLinesByPremiumWritten.'),
   filters: z.string().describe('The filters applied to the data, in JSON format. This includes analysisMode, period, comparison period info, selectedBusinessTypes, and vcrColorRules (which explains how variable_cost_ratio maps to colors and business implications like "经营优秀/低风险", "健康/中等风险", "警告/高风险").'),
 });
@@ -31,7 +32,9 @@ const prompt = ai.definePrompt({
   name: 'generateBusinessSummaryPrompt',
   input: {schema: GenerateBusinessSummaryInputSchema},
   output: {schema: GenerateBusinessSummaryOutputSchema},
-  prompt: `您是麦肯锡的资深车险业务分析顾问，请基于以下数据和筛选条件，提供一份具有战略高度的经营业绩摘要。
+  prompt: `{{{system_instruction}}}
+
+您是麦肯锡的资深车险业务分析顾问，请基于以下数据和筛选条件，提供一份具有战略高度的经营业绩摘要。
 您的分析需深入理解各项车险指标的底层逻辑及其相互关联，特别是“变动成本率”（由“满期赔付率”和“费用率”构成）作为衡量经营效率和风险的核心杠杆。
 
 **当前分析背景：**
@@ -95,4 +98,3 @@ const generateBusinessSummaryFlow = ai.defineFlow(
     return output!;
   }
 );
-

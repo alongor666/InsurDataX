@@ -8,18 +8,45 @@ import {
   generateShareChartAnalysis, type GenerateShareChartAnalysisInput,
   generateParetoAnalysis, type GenerateParetoAnalysisInput
 } from '@/ai/flows';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
-// Ensure all flows are exported from a central index file in the flows directory
-// This is a new file we'll create: src/ai/flows/index.ts
 
 interface AiProxyRequest {
   flowName: string;
   inputData: any;
 }
 
+// Fetches the master prompt from Firestore.
+// Includes a fallback to a default prompt if Firestore is unavailable or the doc is missing.
+async function getSystemInstruction(): Promise<string> {
+  const defaultInstruction = "You are a helpful AI assistant.";
+  try {
+    const docRef = doc(db, "ai_configs", "cursor_assistant_prompt");
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists() && docSnap.data()?.prompt_text) {
+      console.log("Successfully fetched AI instructions from Firestore.");
+      return docSnap.data().prompt_text;
+    } else {
+      console.warn("AI instructions not found in Firestore (ai_configs/cursor_assistant_prompt), using default.");
+      return defaultInstruction;
+    }
+  } catch (error) {
+    console.error("Error fetching AI instructions from Firestore, using default:", error);
+    return defaultInstruction;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // Fetch the master system instruction first.
+    const systemInstruction = await getSystemInstruction();
+    
     const { flowName, inputData } = (await request.json()) as AiProxyRequest;
+    
+    // Inject the system instruction into the input data for the flow.
+    inputData.system_instruction = systemInstruction;
 
     if (!flowName || !inputData) {
       return NextResponse.json(

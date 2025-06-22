@@ -11,6 +11,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateBubbleChartAnalysisInputSchema = z.object({
+  system_instruction: z.string().describe('The master system prompt for the AI assistant.'),
   chartDataJson: z.string().describe('The bubble chart data, in JSON format. Each item has id, name (business line name), x, y, z values for the selected metrics, vcr (variable_cost_ratio), and a color (SHOULD NOT BE USED by AI for description) based on variable_cost_ratio.'),
   xAxisMetric: z.string().describe('The metric represented on the X-axis (e.g., "跟单保费").'),
   yAxisMetric: z.string().describe('The metric represented on the Y-axis (e.g., "满期赔付率").'),
@@ -34,7 +35,9 @@ const bubbleChartAnalysisPrompt = ai.definePrompt({
   name: 'bubbleChartAnalysisPrompt',
   input: {schema: GenerateBubbleChartAnalysisInputSchema},
   output: {schema: GenerateBubbleChartAnalysisOutputSchema},
-  prompt: `您是麦肯锡的资深车险业务组合分析专家，请基于以下气泡图数据，对各业务线的表现进行深度定位和战略解读。
+  prompt: `{{{system_instruction}}}
+
+您是麦肯锡的资深车险业务组合分析专家，请基于以下气泡图数据，对各业务线的表现进行深度定位和战略解读。
 您的分析需结合经典的业务组合矩阵思想（如BCG矩阵），并深刻理解“变动成本率”的业务状态对业务盈利能力和风险的决定性作用。
 
 **图表配置：**
@@ -99,4 +102,3 @@ const bubbleChartAnalysisFlow = ai.defineFlow(
     return output!;
   }
 );
-

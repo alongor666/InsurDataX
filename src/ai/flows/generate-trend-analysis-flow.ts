@@ -12,6 +12,7 @@ import {ai} from '@/ai/genkit';
 import {z}from 'genkit';
 
 const GenerateTrendAnalysisInputSchema = z.object({
+  system_instruction: z.string().describe('The master system prompt for the AI assistant.'),
   chartDataJson: z.string().describe('The trend chart data, in JSON format. Each item typically has a "name" (period label) and keys for different business lines or a total, with their values for the selected metric. Each data point for a line may also include a "color" field (SHOULD NOT BE USED by AI for description) based on variable_cost_ratio and its "vcr" value.'),
   selectedMetric: z.string().describe('The primary metric being trended (e.g., 跟单保费, 满期赔付率).'),
   analysisMode: z.string().describe('The analysis mode (e.g., cumulative, periodOverPeriod). "periodOverPeriod" shows the change from the previous period.'),
@@ -33,7 +34,9 @@ const trendAnalysisPrompt = ai.definePrompt({
   name: 'trendAnalysisPrompt',
   input: {schema: GenerateTrendAnalysisInputSchema},
   output: {schema: GenerateTrendAnalysisOutputSchema},
-  prompt: `您是麦肯锡的资深车险行业分析专家，请基于以下趋势图数据，对指标 **{{{selectedMetric}}}** 的走势进行深度解读。
+  prompt: `{{{system_instruction}}}
+
+您是麦肯锡的资深车险行业分析专家，请基于以下趋势图数据，对指标 **{{{selectedMetric}}}** 的走势进行深度解读。
 您的分析需结合车险业务的运营规律，并关注“变动成本率”的动态变化及其对业务健康度的指示。
 
 **当前分析背景：**
@@ -92,4 +95,3 @@ const trendAnalysisFlow = ai.defineFlow(
     return output!;
   }
 );
-

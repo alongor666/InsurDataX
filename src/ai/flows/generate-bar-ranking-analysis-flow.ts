@@ -11,6 +11,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateBarRankingAnalysisInputSchema = z.object({
+  system_instruction: z.string().describe('The master system prompt for the AI assistant.'),
   chartDataJson: z.string().describe('The bar ranking chart data, in JSON format. Each item has a "name" (business line), a value for the ranked metric, vcr (variable_cost_ratio), and a "color" field (SHOULD NOT BE USED by AI for description) based on variable_cost_ratio.'),
   rankedMetric: z.string().describe('The metric being ranked (e.g., 跟单保费, 满期赔付率).'),
   analysisMode: z.string().describe('The analysis mode (e.g., cumulative, periodOverPeriod).'),
@@ -32,7 +33,9 @@ const barRankingAnalysisPrompt = ai.definePrompt({
   name: 'barRankingAnalysisPrompt',
   input: {schema: GenerateBarRankingAnalysisInputSchema},
   output: {schema: GenerateBarRankingAnalysisOutputSchema},
-  prompt: `您是麦肯锡的资深车险业务绩效分析专家，请基于以下排名图数据，对各业务线在指标 **{{{rankedMetric}}}** 上的表现进行深度分析和战略解读。
+  prompt: `{{{system_instruction}}}
+
+您是麦肯锡的资深车险业务绩效分析专家，请基于以下排名图数据，对各业务线在指标 **{{{rankedMetric}}}** 上的表现进行深度分析和战略解读。
 您的分析需洞察排名背后的业务实质，并紧密结合“变动成本率”所指示的经营健康度（业务状态）。
 
 **当前分析背景：**
@@ -90,4 +93,3 @@ const barRankingAnalysisFlow = ai.defineFlow(
     return output!;
   }
 );
-

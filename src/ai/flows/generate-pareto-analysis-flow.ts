@@ -12,6 +12,7 @@ import {z} from 'genkit';
 
 // Define Input Schema for Pareto Analysis
 const GenerateParetoAnalysisInputSchema = z.object({
+  system_instruction: z.string().describe('The master system prompt for the AI assistant.'),
   chartDataJson: z.string().describe('The Pareto chart data, in JSON format. Each item has "name" (business line), "value" for the ranked metric, "cumulativePercentage", and a "color" field (SHOULD NOT BE USED by AI for description) based on variable_cost_ratio (变动成本率) and its "vcr" value.'),
   analyzedMetric: z.string().describe('The metric being analyzed in the Pareto chart (e.g., 跟单保费, 总赔款).'),
   analysisMode: z.string().describe('The analysis mode (e.g., cumulative, periodOverPeriod).'),
@@ -36,7 +37,9 @@ const paretoAnalysisPrompt = ai.definePrompt({
   name: 'paretoAnalysisPrompt',
   input: {schema: GenerateParetoAnalysisInputSchema},
   output: {schema: GenerateParetoAnalysisOutputSchema},
-  prompt: `您是麦肯锡的资深车险业务结构与盈利性分析专家，请基于以下帕累托图数据，对指标 **{{{analyzedMetric}}}** 的贡献结构进行深度剖析。
+  prompt: `{{{system_instruction}}}
+
+您是麦肯锡的资深车险业务结构与盈利性分析专家，请基于以下帕累托图数据，对指标 **{{{analyzedMetric}}}** 的贡献结构进行深度剖析。
 您的分析需运用帕累托法则（80/20原则）识别核心业务，并重点评估这些核心业务的“变动成本率”所指示的业务状态及其对整体盈利质量的影响。
 
 **当前分析背景：**
@@ -97,4 +100,3 @@ const paretoAnalysisFlow = ai.defineFlow(
     return output!;
   }
 );
-

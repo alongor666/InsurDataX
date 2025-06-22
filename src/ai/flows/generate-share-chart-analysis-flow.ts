@@ -11,6 +11,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateShareChartAnalysisInputSchema = z.object({
+  system_instruction: z.string().describe('The master system prompt for the AI assistant.'),
   chartDataJson: z.string().describe('The share chart (pie chart) data, in JSON format. Each item has "name" (business line), "value" for the selected metric, "percentage" of total, "vcr" (variable_cost_ratio), and a "color" field (SHOULD NOT BE USED by AI for description) based on variable_cost_ratio.'),
   analyzedMetric: z.string().describe('The metric being analyzed for its share (e.g., 跟单保费, 总赔款).'),
   analysisMode: z.string().describe('The analysis mode (e.g., cumulative, periodOverPeriod).'),
@@ -32,7 +33,9 @@ const shareChartAnalysisPrompt = ai.definePrompt({
   name: 'shareChartAnalysisPrompt',
   input: {schema: GenerateShareChartAnalysisInputSchema},
   output: {schema: GenerateShareChartAnalysisOutputSchema},
-  prompt: `您是麦肯锡的资深车险业务组合与结构分析专家，请基于以下占比图数据，对指标 **{{{analyzedMetric}}}** 的业务构成进行深度解读。
+  prompt: `{{{system_instruction}}}
+
+您是麦肯锡的资深车险业务组合与结构分析专家，请基于以下占比图数据，对指标 **{{{analyzedMetric}}}** 的业务构成进行深度解读。
 您的分析需识别主导业务类型，并重点评估其“变动成本率”所指示的业务状态，从而判断其对整体业务组合的健康度和盈利贡献质量。
 
 **当前分析背景：**
@@ -92,4 +95,3 @@ const shareChartAnalysisFlow = ai.defineFlow(
     return output!;
   }
 );
-
