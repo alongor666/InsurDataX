@@ -61,6 +61,7 @@ const METRIC_FORMAT_RULES_FOR_CHARTS: Record<string, { type: string, originalUni
 
 const CustomTooltip = ({ active, payload, label, selectedMetricKey, availableMetricsList }: TooltipProps<ValueType, NameType> & { selectedMetricKey?: RankingMetricKey, availableMetricsList?: { value: RankingMetricKey, label: string }[] }) => {
   if (active && payload && payload.length && selectedMetricKey && availableMetricsList) {
+    const dataPoint = payload[0].payload as ChartDataItem;
     const metricConfig = availableMetricsList.find(m => m.value === selectedMetricKey);
     const value = payload[0].value as number;
     
@@ -72,9 +73,9 @@ const CustomTooltip = ({ active, payload, label, selectedMetricKey, availableMet
         <p className="text-xs text-muted-foreground">
           {metricConfig?.label || payload[0].name}: {formattedValue}
         </p>
-        {(payload[0].payload as ChartDataItem).vcr !== undefined && 
-            <p className="text-xs" style={{color: (payload[0].payload as ChartDataItem).color}}>
-                变动成本率 (YTD): {formatDisplayValue(((payload[0].payload as ChartDataItem).vcr as number), 'variable_cost_ratio')}
+        {dataPoint.vcr !== undefined && 
+            <p className="text-xs" style={{color: dataPoint.color}}>
+                变动成本率 (YTD): {formatDisplayValue(dataPoint.vcr, 'variable_cost_ratio')}
             </p>
         }
       </div>
@@ -171,7 +172,7 @@ export function BarChartRankingSection({
     </div>
   );
 
-  const yAxisWidth = hasData ? Math.max(...data.map(d => d.name.length * 8), 100, 120) : 120; 
+  const yAxisWidth = hasData ? Math.max(...data.map(d => d.name.length * 8), 120) : 120; 
 
   let xAxisLabelContent = "";
   const selectedMetricOriginalUnit = METRIC_FORMAT_RULES_FOR_CHARTS[selectedMetric]?.originalUnit;
@@ -194,7 +195,7 @@ export function BarChartRankingSection({
                     tickFormatter={(value) => xAxisTickFormatter(value, selectedMetric)} 
                     axisLine={false} 
                     tickLine={false} 
-                    domain={[0, 'dataMax + dataMax * 0.05']}
+                    domain={['auto', 'auto']}
                     className="text-xs"
                     label={{ value: xAxisLabelContent, position: 'insideBottomRight', offset: -15, dy: 10, fontSize:11 }}
                 />
